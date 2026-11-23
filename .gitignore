@@ -1,6 +1,7 @@
 # build output
 bin/
 obj/
+out/
 
 # release zips (downloads are on Nexus Mods) and scan report
 dist/
