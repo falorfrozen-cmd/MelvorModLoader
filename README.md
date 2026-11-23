@@ -61,6 +61,8 @@ You need the game installed and the .NET 10 SDK. The projects reference the game
 
 Then run `dotnet build -c Release` in `Loader` or in any mod folder. Mods need the loader installed first, because they reference `MelvorModLoader.dll` in the game folder.
 
+On macOS there is nothing to extract: one script builds the loader and installs it into the game bundle. See the wiki's [Installing on macOS](docs/players/install-macos.md).
+
 No game files are included here, and none may be added.
 
 ## How it works

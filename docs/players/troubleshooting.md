@@ -1,7 +1,7 @@
 ---
 title: When something goes wrong
 parent: For players
-nav_order: 3
+nav_order: 4
 ---
 
 # When something goes wrong
