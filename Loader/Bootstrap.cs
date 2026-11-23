@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -90,7 +91,26 @@ internal static class Bootstrap
         string expected = Path.Combine(GameRoot, "data_GamesByMalcs.Melvor2_windows_x86_64");
         if (File.Exists(Path.Combine(expected, GameAssemblyName + ".dll")))
             return expected;
-        foreach (string dir in Directory.GetDirectories(GameRoot, "data_*"))
+        // macOS builds ship one data folder per architecture, and the game's DLLs are
+        // ready-to-run images for that architecture: only the folder matching the running
+        // process can be loaded. Directory order is arbitrary, so sort the match first.
+        string arch = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.Arm64 => "arm64",
+            Architecture.X64 => "x86_64",
+            Architecture.Arm => "arm32",
+            Architecture.X86 => "x86_32",
+            _ => ""
+        };
+        IEnumerable<string> dirs = Directory.GetDirectories(GameRoot, "data_*");
+        if (arch.Length > 0)
+        {
+            string? match = dirs.FirstOrDefault(d => d.Contains(arch, StringComparison.OrdinalIgnoreCase)
+                && File.Exists(Path.Combine(d, GameAssemblyName + ".dll")));
+            if (match != null)
+                return match;
+        }
+        foreach (string dir in dirs)
             if (File.Exists(Path.Combine(dir, GameAssemblyName + ".dll")))
                 return dir;
         throw new DirectoryNotFoundException($"The game's data folder was not found ({GameAssemblyName}.dll). The mod loader must be installed into the game folder.");
