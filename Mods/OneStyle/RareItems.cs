@@ -95,6 +95,8 @@ public sealed class RolledItem
     /// <summary>For a Unique item: its id in data/uniques.json.</summary>
     public string UniqueId { get; set; } = "";
     public long Seen { get; set; }
+    /// <summary>New values paid for with Ember and not chosen yet (null: none).</summary>
+    public List<double>? Reroll { get; set; }
 }
 
 /// <summary>
@@ -134,7 +136,22 @@ public static partial class RareItems
             foreach (AffixDef a in list) Affixes[a.Id] = a;
         }
         catch (Exception e) { Log("data/affixes.json could not be read: rare items are off. " + e.Message); }
+        try
+        {
+            // the level of each piece of gear's easiest source, where it is above its own requirement (Dev/OneStyleTools/baselevels.py)
+            string levels = Path.Combine(modDir, "data", "base-levels.json");
+            s_sourceLevels = File.Exists(levels) ? JsonSerializer.Deserialize<Dictionary<string, int>>(File.ReadAllText(levels)) ?? new() : new();
+        }
+        catch (Exception e) { Log("data/base-levels.json could not be read: " + e.Message); s_sourceLevels = new(); }
     }
+
+    static Dictionary<string, int> s_sourceLevels = new();
+
+    /// <summary>
+    /// The level a piece of gear counts as in a monster's rare drop pool: its requirement, or the level of its easiest source
+    /// when that is higher (Hypnotic Amulet asks for nothing but comes from a level 75 monster).
+    /// </summary>
+    public static int PoolLevelOf(Item item) => Math.Max(LevelOf(item), s_sourceLevels.GetValueOrDefault(item.Id));
 
     // ================================================================ the game's items as bases
 
@@ -173,7 +190,7 @@ public static partial class RareItems
         if (s_bases != null) return s_bases;
         s_bases = game.Data.GetDataRegistryOutput<Item>().GetAllObjects()
             .Where(i => !i.LocalId.StartsWith("Os") && SlotOf(i) is not ("" or "Ammo") && !i.Id.Contains("Collectable") && !i.Id.Contains("Belra")
-                        && i.SellsFor.Quantity <= 25_000 && !i.Id.Contains("Placeholder"))
+                        && i.SellsFor.Quantity <= 25_000 && !i.Id.Contains("Placeholder") && i.Id != "MelvorBase:DefaultWeapon")   // not bare fists
             .ToList();
         return s_bases;
     }
@@ -183,20 +200,37 @@ public static partial class RareItems
     /// <summary>A base for an item level: gear asking for a level in [iLvl-20, iLvl+5], else the nearest lower one.</summary>
     public static Item? PickBase(Game game, int iLvl, string style)
     {
-        List<Item> all = Bases(game);
-        if (style != "") all = all.Where(i => SlotOf(i) != "Weapon" || StyleOf(i) == style).ToList();
-        var window = all.Where(i => LevelOf(i) >= iLvl - 20 && LevelOf(i) <= iLvl + 5).ToList();
-        if (window.Count == 0)
-        {
-            int below = all.Where(i => LevelOf(i) <= iLvl).Select(LevelOf).DefaultIfEmpty(1).Max();
-            window = all.Where(i => LevelOf(i) == below).ToList();
-        }
         // every slot equally likely, then an item of that slot
-        var slots = window.GroupBy(SlotOf).ToList();
+        var slots = Window(game, iLvl, style).GroupBy(SlotOf).ToList();
         if (slots.Count == 0) return null;
         var group = slots[s_rng.Next(slots.Count)].ToList();
         return group[s_rng.Next(group.Count)];
     }
+
+    /// <summary>The items a rare drop can be made from at an item level: the drop lists show them, PickBase picks one.</summary>
+    public static List<Item> Window(Game game, int iLvl, string style)
+    {
+        List<Item> all = Bases(game);
+        if (style != "") all = all.Where(i => SlotOf(i) != "Weapon" || StyleOf(i) == style).ToList();
+        var window = all.Where(i => PoolLevelOf(i) >= iLvl - 20 && PoolLevelOf(i) <= iLvl + 5).ToList();
+        if (window.Count == 0)
+        {
+            int below = all.Where(i => PoolLevelOf(i) <= iLvl).Select(PoolLevelOf).DefaultIfEmpty(1).Max();
+            window = all.Where(i => PoolLevelOf(i) == below).ToList();
+        }
+        return window;
+    }
+
+    /// <summary>Each possible item with its share of a rare drop (as PickBase picks), by slot then level.</summary>
+    public static List<(Item Item, double Share)> BaseShares(Game game, int iLvl, string style)
+    {
+        var slots = Window(game, iLvl, style).GroupBy(SlotOf).ToList();
+        return slots.SelectMany(g => g.Select(i => (Item: i, Share: 1.0 / slots.Count / g.Count())))
+            .OrderBy(x => SlotOf(x.Item)).ThenBy(x => PoolLevelOf(x.Item)).ThenBy(x => x.Item.DisplayName.Singular).ToList();
+    }
+
+    /// <summary>The player's class style for the drops ("" with no class: weapons of every style).</summary>
+    public static string DropStyle() => Patches.Current != Class.None ? Classes.StyleId(Patches.Current) : "";
 
     // ================================================================ rolling
 

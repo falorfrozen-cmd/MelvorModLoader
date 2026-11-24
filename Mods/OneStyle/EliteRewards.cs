@@ -113,19 +113,22 @@ public static partial class Elites
     static void RollLoot(CombatDrops drops, Dictionary<Item, int> items, Dictionary<Currency, long> money, bool gold)
     {
         var rng = s_combat!.Loot.RNG;
+        // the extra rolls use the player's loot and gold doubling too, as the game's own roll does (denge-2 8)
+        int twice = rng.RollChance(s_combat.Loot.Stats.ItemDoublingChance.Total.Value) ? 2 : 1;
         foreach (ItemQuantityRange fixedItem in drops.FixedItems)
             if (!fixedItem.Item.Capabilities.Contains<OpenableCapability>())
-                items[fixedItem.Item] = items.GetValueOrDefault(fixedItem.Item) + rng.NextInclusiveInt32(fixedItem.MinQuantity, fixedItem.MaxQuantity);
+                items[fixedItem.Item] = items.GetValueOrDefault(fixedItem.Item) + twice * rng.NextInclusiveInt32(fixedItem.MinQuantity, fixedItem.MaxQuantity);
         foreach (var table in drops.ItemTables)
         {
             if (!rng.RollChance(table.Chance)) continue;
             var drop = table.Table.RollForItem(rng);
             if (drop.Item.Capabilities.Contains<OpenableCapability>()) continue;
-            items[drop.Item] = items.GetValueOrDefault(drop.Item) + rng.NextInclusiveInt32(drop.MinQuantity, drop.MaxQuantity);
+            items[drop.Item] = items.GetValueOrDefault(drop.Item) + twice * rng.NextInclusiveInt32(drop.MinQuantity, drop.MaxQuantity);
         }
         if (!gold) return;
         foreach (CurrencyQuantityRange c in drops.FixedCurrencies)
-            money[c.Currency] = money.GetValueOrDefault(c.Currency) + rng.NextInclusiveInt64(c.MinQuantity, c.MaxQuantity);
+            money[c.Currency] = money.GetValueOrDefault(c.Currency)
+                + (rng.RollChance(s_combat.Loot.Stats.CurrencyDoublingChance.Total.Value) ? 2 : 1) * rng.NextInclusiveInt64(c.MinQuantity, c.MaxQuantity);
     }
 
     /// <summary>Trophy milestone 25: +1% max hit points for the player (a bonus while the mod is in).</summary>

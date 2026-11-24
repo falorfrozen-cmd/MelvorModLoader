@@ -6,7 +6,9 @@ Scripts that write One Style's data files (`Mods/OneStyle/data/`) and pictures (
 |---|---|---|
 | `elitedata.py` | `data/elites.json`, `art/champion`, `art/unique` | the hack-and-slash design folder (OneDrive `Ortak-Calisma/hack-and-slash`) and the game data |
 | `affixgen.py` | `data/affixes.json` (48 affixes) | the affix design in the same folder |
-| `uniquegen.py` | `data/uniques.json` (50 unique items), with `--art` also `art/items` | the design (`esyalar.json`, `build/build-esyalar.json`), `uniques-en.json`, `data/elites.json`, the game data |
+| `uniquegen.py` | `data/uniques.json` (58 unique items), with `--art` also `art/items` | the design (`esyalar.json`, `build/build-esyalar.json`, `../yeni-uniqueler/yeni-esyalar.json`), `uniques-en.json`, `data/elites.json`, the game data |
+| `newuniques.py` | the eight build-gap uniques' texts in `uniques-en.json` | `yeni-uniqueler/karar.md` (run once, then `uniquegen.py`) |
+| `baselevels.py` | `data/base-levels.json` (the level a rare item's base counts as) | the item database `docs/db/data.json` and `Dev/rare-pool-monsters.tsv` (test `-Only rarepool`) |
 | `texts.py` | `uniques-en.json` | the mechanic texts as the mod does them (`UniquePowers*.cs`): edit here, run it, then `uniquegen.py` |
 
 The game data (`MelvorBase.json`) is expected in `../gamedata/`. Get it out of `Melvor2.exe` with the item database's reader:

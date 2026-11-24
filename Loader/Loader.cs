@@ -89,7 +89,14 @@ public static class Loader
         for (int i = 0; i < s_frame.Count; i++)
         {
             var (owner, handler) = s_frame[i];
-            try { handler(); }
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                handler();
+                // a mod that holds the game up is named in the log (the player only sees a frozen screen)
+                double ms = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                if (ms > 250) owner.Log($"Slow frame: this mod's frame handler took {ms:0} ms.");
+            }
             catch (Exception e)
             {
                 // One broken mod must not spam the log or break the others.

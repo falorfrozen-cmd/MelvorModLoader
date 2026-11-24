@@ -142,6 +142,15 @@ public static partial class Elites
         if (s_dirty) SaveNow();
     }
 
+    /// <summary>Spends Ember (written at once). False, and nothing spent, when there is not enough.</summary>
+    public static bool SpendEmber(long amount)
+    {
+        if (amount < 0 || s_progress.Ember < amount) return false;
+        s_progress.Ember -= amount;
+        SaveNow();
+        return true;
+    }
+
     static void SaveNow()
     {
         if (s_key == "") return;
@@ -313,7 +322,8 @@ public static partial class Elites
         hp = Math.Max(1, hp);
         interval = Math.Max(1, interval);
         double t = Math.Clamp(Math.Log10(Math.Max(hp, 20) / 20) / 3, 0, 1);
-        double hpMult = unique ? Math.Max(6.00 - 4.30 * t, 1 + 80 / hp) : Math.Max(3.00 - 1.65 * t, 1 + 30 / hp);
+        // a small monster gets a little more (80 / 30 hit points), but never more than x6 / x3 (denge-2 7: 10 hit points made x9)
+        double hpMult = unique ? Math.Max(6.00 - 4.30 * t, 1 + Math.Min(80, 5 * hp) / hp) : Math.Max(3.00 - 1.65 * t, 1 + Math.Min(30, 2 * hp) / hp);
         double damage = unique ? (hp >= 3000 ? 0.14 : 0.22) : (hp >= 3000 ? 0.08 : 0.12);
         double speed = unique ? -0.08 : -0.05;
         double accuracy = unique ? 0.15 : 0.08, protection = unique ? 0.18 : 0.10;
@@ -468,11 +478,14 @@ public static partial class Elites
     /// <summary>Fight time (game ticks, fighting and not paused): Vampiric fades, and after 60 s the elite tires.</summary>
     static void OnTicked(object? sender, ActionTickedEventArgs e)
     {
-        if (s_momentumOn && s_mods != null)
+        if (s_momentumOn && s_mods != null && s_combat != null)
         {
-            s_momentumMs -= Constants.TickInterval;
+            // its 4 seconds run only while fighting: waiting for the next monster does not use them up (denge-2 6)
+            if (!s_combat.Action.IsStarted) s_momentumMs = 0;
+            else if (s_combat.Action.State == CombatActionState.Fighting && !s_combat.Action.IsPaused) s_momentumMs -= Constants.TickInterval;
             if (s_momentumMs <= 0) { s_mods.Remove(s_momentum); s_momentumOn = false; }
         }
+        if (s_game != null && !e.IsOffline) RareItems.IntervalFloor(s_game);
         if (Tier == EliteTier.Normal || s_killed || s_combat == null || s_mods == null || e.IsOffline) return;
         if (s_combat.Action.State != CombatActionState.Fighting || s_combat.Action.IsPaused) return;
         s_fightMs += Constants.TickInterval;
@@ -498,6 +511,9 @@ public static partial class Elites
     }
 
     /// <summary>A Slayer task monster or a dungeon's last boss (one more item level, one more item from an elite).</summary>
+    /// <summary>The monster is your Slayer task now (its drops get +5 item level).</summary>
+    public static bool OnSlayerTask(Enemy enemy) => s_combat?.SlayerTasks?.HasTaskForEnemy(enemy) == true;
+
     static bool Special(Enemy enemy)
     {
         if (s_combat == null) return false;

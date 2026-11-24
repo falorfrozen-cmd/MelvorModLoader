@@ -26,6 +26,7 @@ DEGISIKLIK LISTESI (Changelogs sekmesi):
 0.3.0
 - New: items come back when you remove a mod. A mod that keeps its own items in your save (One Style's rare items and the rings in its extra ring slots) leaves a list in the save; open that character without the mod and the loader puts the normal items in your bank, once
 - A mod that also works with another mod (when that one is installed) now loads without it too
+- A mod that holds the game up for more than a quarter second in a frame is named in MelvorModLoader.log ("Slow frame"), so a freeze can be traced
 
 0.2.0
 - New: the Mods menu. A "Mods" button in the game's top bar (or F1) lists every mod window; click to open one

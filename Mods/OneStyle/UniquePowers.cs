@@ -13,7 +13,7 @@ using GamesByMalcs.Melvor2.Core;
 namespace OneStyle;
 
 /// <summary>
-/// The special powers of the 50 unique items. Each power is worked by One Style from the game's own events while you
+/// The special powers of the 58 unique items. Each power is worked by One Style from the game's own events while you
 /// play: a hit of yours (CharacterComponent.Attacked, raised after the hit's damage), an attack of the monster, a kill,
 /// a new monster, eating, and the fight's ticks. What a power gives goes into the game's modifier system as a bonus of
 /// its own (so the game's numbers show it), or is done directly: extra damage, healing, ward, a stun.

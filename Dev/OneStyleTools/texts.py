@@ -3,7 +3,7 @@ import json, os
 P = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uniques-en.json')
 e = json.load(open(P, encoding='utf-8'))
 NEW = {
- "Thornshot": "15% chance on hit (at most once every 6 s) to Stagger: the enemy's next attack comes 25% of its attack interval later.",
+ "Thornshot": "Your first hit in each fight always Staggers, then 15% chance on hit (at most once every 6 s): the enemy's next attack comes 25% of its attack interval later.",
  "Hoarder's Prism": "When a monster drops an item whose drop chance is 5% or less, gain +25% damage and +15% chance of rare items for 90 s. Triggering again refreshes the time; it does not stack.",
  "Mire Throat": "+8% lifesteal, but food heals 40% less.",
  "Veil Rebuttal": "Magic only. 15% chance that an enemy attack does no damage at all, and you strike back with a free hit of your spell (it cannot crit and triggers no items).",
@@ -13,7 +13,7 @@ NEW = {
  "Thunder Traces": "Every 4th successful hit in a fight records 70% of the HP it removed (capped at 15% of the enemy's max HP). 2 s later, if the same enemy is still alive, that amount strikes again; it cannot crit.",
  "Usurper's Circle": "Copies the bonuses (not the equipment stats) of the ring in its paired ring slot (1-2, 3-4, 5-6). Unique rings are not copied; two Usurper's Circles copy nothing.",
  "Soulstring Quiver": "Ranged only. Never used up when you shoot. Every 5th successful ranged attack (every 4th against elites) fires a free extra shot at 75% damage that can crit.",
- "Fourfold Writ": "Magic only. Every 6th spell keeps its runes and prayer points and opens the next seal in order: 1) +40% damage on that spell; 2) Burn for 3% of your max hit per second for 5 s; 3) heal 5% of your max HP; 4) the enemy's next attack deals 50% less damage. The cycle is kept between fights.",
+ "Fourfold Writ": "Magic only. Every 4th spell keeps its runes and prayer points and opens the next seal in order: 1) +40% damage on that spell; 2) Burn for 3% of your max hit per second for 5 s; 3) heal 5% of your max HP; 4) the enemy's next attack deals 50% less damage. The cycle is kept between fights.",
  "Threevoice Cleaver": "Every 3rd successful hit deals +35% damage, and the enemy's evasion is 30% lower for it.",
  "Sunken Volley": "Each attack fires a second arrow: both deal 60% damage. The second uses one more ammo and rolls its own hit and crit.",
  "Twin-Eye Longwatch": "+60% attack interval, but your shots almost never miss and hit for at least 80% of your max hit. The first shot of each fight is a guaranteed crit.",

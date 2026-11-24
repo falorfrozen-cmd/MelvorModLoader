@@ -62,6 +62,7 @@ public static partial class UniquePowers
         Goremantle_Update();
         Scrap_Update();
         AlwaysOn2();
+        AlwaysOn3();
     }
 
     // ================================================================ a new monster
@@ -145,6 +146,7 @@ public static partial class UniquePowers
         if (!hit) { s_lastEnemyHp = hpAfter; return; }
         double hits = Up(s_fight, "hits");
         PlayerAttacked2(e);
+        PlayerAttacked3(e);
 
         // the next successful hit: Copper Oath, Snarestep's charge, Dream Tide's opening
         B("CopperOath:fight").Off();
@@ -310,6 +312,7 @@ public static partial class UniquePowers
     {
         var health = s_combat!.Player.Health;
         VeilAntler();
+        PlayerHealthChanged3();
         // Last Breath: your hit points stay at half of the most at most
         if (Wears(TollkeeperGreaves) && health.Current > health.Max / 2) health.Set(health.Max / 2);
         if (Wears(ThicketTrophies)) Trophies_Update();
@@ -359,6 +362,7 @@ public static partial class UniquePowers
         // Light's Share: the free meal is used
         if (s_keep.GetValueOrDefault("Lantern:light") > 0) { s_keep["Lantern:light"] = 0; B("Lantern:light").Off(); }
         Ate2();
+        Ate3(e);
     }
 
     static void CombatStopped()
@@ -407,6 +411,7 @@ public static partial class UniquePowers
         // spiderlings
         SpiderTick();
         Tick2(dt);
+        Tick3();
         // prayers and stance can change at any time: looked at once a second
         if ((s_slowMs += dt) >= 1000)
         {

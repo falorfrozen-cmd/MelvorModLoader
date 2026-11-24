@@ -6,7 +6,7 @@
  },
  "Thornshot": {
   "MechanicName": "Thorn Stagger",
-  "Mechanic": "15% chance on hit (at most once every 6 s) to Stagger: the enemy's next attack comes 25% of its attack interval later.",
+  "Mechanic": "Your first hit in each fight always Staggers, then 15% chance on hit (at most once every 6 s): the enemy's next attack comes 25% of its attack interval later.",
   "Flavour": "Whoever takes a second step in this forest has already taken the first arrow."
  },
  "Stitched Furrows": {
@@ -21,7 +21,7 @@
  },
  "Hoarder's Prism": {
   "MechanicName": "Hoarder's Eye",
-  "Mechanic": "When a monster drops an item whose drop chance is 5% or less, gain +25% damage for 90 s and your rare item chance is 15% higher (0.1% becomes 0.115%). Triggering again refreshes the time; it does not stack.",
+  "Mechanic": "When a monster drops an item whose drop chance is 5% or less, gain +25% damage for 90 s and your rare item chance is 15% higher (2% a kill becomes 2.3%). Triggering again refreshes the time; it does not stack.",
   "Flavour": "Qivra sees every shiny thing once and never lets it go."
  },
  "Comb Knuckles": {
@@ -95,7 +95,7 @@
  },
  "Cavern Bastion": {
   "MechanicName": "Fifth Stratum",
-  "Mechanic": "Every 5th enemy attack that lands at least one direct hit deals 50% less direct damage (after normal defences); the count carries between fights. Full misses and damage over time don't count, and a multi-hit attack counts once.",
+  "Mechanic": "Every 5th enemy attack that lands at least one direct hit deals 50% less direct damage (added to your other damage reduction, like the game's own); the count carries between fights. Full misses and damage over time don't count, and a multi-hit attack counts once.",
   "Flavour": "The mountain's first four answers are echoes; the fifth is stone."
  },
  "Pinnacle Diadem": {
@@ -130,7 +130,7 @@
  },
  "Fourfold Writ": {
   "MechanicName": "Four Seals",
-  "Mechanic": "Magic only. Every 6th spell keeps its runes and prayer points and opens the next seal in order: 1) +40% damage on that spell; 2) Burn for 3% of your max hit per second for 5 s; 3) heal 5% of your max HP; 4) the enemy's next attack deals 50% less damage. The cycle is kept between fights.",
+  "Mechanic": "Magic only. Every 4th spell keeps its runes and prayer points and opens the next seal in order: 1) +40% damage on that spell; 2) Burn for 3% of your max hit per second for 5 s; 3) heal 5% of your max HP; 4) the enemy's next attack deals 50% less damage. The cycle is kept between fights.",
   "Flavour": "Ithrek's four hands renew four seals; the book never forgets whose turn it is."
  },
  "Threevoice Cleaver": {
@@ -220,7 +220,7 @@
  },
  "Scrapwind Treads": {
   "MechanicName": "Scrap Hunter",
-  "Mechanic": "On a Slayer task each task monster you kill gives +1% damage and makes your rare item chance 1% higher (up to +30%, so 0.1% becomes 0.13%), and task monsters come 30% faster. When the task ends the stacks go and you keep 1 token (1 at most): your next elite kill drops one more Rare (3-affix) item.",
+  "Mechanic": "On a Slayer task each task monster you kill gives +1% damage and makes your rare item chance 1% higher (up to +30%, so 2% a kill becomes 2.6%), and task monsters come 30% faster. When the task ends the stacks go and you keep 1 token (1 at most): your next elite kill drops one more Rare (3-affix) item.",
   "Flavour": "Baskor walked where the hunt was, and took what was left."
  },
  "Dreamtide Orb": {
@@ -256,5 +256,45 @@
   "MechanicName": "Caravan Road",
   "Mechanic": "Melee only, by stance: Stab +30% accuracy; Slash 20% chance on hit to cause Bleed; Crush stuns for 1 turn on every 4th successful hit (once in 8 s). Nothing in Block stance, or with ranged or magic.",
   "Flavour": "Zafir's road had three turns: stab, slash or crush."
+ },
+ "Twin-Lurker Fangs": {
+  "MechanicName": "Twin Strike",
+  "Mechanic": "On hit, 25% chance to strike once more for 50% of a normal hit (it rolls its own accuracy and critical hit, and triggers nothing else).",
+  "Flavour": "Skarn never needed a second blade. He just liked the second wound."
+ },
+ "Bell-Yoke Wand": {
+  "MechanicName": "Bell Toll",
+  "Mechanic": "Magic only. Every 3rd spell you cast (misses count) is followed by a bell strike for 35% of a normal hit of your spell (it rolls its own accuracy and critical hit, and triggers nothing else).",
+  "Flavour": "The herd came home to the bell. So did everything else."
+ },
+ "Resin Hoard Ring": {
+  "MechanicName": "Resin Shell",
+  "Mechanic": "When food restores your hit points, you gain 2 more hits of ward for 6 s: the next 2 hits you take go through it and do less damage. At most once every 8 s; your other ward stays.",
+  "Flavour": "Ploxx kept everything it swallowed. This ring was the least sticky part."
+ },
+ "Divide Sentinel's Aegis": {
+  "MechanicName": "Sentinel's Answer",
+  "Mechanic": "Melee only. Every 3rd enemy attack that hits you readies one Answer (only one is kept; a new one at most every 8 s from when the last was readied): your next successful melee hit deals +40% damage and has a 20% chance to stun for 1 turn.",
+  "Flavour": "The mountain does not dodge. It waits, and then it answers."
+ },
+ "Talon of the Divide": {
+  "MechanicName": "Rising Edge",
+  "Mechanic": "After each successful hit your critical hit chance is rolled again, on its own: on a success you gain an Edge (3 at most; each new Edge renews them all to 15 s), +10% critical damage each. With 3 Edges your next attack is a sure critical hit with +80% critical damage in all (the Edges' +30% and 50% more), and the Edges are spent.",
+  "Flavour": "Kethra struck once to mark you, and once more to finish it."
+ },
+ "Divide-Fang Howler": {
+  "MechanicName": "Pack Howl",
+  "Mechanic": "On hit, 25% chance to gain 1 stack of the game's Rage (Rage from anything else counts too). Each stack: +2% damage, up to +10%. At 5 stacks your next successful hit howls: it uses up all your Rage and stuns the enemy for 1 turn. A howl at most every 10 s; while it waits your Rage stays and keeps its bonus.",
+  "Flavour": "Kaul's pack is long dead. The howl still answers."
+ },
+ "Veinbound Chalice": {
+  "MechanicName": "Overflow",
+  "Mechanic": "+5% lifesteal. Lifesteal healing your full hit points cannot take is stored as Blood (up to 20% of your max hit points). When you drop below 40% hit points, all the Blood heals you at once. While the Blood is full you deal +15% damage.",
+  "Flavour": "Sareth never spilled a drop. She saved them for later."
+ },
+ "Barrens Hush": {
+  "MechanicName": "Hush",
+  "Mechanic": "Each successful hit, on its own, has a 12% chance to Blind the enemy for 4 of its turns and an 8% chance to Wither it for 6 of its turns (the game's own Blind and Wither). You deal +15% damage to an enemy that is Blinded or Withered, from any source; it does not add up when it has both.",
+  "Flavour": "You never hear Osvyr coming. That is the point."
  }
 }

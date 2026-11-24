@@ -1,4 +1,4 @@
-"""One Style's part of the item database: its 50 unique items and its three rarities (Magic, Rare, Rare with 4 affixes).
+"""One Style's part of the item database: its 58 unique items and its three rarities (Magic, Rare, Rare with 4 affixes).
 
 Read from the mod's own data (Mods/OneStyle/data: uniques.json, affixes.json, elites.json), with the same numbers the
 mod uses in the game (RareItems*.cs, Uniques.cs, UniquePowers*.cs). Every record gets "mod": "OneStyle" and a "rarity",
@@ -100,11 +100,11 @@ def add(db, img_dir):
              "from 85. An affix rolls its best tier 50%, one lower 35%, two lower 15%. Hold Alt over one in the game to see its tiers.")
     for rid, name, rarity, count, srcs in [
         ("OsRMagic", "Magic item", "Magic", "2 affixes (1 prefix, 1 suffix)",
-         [("Champion", "Champion kill", 0.60), ("Unique (its second item)", "Unique kill", 0.60)]),
+         [("Any monster", "kill", 0.01), ("Champion", "Champion kill", 0.60), ("Unique (its second item)", "Unique kill", 0.60)]),
         ("OsRRare", "Rare item", "Rare", "3 affixes (at most 2 prefixes and 2 suffixes)",
-         [("Any monster", "kill", 0.001 * 0.8), ("Champion", "Champion kill", 0.33), ("Unique", "Unique kill", 0.8)]),
+         [("Any monster", "kill", 0.01 * 0.8), ("Champion", "Champion kill", 0.33), ("Unique", "Unique kill", 0.8)]),
         ("OsRRare4", "Rare item (4 affixes)", "Rare4", "4 affixes (2 prefixes, 2 suffixes)",
-         [("Any monster", "kill", 0.001 * 0.2), ("Champion", "Champion kill", 0.07), ("Unique", "Unique kill", 0.2)]),
+         [("Any monster", "kill", 0.01 * 0.2), ("Champion", "Champion kill", 0.07), ("Unique", "Unique kill", 0.2)]),
     ]:
         db["items"].append({
             "id": rid, "name": name, "desc": f"{count}. {rules}", "mod": "OneStyle", "rarity": rarity, "cat": "One Style rarity",

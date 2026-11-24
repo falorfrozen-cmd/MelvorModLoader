@@ -13,7 +13,7 @@ using Godot;
 
 namespace OneStyle;
 
-/// <summary>One of the 50 unique items (data/uniques.json, made by scratchpad tools/uniquegen.py).</summary>
+/// <summary>One of the 58 unique items (data/uniques.json, made by Dev/OneStyleTools/uniquegen.py).</summary>
 public sealed class UniqueDef
 {
     public string Id { get; set; } = "";
@@ -40,7 +40,7 @@ public sealed class UniqueStat
 }
 
 /// <summary>
-/// The 50 unique items: each one drops from one Unique monster, 15% a Unique kill (no first-kill guarantee, no bad-luck
+/// The 58 unique items: each one drops from one Unique monster, 15% a Unique kill (no first-kill guarantee, no bad-luck
 /// rise: the user wants them farmed). A unique item is one item of the game (always the same), so a second
 /// copy stacks with the first.
 /// </summary>

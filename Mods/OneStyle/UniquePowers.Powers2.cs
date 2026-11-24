@@ -76,9 +76,13 @@ public static partial class UniquePowers
     static readonly string[] s_ringSlots = { "MelvorBase:RingSlot1", "MelvorBase:RingSlot2", "MelvorBase:OneStyleRingSlot3",
         "MelvorBase:OneStyleRingSlot4", "MelvorBase:OneStyleRingSlot5", "MelvorBase:OneStyleRingSlot6" };
 
+    /// <summary>The ring whose bonuses Usurper's Circle copies now (its affixes count for the caps too).</summary>
+    public static Item? UsurperCopy { get; private set; }
+
     static void Usurper_Update()
     {
         B("Usurper").Off();
+        UsurperCopy = null;
         if (!Wears(UsurperSCircle) || s_combat == null || s_game == null) return;
         var worn = new Dictionary<int, Item>();
         for (int i = 0; i < s_ringSlots.Length; i++)
@@ -92,6 +96,7 @@ public static partial class UniquePowers
         {
             var plain = new ModifierValues(bonuses.Global.ToList(), bonuses.Component.Where(c => c.Condition == null).ToList(), new List<GamesByMalcs.Melvor2.Components.CombatEffects.CombatEffectModifierValue>());
             B("Usurper", UsurperSCircle).Set(plain);
+            UsurperCopy = other;
         }
     }
 
@@ -182,6 +187,7 @@ public static partial class UniquePowers
         B("Mirage").Off();
         if (!Wears(MirageAstrolabe) || s_combat?.MagicSpells.SelectedImbuement is not { } imbue) return;
         B("Mirage", MirageAstrolabe).Set(imbue.Data.Bonuses, -1, burst ? 1.7 : 0.8);
+        if (burst) Fire("MirageBurst");
     }
 
     // ================================================================ attack turns
@@ -190,6 +196,7 @@ public static partial class UniquePowers
     {
         if (!MagicWeapon()) return;
         double casts = Up(s_keep, "casts");
+        Bell(casts);
         // Blood Rite: each cast costs 3% of your current hit points (never below 1)
         if (Wears(SanguineLiturgy) && s_combat!.Player.Health.Current > 1)
         {
@@ -204,7 +211,7 @@ public static partial class UniquePowers
         {
             B("Fourfold:free").Off();
             B("Fourfold:seal1").Off();
-            if (casts % 6 == 0)
+            if (casts % 4 == 0)   // every 4th spell (was 6th: a full cycle took 24 spells; denge-2 9)
             {
                 Fire("Fourfold");
                 double seal = Up(s_keep, "Fourfold:seal") % 4;   // 1, 2, 3, 0 = 4th
@@ -261,6 +268,7 @@ public static partial class UniquePowers
         if (s_seal4 == 2) { s_seal4 = 0; B("Fourfold:seal4:fight").Off(); }
         if (s_enemyLanded)
         {
+            EnemyLanded3();
             // Fifth Stratum: the attack that landed while the bonus was on was the 5th; the count goes on
             if (Wears(CavernBastion))
             {
@@ -281,11 +289,13 @@ public static partial class UniquePowers
     {
         if (!e.WasHit) return;
         double hits = F("hits");
-        // Thorn Stagger: 15% on hit (once in 6 s a monster) to delay the monster's next attack by 25% of its interval
-        if (Wears(Thornshot) && s_nowMs >= F("Thornshot:next") && Random.Shared.NextDouble() < 0.15 && s_combat is { } c
+        // Thorn Stagger: the first hit of a fight always, then 15% on hit (once in 6 s a monster), delays the monster's next
+        // attack by 25% of its interval
+        if (Wears(Thornshot) && s_nowMs >= F("Thornshot:next") && (F("Thornshot:first") == 0 || Random.Shared.NextDouble() < 0.15) && s_combat is { } c
             && c.Enemy.TurnTimer.IsRunning && !EnemyStunned() && F("Thornshot:delayed") != c.Enemy.TurnTimer.WaitTicks * 1000 + TicksLeftOf(c.Enemy.TurnTimer))
         {
             s_fight["Thornshot:next"] = s_nowMs + 6000;
+            s_fight["Thornshot:first"] = 1;
             TickTimer t = c.Enemy.TurnTimer;
             int extra = Math.Max(1, (int)Math.Round(t.WaitTicks * 0.25));
             t.WaitTicks += extra;

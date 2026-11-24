@@ -117,18 +117,25 @@ How strong (the smaller the monster, the bigger the change):
   Safety: an elite's single hit is never more than 1.3 times the normal monster's biggest
   hit, its damage per second at most 1.35 (Champion) / 1.55 (Unique) times, and after 60
   seconds it tires: +5% damage taken every 5 seconds. While an elite lives you have no
-  death penalty (a setting on the Elites page, on by default).
+  death penalty (a setting on the Elites page, on by default). A very small monster's elite
+  is never more than 3 times (Champion) / 6 times (Unique) its hit points.
 
 Rewards:
     Champion: 2 more rolls of the monster's own loot (gold too), +25% combat XP while it
               lives, 3 to 11 Ember. Its first kill: +1 roll and +10 Ember.
     Unique:   5 more rolls, +50% combat XP, 16 to 48 Ember. Its first kill: +3 rolls,
               +40 Ember and the monster's trophy.
-  The extra loot comes in at once (one message). Chests and other boxes are not rolled
+  The extra loot comes in at once (one message). Your loot and gold doubling (of Plenty, of
+  Coin, the game's own) work on the extra rolls too. Chests and other boxes are not rolled
   again. Monsters without loot (most dungeon bosses) pay gold from their hit points and
   half again the Ember. A dungeon's own reward does not change.
   Champions and Uniques also drop rare items (see RARE ITEMS).
-  Ember is the mod's own currency, for rare item crafting in a later version.
+  Ember is the mod's own currency. Its first use: reroll a rare item's values. Select a Magic
+  or Rare item in your bank (not one you wear); under its affixes press "Reroll values". The
+  affixes and their tiers stay, every number is rolled again inside its tier's range, and you
+  see old and new side by side (green better, red worse): "Take the new values" or "Keep the
+  old ones". It costs 2 x (1 + item level / 20, at most 5) Ember: 2 to 10. Unique items are not
+  rerolled. A paid roll waits in the item until you choose, even over a restart.
 
 Trophies (179): the first Unique of a monster gives its trophy. Each trophy: +0.15% elite
 chance and +0.1% Ember. 10 trophies: +2% elite gold. 25: +1% max hit points. 50: +1 Unique
@@ -152,14 +159,21 @@ Rarity, and its colour (on the name, and as a frame in the bank and on worn slot
   burn and one stun per item.
 
 Who drops what:
-    Any monster          0.1% a kill: a Rare item (1 in 5 with 4 affixes)
+    Any monster          2% a kill: 1% a Magic item, 1% a Rare item (1 in 5 with 4 affixes)
     Champion             1 item: Magic 60%, Rare 33%, Rare with 4 affixes 7%
     Unique               2 items: a Rare (1 in 5 with 4 affixes), then one as from a Champion,
                          plus the Unique's own item (see below)
     On your slayer task or as a dungeon's last boss: +5 item level; an elite there drops one
     more item.
-  The base item is a piece of gear near the monster's level (any slot, every slot as likely).
-  A weapon of another style can drop: wear it, or keep it for later.
+  The base item is NOT taken from the monster's own drops: it is any piece of gear of a level
+  from (item level - 20) to (item level + 5), every slot as likely, then every item of that
+  slot (with a class chosen, weapons only of your class's style). So a Golbin can drop a rare
+  Stone Sword, never a level 50 item. A piece of gear counts as the higher of its own
+  requirement and the level of its easiest source (the monster that drops it, its crafting
+  level...): Hypnotic Amulet asks for no level but comes from a level 75 monster, so it is
+  level 75 here. A weapon of another style can drop when no class is chosen: wear it, or keep it.
+  Every monster's drop list shows these items: under "One Style: rare items" press "Show the N
+  possible items" for the list, slot by slot, with each item's share of the rare items dropped.
 
 Item level and tiers: the item level is the monster's combat level (+5, see above). It sets
 the best tier an affix can roll:
@@ -223,9 +237,22 @@ The 48 affixes (X = the rolled value; the best tier's range; where it can roll):
   Caps on what the affixes of your worn rare items give together (a unique item's power has its
   own limits, written on it): attack interval -40%, lifesteal 10%,
   "take no damage" 15%, damage taken -20%, loot doubling 25%, time to the next monster -50%,
-  elite chance +50%. What goes over a cap does nothing.
+  elite chance +50%, action time in every skill -40% (of Diligence), XP in every skill +50%
+  (of Learning). What goes over a cap does nothing. Usurper's Circle's copy of a ring counts
+  for these caps too.
+  Attack interval floor: nothing makes you attack faster than once every 0.6 s (affixes,
+  Momentum, your class, unique powers and Rage together). Cheat Menu's "Attack speed" is not
+  held back: when you turn it on, the floor steps aside.
+  The same ring more than once: each game ring counts once, as in the game. Rare copies of one
+  ring are each their own item and all their affixes count, but that ring's own stats and
+  bonuses count once (six rare Silver Topaz Rings give their +3 attack bonuses once).
+  of Momentum: its 4 seconds run only while you fight; waiting for the next monster does not
+  use them up.
+  A full bank: the One Style window (Elites page) has "Sell unlocked Magic items": it sells every
+  Magic item in your bank that you have not locked, at its price. Rare and Unique items are never
+  sold by it. Drops that did not fit wait and go in when there is room (the window counts them).
 
-Unique items (50): each belongs to one monster's Unique and drops 15% of the times you kill
+Unique items (58): each belongs to one monster's Unique and drops 15% of the times you kill
 that Unique (no guarantee, also not on the first kill: they are worth farming). In a combat
 area that is about 0.12% a kill of the monster (its Unique comes 0.8% of the time).
 A Unique item has fixed stats and a special power, both written on it (hover it; the monster's
@@ -238,7 +265,10 @@ what their powers have counted (Wreckshot's elite kills, Veil-Antler's wait, Gor
 Hunger...). Ammo uniques (the two quivers) are never used up.
     Copper Oath              helmet   level 1   Grik (Golbin)
     Thornshot                weapon   level 1   Snikt (Golbin Scout)
+    Twin-Lurker Fangs        weapon   level 4   Skarn (Golbin Ambusher)
+    Bell-Yoke Wand           weapon   level 9   Mora (Magic Cow)
     Stitched Furrows         legs     level 15  Hobb (Scarecrow)
+    Resin Hoard Ring         ring     level 16  Ploxx (Blue Slime)
     Hollow Harvest Crown     helmet   level 21  Orren (Jack-O-Lantern)
     Comb Knuckles            gloves   level 23  Izzet (Bee)
     Hoarder's Prism          ring     level 28  Qivra (Rainbow Slime)
@@ -255,7 +285,10 @@ Hunger...). Ammo uniques (the two quivers) are never used up.
     Twin-Eye Longwatch       weapon   level 45  Azkiel (Ranged Sentinel Minion)
     Veil-Antler Reprieve     amulet   level 50  Auvrel (Spirit Stag)
     Skytoll                  weapon   level 51  Skyrra (Wyvern)
+    Talon of the Divide      ring     level 52  Kethra (Harpy)
+    Divide-Fang Howler       weapon   level 55  Kaul (Dire Wolf)
     Plungeheart Tusk         weapon   level 60  Hrokk (Ice Yeti)
+    Divide Sentinel's Aegis  offhand  level 60  Keldrun (Stone Elemental)
     Oathlocked Plate         body     level 62  Vauld (Phantasm Knight)
     Breaker Hooves           boots    level 62  Nacreon (Sea Pegasus)
     Soulstring Quiver        ammo     level 62  Qor (Phantasm Wraith)
@@ -271,6 +304,8 @@ Hunger...). Ammo uniques (the two quivers) are never used up.
     Mirage Astrolabe         amulet   level 74  Zahim (Sand Nomad Mage)
     Dreamtide Orb            offhand  level 75  Iovra (Mesmeris the Slumbering Princess)
     Veil Rebuttal            weapon   level 79  Selkris (Dark Wizard)
+    Veinbound Chalice        amulet   level 79  Sareth (Vampire)
+    Barrens Hush             cape     level 79  Osvyr (Nightwing)
     Starbound Mantle         cape     level 80  Vaelis (Starblighted Mage)
     Oathbound Gauntlets      gloves   level 80  Deyrath (Starblighted Warrior)
     Ossuary Magazine         ammo     level 81  Sarn (Dreadspine)
@@ -307,8 +342,9 @@ Your rare items in the save:
 - The item panel's "Found in" shows the combat icon: rare items only drop from monsters.
 - The game's drop lists show them: the chest tab of the fight screen, the drop icons on each
   monster in the combat area list (the Unique's item with its real chance per kill), and
-  "View all Stats & Drops". Rare items are rolled on their own, next to the monster's loot;
-  the monster's own loot does not change.
+  "View all Stats & Drops" (with the button "Show the N possible items": the gear a rare item
+  can be made from, slot by slot). Rare items are rolled on their own, next to the monster's
+  loot; the monster's own loot does not change.
 - The Elites page of the window lists your last drops.
 
 
@@ -363,7 +399,7 @@ CHANGES
 - Rare items: monsters drop gear as Magic (blue), Rare (yellow) and Unique (orange) items
   with random affixes from 48, tiers by item level (T1 the best, ranges never overlap),
   Alt shows the tiers, coloured names and bank frames (see RARE ITEMS)
-- 50 Unique items, each from one monster's Unique, with their stats and special powers
+- 58 Unique items, each from one monster's Unique, with their stats and special powers
 - Badges under an elite's health bar: CHAMPION / UNIQUE and its affixes, a framed bar,
   red while enraged, green when it heals, ward hits shown
 - An "Elites" button in the monster list: the three versions of a monster and their drops

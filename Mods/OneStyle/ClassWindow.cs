@@ -307,6 +307,8 @@ public sealed class ClassWindow
         toggles.AddChild(safe);
         tv.AddChild(toggles);
         tv.AddChild(Text($"Ember: {p.Ember:N0}   ·   Trophies: {p.Trophies} / {Elites.Known}", Style.Good, 15));
+        tv.AddChild(Text("Spend Ember on a rare item's values: select a Magic or Rare item in your bank and press \"Reroll values\" (2 to 10 Ember).",
+            Style.Muted, 12));
         top.AddChild(tv);
         _body.AddChild(top);
 
@@ -369,7 +371,9 @@ public sealed class ClassWindow
         v.AddThemeConstantOverride("separation", 4);
         v.AddChild(Text("Rare items", Style.Text, 15));
         v.AddChild(Text("Monsters drop gear as Magic (blue, 2 affixes), Rare (yellow, 3 or 4 affixes) or Unique (orange) items, straight into "
-                        + "your bank with a coloured frame: 0.1% a kill, one from every Champion, two from every Unique, plus the Unique's own item. "
+                        + "your bank with a coloured frame: 2% a kill (1% Magic, 1% Rare), one from every Champion, two from every Unique, plus the Unique's own item. "
+                        + "The gear is any piece near the monster's level, not only its own drops (a Golbin can drop a rare sword): a monster's drop list "
+                        + "shows them all with \"Show the N possible items\". "
                         + "Hold Alt over one to see each affix's tier (T1 is the best) and range. The Elites button next to a monster lists what it drops.",
                         Style.Muted, 12));
         foreach (RolledItem r in RareItems.LastDrops.GetRange(0, System.Math.Min(8, RareItems.LastDrops.Count)))
@@ -391,6 +395,18 @@ public sealed class ClassWindow
             Repaint();
         };
         row.AddChild(normal);
+        // the bank fills fast at 2% a kill: one press sells every Magic item you have not locked (denge-2 11)
+        var sell = new Button { Text = "Sell unlocked Magic items", FocusMode = Control.FocusModeEnum.None,
+            TooltipText = "Sells every Magic (blue, 2 affixes) item in your bank at its price, except those you locked in the bank. "
+                          + "Rare and Unique items are never sold by this button." };
+        sell.Pressed += () =>
+        {
+            if (MelvorModLoader.GameAccess.CurrentGame is not { IsSaveLoaded: true } game) return;
+            var (items, gold) = RareItems.SellMagic(game);
+            _rareNote = items == 0 ? "No unlocked Magic items in the bank." : $"Sold {items} Magic item(s) for about {gold:N0} gold.";
+            Repaint();
+        };
+        row.AddChild(sell);
         if (_rareNote != "") row.AddChild(Text(_rareNote, Style.Good, 12));
         v.AddChild(row);
         box.AddChild(v);
@@ -407,7 +423,8 @@ public sealed class ClassWindow
         v.AddThemeConstantOverride("separation", 4);
         v.AddChild(Text($"{Rings.Total} ring slots", Style.Text, 15));
         v.AddChild(Text("Ring Slot 2 is open without its Crafting 150 lock, and four more ring slots are on the equipment grid. "
-                        + "Each ring counts once: wear different rings. Works with every class, and with Off.", Style.Muted, 12));
+                        + "Each game ring counts once: wear different rings. Rare copies of one ring all add their affixes, "
+                        + "but that ring's own bonuses count once. Works with every class, and with Off.", Style.Muted, 12));
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 10);
         var bank = new Button { Text = "Put rings 2-6 in the bank" };

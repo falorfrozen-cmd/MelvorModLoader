@@ -14,7 +14,12 @@ for b in builds:
     b["_art"] = os.path.join(HS, "build", "resim")
 for i in items:
     i["_art"] = os.path.join(HS, "resim")
-all_items = items + builds
+# the build-gap round (2026-11-24): eight more, with their base item chosen by hand ("base": no style penalty)
+NEW_DIR = os.path.join(os.path.dirname(HS), "yeni-uniqueler")
+news = json.load(open(os.path.join(NEW_DIR, "yeni-esyalar.json"), encoding="utf-8")) if os.path.exists(os.path.join(NEW_DIR, "yeni-esyalar.json")) else []
+for n in news:
+    n["_art"] = os.path.join(NEW_DIR, "resim")
+all_items = items + builds + news
 english = json.load(open(os.path.join(TOOLS, "uniques-en.json"), encoding="utf-8")) if os.path.exists(os.path.join(TOOLS, "uniques-en.json")) else {}
 elites = {e["UniqueName"]: e["Id"] for e in json.load(open(os.path.join(MOD, "data", "elites.json"), encoding="utf-8"))}
 game = json.load(open(GAME, encoding="utf-8"))
@@ -136,7 +141,7 @@ for it in all_items:
     out.append({
         "Id": "OsU" + camel, "Name": it["name"], "Slot": it["slot"], "Style": style_of(it) if it["slot"] in ("Weapon", "Offhand", "Ammo") else "",
         "Level": int(it.get("level", 1)), "Source": elites.get(it["source_unique"], ""), "SourceName": it["source_unique"],
-        "BaseId": base_for(it), "Stats": stats,
+        "BaseId": it.get("base") or base_for(it), "Stats": stats,
         "MechanicName": en.get("MechanicName", it.get("mechanic_name", "")), "Mechanic": en.get("Mechanic", it.get("mechanic", "")),
         "Flavour": en.get("Flavour", ""), "Icon": "art/items/" + camel + ".webp", "_art": art_file,
     })

@@ -257,21 +257,26 @@ public static partial class RareItems
 
     // ================================================================ drops (03-karar.md 1; 04-esya-tasarim.md)
 
-    /// <summary>A monster died online: elites always drop, a normal monster rarely (0.1%).</summary>
+    /// <summary>A monster died online: elites always drop, a normal monster 2% of the time (1% Magic, 1% Rare).</summary>
+    public const double NormalMagic = 0.01, NormalRare = 0.01;
+
     public static void OnKilled(Game game, Enemy enemy, EliteTier tier, bool special)
     {
         if (Affixes.Count == 0 || !ReferenceEquals(s_game, game)) return;
         try
         {
             int iLvl = Math.Max(1, enemy.CombatLevel + (special ? 5 : 0));
-            string style = Classes.StyleId(Patches.Current) is var s && Patches.Current != Class.None ? s : "";
+            string style = DropStyle();
             var drops = new List<Rarity>();
             double r1 = s_rng.NextDouble();
             Rarity ChampionRoll() { double r = s_rng.NextDouble(); return r < 0.60 ? Rarity.Magic : r < 0.93 ? Rarity.Rare : Rarity.Rare4; }
             switch (tier)
             {
                 case EliteTier.Normal:
-                    if (r1 < 0.001 * UniquePowers.RareLootMultiplier) drops.Add(s_rng.NextDouble() < 0.8 ? Rarity.Rare : Rarity.Rare4);
+                    // 1% Magic, 1% Rare (the player's pick, 2026-11-24, after Codex and Gemini); Hoarder's Eye and Scrap Hunter raise both
+                    double more = UniquePowers.RareLootMultiplier;
+                    if (r1 < NormalMagic * more) drops.Add(Rarity.Magic);
+                    else if (r1 < (NormalMagic + NormalRare) * more) drops.Add(s_rng.NextDouble() < 0.8 ? Rarity.Rare : Rarity.Rare4);
                     break;
                 case EliteTier.Champion:
                     drops.Add(ChampionRoll());
@@ -281,7 +286,7 @@ public static partial class RareItems
                     drops.Add(ChampionRoll());
                     break;
             }
-            if (tier != EliteTier.Normal && special) drops.Add(ChampionRoll());   // a dungeon's last boss as an elite: one more
+            if (tier != EliteTier.Normal && special) drops.Add(ChampionRoll());   // on your slayer task or as a dungeon's last boss: one more
             if (tier != EliteTier.Normal) for (int i = UniquePowers.ExtraEliteRares(); i > 0; i--) drops.Add(Rarity.Rare);   // Deep Signal, Scrap Hunter
             foreach (Rarity rarity in drops)
                 if (PickBase(game, iLvl, style) is { } baseItem) Give(game, Roll(game, baseItem, rarity, iLvl, style));
@@ -301,6 +306,28 @@ public static partial class RareItems
         if (Bank(game) is not { } bank || bank.Inventory.AddQuantity(item, 1, AddItemFlags.None) <= 0) Data.Pending.Add(record.LocalId);
         DropToast(record);
         return item;
+    }
+
+    /// <summary>
+    /// Sells every Magic item in the bank that is not locked, through the game's own sale (its price, its statistics).
+    /// Rare and Unique items are never sold here; lock a Magic item in the bank to keep it. Returns (items, gold).
+    /// </summary>
+    public static (int Items, long Gold) SellMagic(Game game)
+    {
+        if (Bank(game) is not { } bank) return (0, 0);
+        var magic = bank.Inventory.Stacks.Where(s => s.Quantity > 0 && !s.IsLocked && !s.IsPlaceholder && RecordOf(s.Item) is { Rarity: Rarity.Magic })
+            .Select(s => (s.Item, (int)s.Quantity)).ToList();
+        long gold = 0;
+        int sold = 0;
+        foreach (var (item, quantity) in magic)
+        {
+            var stats = bank.ItemSales.GetItemStats(item);
+            try { bank.ItemSales.SellItem(item, stats, quantity); sold += quantity; gold += item.SellsFor.Quantity * quantity; }
+            catch (Exception e) { Log("One Style: selling " + item.Id + " failed: " + e.Message); }
+            finally { stats.Destroy(); }
+        }
+        DeliverPending(game);
+        return (sold, gold);
     }
 
     /// <summary>Drops that did not fit go in when there is room.</summary>

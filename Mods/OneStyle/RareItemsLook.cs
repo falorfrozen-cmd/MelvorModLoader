@@ -181,6 +181,7 @@ public static partial class RareItems
                         break;
                     case ItemInfoPanel panel when panel.IsVisibleInTree() && panel.GetParent() is not ItemInfoTooltip:
                         DecoratePanel(panel, PanelStackOf(panel)?.Item ?? PanelItemOf(panel));
+                        RerollPanel(panel, PanelStackOf(panel)?.Item ?? PanelItemOf(panel));
                         break;
                     case EquipmentSlotTooltip tip when tip.IsVisibleInTree():
                         Worn(tip);
