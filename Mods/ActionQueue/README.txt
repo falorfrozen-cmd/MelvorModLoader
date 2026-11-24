@@ -165,6 +165,10 @@ Choose "Equip" at the end of the skill list, then what to put on:
   - Like a sale, it waits for the steps before it, and nothing after it starts before it
     is done. Gear is only changed while the game is open: while the game works out the
     time you were away, the step waits ("waits for the game to be open").
+  - With the One Style mod: its Magic, Rare and Unique items work in Equip, Sell and item
+    goals. The lists show the ones you own (in the bank or worn), in their rarity colour,
+    with their affixes when you point at them. A step for one you have since sold is
+    skipped with "this rare item is no longer owned".
 Example (start over at the end ON): fight the Golbins (the step ends when the arrows run
 out) -> Fletching: Bronze Arrows, make 500 more -> Equip: Bronze Arrows, keep 0 -> again.
 

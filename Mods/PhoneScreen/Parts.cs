@@ -125,7 +125,10 @@ public static class Parts
     static Item? ItemById(Game game, string id)
     {
         if (s_items == null || s_itemsFor != game) { s_items = game.Data.GetDataRegistryOutput<Item>().GetAllObjects().ToDictionary(i => i.Id); s_itemsFor = game; }
-        return s_items.GetValueOrDefault(id);
+        if (s_items.TryGetValue(id, out Item? known)) return known;
+        // (One Style adds a new item for each rare drop during play, after the list above was made: asked live)
+        if (game.Data.GetDataRegistryOutput<Item>().TryGetObjectById(id, out Item? item) && item != null) { s_items[id] = item; return item; }
+        return null;
     }
 
     static string Plural(Item item, long n) => item.DisplayName.GetPluralText(n == 1 ? 1 : 2);
@@ -146,6 +149,7 @@ public static class Parts
         w.WriteString("id", item.Id);
         w.WriteString("name", item.DisplayName.GetPluralText(1));
         if (qty >= 0) w.WriteNumber("qty", qty);
+        Rares.Write(w, item);
         w.WriteEndObject();
     }
 
@@ -241,6 +245,7 @@ public static class Parts
                 w.WriteBoolean("can", o.Can);
                 if (!o.Can) w.WriteString("why", o.Why);
                 if (o.Stack) w.WriteBoolean("stack", true);
+                Rares.Write(w, o.Item);
                 w.WriteEndObject();
             }
             w.WriteEndArray();

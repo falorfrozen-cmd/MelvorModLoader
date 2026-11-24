@@ -188,9 +188,16 @@ public static partial class RareItems
     public static List<Item> Bases(Game game)
     {
         if (s_bases != null) return s_bases;
+        static bool HasArt(Item i)
+        {
+            // the game gives gear without a picture its "missing artwork" square
+            try { return i.Icon is { } icon && !icon.ResourcePath.Contains("missing_artwork", StringComparison.OrdinalIgnoreCase); }
+            catch (Exception) { return false; }
+        }
         s_bases = game.Data.GetDataRegistryOutput<Item>().GetAllObjects()
             .Where(i => !i.LocalId.StartsWith("Os") && SlotOf(i) is not ("" or "Ammo") && !i.Id.Contains("Collectable") && !i.Id.Contains("Belra")
-                        && i.SellsFor.Quantity <= 25_000 && !i.Id.Contains("Placeholder") && i.Id != "MelvorBase:DefaultWeapon")   // not bare fists
+                        && i.SellsFor.Quantity <= 25_000 && !i.Id.Contains("Placeholder") && i.Id != "MelvorBase:DefaultWeapon"   // not bare fists
+                        && HasArt(i))   // the game has no picture yet for some gear (Beastslayer, Storm Fang...): an empty square in the bank
             .ToList();
         return s_bases;
     }

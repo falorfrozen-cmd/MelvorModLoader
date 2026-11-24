@@ -16,7 +16,7 @@ namespace BulkSell;
 /// </summary>
 public sealed class Window
 {
-    const int ColMark = 0, ColItem = 1, ColQuantity = 2, ColEach = 3, ColTotal = 4;
+    const int ColMark = 0, ColItem = 1, ColLevel = 2, ColQuantity = 3, ColEach = 4, ColTotal = 5;
 
     readonly SceneTree _tree;
     readonly CanvasLayer _layer = new() { Layer = 119, Name = "BulkSell", Visible = false };
@@ -27,6 +27,19 @@ public sealed class Window
     readonly OptionButton _tabPick = new() { CustomMinimumSize = new Vector2(150, 0) };
     readonly OptionButton _kindPick = new() { CustomMinimumSize = new Vector2(220, 0), FitToLongestItem = false, ClipText = true };
     readonly SpinBox _keep = new() { MinValue = 0, MaxValue = 1_000_000, Step = 1, Value = 0, CustomMinimumSize = new Vector2(110, 0), SelectAllOnFocus = true };
+    // the gear row: slot, rarity and affix (One Style's rare items), level
+    readonly OptionButton _slotPick = new() { CustomMinimumSize = new Vector2(150, 0) };
+    readonly OptionButton _rarityPick = new() { CustomMinimumSize = new Vector2(150, 0) };
+    readonly OptionButton _affixPick = new() { CustomMinimumSize = new Vector2(260, 0), FitToLongestItem = false, ClipText = true };
+    readonly OptionButton _levelPick = new() { CustomMinimumSize = new Vector2(150, 0),
+        TooltipText = "Only gear of this level or lower (a rare item's item level, else the level the gear asks for)." };
+    static readonly int[] LevelSteps = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+    int MaxLevel => _levelPick.Selected > 0 && _levelPick.Selected < LevelSteps.Length ? LevelSteps[_levelPick.Selected] : 0;
+    readonly Label _rarityLabel = Style.Label("Rarity", Style.Muted);
+    readonly Label _affixLabel = Style.Label("Affix", Style.Muted);
+    static readonly string[] SlotOrder = { "Weapon", "Offhand", "Ammo", "Helmet", "Torso", "Legs", "Gloves", "Boots", "Cape", "Amulet", "Ring" };
+    static readonly string[] Rarities = { "Any rarity", "Normal", "Magic", "Rare", "Unique", "Magic + Rare" };
+    List<string> _slots = new(), _affixKinds = new();
     readonly Tree _table;
     readonly Button _sell = new() { Text = "Sell marked", CustomMinimumSize = new Vector2(250, 0) };
     readonly Button _junkCheck = new();
@@ -109,6 +122,31 @@ public sealed class Window
         filters.AddChild(_kindPick);
         body.AddChild(filters);
 
+        var gear = new HBoxContainer();
+        gear.AddThemeConstantOverride("separation", 8);
+        Label gearTitle = Style.Label("Gear slot", Style.Muted);
+        gearTitle.VerticalAlignment = VerticalAlignment.Center;
+        gear.AddChild(gearTitle);
+        _slotPick.ItemSelected += _ => Rebuild();
+        _rarityPick.ItemSelected += _ => Rebuild();
+        _affixPick.ItemSelected += _ => Rebuild();
+        _levelPick.ItemSelected += _ => Rebuild();
+        foreach (int l in LevelSteps) _levelPick.AddItem(l == 0 ? "Any level" : $"Level {l} or lower");
+        _levelPick.Select(0);
+        foreach (string r in Rarities) _rarityPick.AddItem(r);
+        _rarityPick.Select(0);
+        gear.AddChild(_slotPick);
+        _rarityLabel.VerticalAlignment = VerticalAlignment.Center;
+        gear.AddChild(_rarityLabel);
+        gear.AddChild(_rarityPick);
+        _affixLabel.VerticalAlignment = VerticalAlignment.Center;
+        gear.AddChild(_affixLabel);
+        gear.AddChild(_affixPick);
+        gear.AddChild(_levelPick);
+        gear.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        gear.AddChild(MakeButton("Clear filters", ClearFilters));
+        body.AddChild(gear);
+
         var picks = new HBoxContainer();
         picks.AddThemeConstantOverride("separation", 10);
         picks.AddChild(Style.Label("Mark:", Style.Muted));
@@ -132,17 +170,18 @@ public sealed class Window
 
         _table = new Tree
         {
-            Columns = 5, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true,
+            Columns = 6, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 240)
         };
-        string[] titles = { "Sell", "Item", "In bank", "Each", "You get" };
+        string[] titles = { "Sell", "Item", "Level", "In bank", "Each", "You get" };
         for (int c = 0; c < titles.Length; c++)
         {
             _table.SetColumnTitle(c, titles[c]);
-            _table.SetColumnTitleAlignment(c, c >= ColQuantity ? HorizontalAlignment.Right : HorizontalAlignment.Left);
+            _table.SetColumnTitleAlignment(c, c >= ColLevel ? HorizontalAlignment.Right : HorizontalAlignment.Left);
             _table.SetColumnExpand(c, c == ColItem);
         }
         _table.SetColumnCustomMinimumWidth(ColMark, 60);
+        _table.SetColumnCustomMinimumWidth(ColLevel, 70);
         _table.SetColumnCustomMinimumWidth(ColQuantity, 120);
         _table.SetColumnCustomMinimumWidth(ColEach, 110);
         _table.SetColumnCustomMinimumWidth(ColTotal, 150);
@@ -160,7 +199,7 @@ public sealed class Window
             if (button != (long)MouseButton.Left) return;
             // First click sorts (numbers: biggest first), a second click on the same title turns the order around.
             if (_sortColumn == (int)column) _sortDescending = !_sortDescending;
-            else { _sortColumn = (int)column; _sortDescending = column >= ColQuantity; }
+            else { _sortColumn = (int)column; _sortDescending = column >= ColLevel; }
             Rebuild();
         };
         body.AddChild(_table);
@@ -267,6 +306,15 @@ public sealed class Window
         int at = _kinds.IndexOf(kind);
         _kindPick.Select(at >= 0 ? at + 1 : 0);
 
+        _slots = _entries.Where(e => e.Slot != "").Select(e => e.Slot).Distinct()
+            .OrderBy(s => Array.IndexOf(SlotOrder, s) is int i && i >= 0 ? i : 99).ThenBy(s => s).ToList();
+        Refill(_slotPick, new[] { "Any item", "All gear", "Not gear" }.Concat(_slots));
+        _affixKinds = _entries.Where(e => e.Rarity is "Magic" or "Rare").SelectMany(e => e.Affixes).Select(Gear.AffixKind).Distinct()
+            .OrderBy(k => k.TrimStart('+', '-', '#', '%', ' '), StringComparer.OrdinalIgnoreCase).ToList();
+        Refill(_affixPick, new[] { "Any affix" }.Concat(_affixKinds.Select(Gear.AffixName)));
+        bool rares = Gear.RaresLoaded;
+        _rarityLabel.Visible = _rarityPick.Visible = _affixLabel.Visible = _affixPick.Visible = rares;
+
         int locked = Bank.LockedCount(_bank);
         _hidden.Text = locked > 0 ? $"{locked} locked stack(s) are protected and not listed." : "";
         Rebuild();
@@ -281,12 +329,34 @@ public sealed class Window
         if (kind > 0 && kind <= _kinds.Count) list = list.Where(e => e.Item.BankTags.Any(t => t.BankTag.DisplayName.Text == _kinds[kind - 1]));
         else if (kind == _kinds.Count + 1) list = list.Where(e => e.Item.BankTags.Count == 0);
         string text = _search.Text.Trim();
-        if (text != "") list = list.Where(e => Bank.Name(e.Item).Contains(text, StringComparison.OrdinalIgnoreCase));
+        // the search also finds a rare item by its base item ("amulet") and its affixes ("lifesteal")
+        if (text != "") list = list.Where(e => Bank.Name(e.Item).Contains(text, StringComparison.OrdinalIgnoreCase)
+                                               || e.BaseName.Contains(text, StringComparison.OrdinalIgnoreCase)
+                                               || e.Affixes.Any(a => a.Contains(text, StringComparison.OrdinalIgnoreCase)));
+        int slot = _slotPick.Selected;
+        if (slot == 1) list = list.Where(e => e.Slot != "");
+        else if (slot == 2) list = list.Where(e => e.Slot == "");
+        else if (slot >= 3 && slot - 3 < _slots.Count) list = list.Where(e => e.Slot == _slots[slot - 3]);
+        if (_rarityPick.Visible)
+            list = _rarityPick.Selected switch
+            {
+                1 => list.Where(e => e.Rarity == ""),
+                2 => list.Where(e => e.Rarity == "Magic"),
+                3 => list.Where(e => e.Rarity == "Rare"),
+                4 => list.Where(e => e.Rarity == "Unique"),
+                5 => list.Where(e => e.Rarity is "Magic" or "Rare"),
+                _ => list,
+            };
+        int affix = _affixPick.Selected;
+        if (_affixPick.Visible && affix >= 1 && affix - 1 < _affixKinds.Count)
+            list = list.Where(e => e.Affixes.Any(a => Gear.AffixKind(a) == _affixKinds[affix - 1]));
+        if (MaxLevel > 0) list = list.Where(e => e.Slot != "" && e.Level <= MaxLevel);
 
         list = _sortColumn switch
         {
             ColMark => list.OrderByDescending(e => _marked.Contains(e.Item)).ThenBy(e => e.Order),
             ColItem => list.OrderBy(e => Bank.Name(e.Item), StringComparer.OrdinalIgnoreCase),
+            ColLevel => list.OrderBy(e => e.Level),
             ColQuantity => list.OrderBy(e => e.Quantity),
             ColEach => list.OrderBy(e => e.Price),
             ColTotal => list.OrderBy(e => e.Price * e.Quantity),
@@ -302,16 +372,48 @@ public sealed class Window
             Entry e = _shown[i];
             TreeItem row = _table.CreateItem(root);
             row.SetMetadata(ColItem, i);
-            row.SetText(ColItem, Bank.Name(e.Item));
+            row.SetText(ColItem, e.BaseName != "" ? $"{Bank.Name(e.Item)}  ·  {e.BaseName}" : Bank.Name(e.Item));
             row.SetIcon(ColItem, e.Item.Icon);
             row.SetIconMaxWidth(ColItem, 22);
-            for (int c = ColQuantity; c <= ColTotal; c++) row.SetTextAlignment(c, HorizontalAlignment.Right);
+            if (e.Color is { } rarity) row.SetCustomColor(ColItem, rarity);
+            row.SetTooltipText(ColItem, e.Rarity == "" ? "" :
+                $"{e.Rarity} {e.BaseName}{(e.Level > 0 ? $", item level {e.Level}" : "")}\n{string.Join("\n", e.Affixes)}");
+            row.SetText(ColLevel, e.Level > 0 ? e.Level.ToString() : "");
+            row.SetCustomColor(ColLevel, Style.Muted);
+            for (int c = ColLevel; c <= ColTotal; c++) row.SetTextAlignment(c, HorizontalAlignment.Right);
             row.SetCustomColor(ColEach, Style.Muted);
         }
         Repaint();
     }
 
     int Sellable(Entry e) => Math.Max(0, e.Quantity - (int)_keep.Value);
+
+    /// <summary>Fills a drop-down list again, keeping what was picked when it is still there.</summary>
+    static void Refill(OptionButton pick, IEnumerable<string> options)
+    {
+        string was = pick.Selected >= 0 && pick.Selected < pick.ItemCount ? pick.GetItemText(pick.Selected) : "";
+        pick.Clear();
+        int at = 0, i = 0;
+        foreach (string o in options)
+        {
+            pick.AddItem(o);
+            if (o == was) at = i;
+            i++;
+        }
+        pick.Select(at);
+    }
+
+    void ClearFilters()
+    {
+        _search.Text = "";
+        _tabPick.Select(0);
+        _kindPick.Select(0);
+        _slotPick.Select(0);
+        _rarityPick.Select(0);
+        _affixPick.Select(0);
+        _levelPick.Select(0);
+        Rebuild();
+    }
 
     /// <summary>Updates numbers, marks and the summary without rebuilding the table.</summary>
     void Repaint()
@@ -344,7 +446,7 @@ public sealed class Window
         _sell.Text = "Sell marked";
         _junkCheck.Text = $"My junk list ({Junk.Count})";
         _junkCheck.Disabled = Junk.Count == 0;
-        _addJunk.Disabled = !_marked.Any(i => !Junk.Contains(i));
+        _addJunk.Disabled = !_entries.Any(e => e.Rarity == "" && _marked.Contains(e.Item) && !Junk.Contains(e.Item));
         _removeJunk.Disabled = !_marked.Any(Junk.Contains);
     }
 
@@ -367,10 +469,14 @@ public sealed class Window
 
     void AddJunkPressed()
     {
-        int n = Junk.Add(_marked);
+        // a rare item (One Style) is one of a kind: its id means nothing once it is sold, so it never goes on the list
+        var rare = _entries.Where(e => e.Rarity != "").Select(e => e.Item).ToHashSet();
+        int skipped = _marked.Count(rare.Contains);
+        int n = Junk.Add(_marked.Where(i => !rare.Contains(i)));
         _marked.Clear();
         Repaint();
-        Say($"{n} item(s) added to your junk list ({Junk.Count} on it). \"Sell junk\" in the bank sells them with two clicks.");
+        Say($"{n} item(s) added to your junk list ({Junk.Count} on it). \"Sell junk\" in the bank sells them with two clicks."
+            + (skipped > 0 ? $" {skipped} rare item(s) left off: each is one of a kind, sell those with Rarity and \"Sell marked\"." : ""));
     }
 
     void RemoveJunkPressed()
@@ -419,6 +525,21 @@ public sealed class Window
     // ---------------------------------------------------------------- for tests
 
     public void SetSearch(string text) { _search.Text = text; Rebuild(); }
+    /// <summary>For tests: picks an entry of the gear row by its text ("Rare", "Ring", "+#% lifesteal"...).</summary>
+    public bool Pick(string list, string text)
+    {
+        OptionButton pick = list switch { "slot" => _slotPick, "rarity" => _rarityPick, "affix" => _affixPick, _ => _kindPick };
+        for (int i = 0; i < pick.ItemCount; i++)
+            if (pick.GetItemText(i) == text) { pick.Select(i); Rebuild(); return true; }
+        return false;
+    }
+    public void SetMaxLevel(int level) { _levelPick.Select(Math.Max(0, Array.IndexOf(LevelSteps, level))); Rebuild(); }
+    public void PressClearFilters() => ClearFilters();
+    public IReadOnlyList<string> Options(string list)
+    {
+        OptionButton pick = list switch { "slot" => _slotPick, "rarity" => _rarityPick, "affix" => _affixPick, _ => _kindPick };
+        return Enumerable.Range(0, pick.ItemCount).Select(pick.GetItemText).ToList();
+    }
     public void SetKeep(int keep) => _keep.Value = keep;
     public void ClickRow(int index)
     {

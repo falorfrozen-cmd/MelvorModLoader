@@ -1,4 +1,4 @@
-PHONE SCREEN 0.1.0  -  for Melvor Idle 2 (requires Melvor Mod Loader)
+PHONE SCREEN 0.1.1  -  for Melvor Idle 2 (requires Melvor Mod Loader)
 =================================================================
 
 Run your character from your phone's browser while the game runs on your PC: see what
@@ -43,6 +43,7 @@ More     Action Queue (pause, resume, add, move, remove, clear, load and save
          bank), Multitask (how many actions at once), Cheat Menu (opens closed:
          nothing changes until you switch something).
 Pictures of skills, items, monsters, prayers and spells come from the game itself.
+With One Style, rare items show in their colour with item level and affixes (Gear, Bank).
 The bell: alerts, with sound and vibration while the page is open.
 
 AWAY FROM HOME (mobile data, work Wi-Fi): WITH TAILSCALE

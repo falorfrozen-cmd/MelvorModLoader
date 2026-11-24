@@ -307,8 +307,7 @@ public sealed class ClassWindow
         toggles.AddChild(safe);
         tv.AddChild(toggles);
         tv.AddChild(Text($"Ember: {p.Ember:N0}   ·   Trophies: {p.Trophies} / {Elites.Known}", Style.Good, 15));
-        tv.AddChild(Text("Spend Ember on a rare item's values: select a Magic or Rare item in your bank and press \"Reroll values\" (2 to 10 Ember).",
-            Style.Muted, 12));
+        tv.AddChild(Text("Ember rerolls a Magic or Rare item: select it in your bank and press \"Reroll\".", Style.Muted, 12));
         top.AddChild(tv);
         _body.AddChild(top);
 
@@ -369,13 +368,19 @@ public sealed class ClassWindow
         var box = Section();
         var v = new VBoxContainer();
         v.AddThemeConstantOverride("separation", 4);
-        v.AddChild(Text("Rare items", Style.Text, 15));
-        v.AddChild(Text("Monsters drop gear as Magic (blue, 2 affixes), Rare (yellow, 3 or 4 affixes) or Unique (orange) items, straight into "
-                        + "your bank with a coloured frame: 2% a kill (1% Magic, 1% Rare), one from every Champion, two from every Unique, plus the Unique's own item. "
-                        + "The gear is any piece near the monster's level, not only its own drops (a Golbin can drop a rare sword): a monster's drop list "
-                        + "shows them all with \"Show the N possible items\". "
-                        + "Hold Alt over one to see each affix's tier (T1 is the best) and range. The Elites button next to a monster lists what it drops.",
-                        Style.Muted, 12));
+        v.AddChild(Text("How rare drops work", Style.Text, 15));
+        v.AddChild(Bullet("Magic (blue) has 2 affixes, Rare (yellow) 3, one in five 4, Unique (orange) is a fixed item of one monster's Unique. "
+                          + "They go straight into your bank with a coloured frame."));
+        v.AddChild(Bullet("A normal kill: 1% Magic and 1% Rare. A Champion always drops 1 (Magic 60%, Rare 33%, Rare with 4 affixes 7%). "
+                          + "A Unique drops 2 (1 Rare, 1 with a Champion's chances) and 15% its own Unique item. Champions are about 6 kills in 100, "
+                          + "so most rare items come from them."));
+        v.AddChild(Bullet("The item level is the monster's combat level (+5 on your Slayer task or from a dungeon's last boss, which also gives "
+                          + "one more item). It sets the best affix tier: T5 below 15, T4 from 15, T3 from 35, T2 from 60, T1 from 85. "
+                          + "You need about 80% of the item level to wear it."));
+        v.AddChild(Bullet("The gear is any piece near the monster's level, not only its own drops (a Golbin can drop a rare Stone Sword, never "
+                          + "a level 50 item); every slot is as likely, weapons only of your class's style. A monster's drop list shows them all "
+                          + "(\"Show possible items\"); the percentage there is the share of its rare drops, not a chance per kill."));
+        v.AddChild(Bullet("Hold Alt over a rare item to see each affix's tier and range. Ember rerolls a Magic or Rare item's numbers in the bank."));
         foreach (RolledItem r in RareItems.LastDrops.GetRange(0, System.Math.Min(8, RareItems.LastDrops.Count)))
         {
             Label l = Text($"{RareItems.RarityName(r.Rarity)}: {r.Name}", RareItems.Colors[r.Rarity], 12);

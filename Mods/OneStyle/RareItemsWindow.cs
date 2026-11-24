@@ -37,15 +37,13 @@ public static partial class RareItems
         switch (tier)
         {
             case EliteTier.Normal:
-                yield return ($"Normal kill: 1% chance for 1 Magic item (2 affixes) and 1% for 1 Rare item (80% with 3 affixes, 20% with 4). Item level {iLvl}{task}: affix tiers up to T{best} (T1 is the best).", Colors[Rarity.Rare], null);
-                yield return (PoolLine(iLvl), new Color(0.85f, 0.85f, 0.85f), null);
+                yield return ($"Rare drops: Magic 1%, Rare 1% a kill  ·  item level {iLvl}{task}, tiers up to T{best}", Colors[Rarity.Rare], null);
                 break;
             case EliteTier.Champion:
-                yield return ($"1 item: Magic (2 affixes) 60%, Rare (3 affixes) 33%, Rare (4 affixes) 7%. On your Slayer task or as a dungeon's last boss every drop gets +5 item level, and a Champion or Unique drops 1 more item with these chances.",
-                    Colors[Rarity.Magic], null);
+                yield return ("Rare drops: 1 item (Magic 60%, Rare 40%)", Colors[Rarity.Magic], null);
                 break;
             case EliteTier.Unique:
-                yield return ("2 items: 1 Rare (80% with 3 affixes, 20% with 4), plus 1 with a Champion's chances.", Colors[Rarity.Rare], null);
+                yield return ("Rare drops: 2 items (1 Rare, 1 as a Champion's)", Colors[Rarity.Rare], null);
                 if (Uniques.ForMonster(enemy.Id) is { } u)
                 {
                     double chance = Uniques.ChanceNow(u);

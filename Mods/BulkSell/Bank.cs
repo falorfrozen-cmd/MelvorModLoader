@@ -23,6 +23,12 @@ public sealed class Entry
     public required int Order;      // position in the bank, for the default order
     public int Quantity;
     public long Price;              // per item, with the character's sale bonuses
+    public string Slot = "";        // equipment slot ("Helmet"), "" for anything that is not gear
+    public int Level;               // a rare item's item level, else the level the gear asks for (0: none)
+    public string Rarity = "";      // One Style: "Magic", "Rare" or "Unique"; "" for a normal item
+    public string BaseName = "";    // One Style: the game item it is made from
+    public Godot.Color? Color;      // One Style: the rarity's colour
+    public string[] Affixes = Array.Empty<string>();
 }
 
 /// <summary>Reading the bank and selling from it, always through the game's own sale code.</summary>
@@ -51,7 +57,9 @@ public static class Bank
             {
                 order++;
                 if (stack.IsLocked || stack.IsPlaceholder || stack.Quantity <= 0) continue;
-                list.Add(new Entry { Item = stack.Item, Tab = tab, Order = order, Quantity = stack.Quantity, Price = Price(bank, stack.Item) });
+                var entry = new Entry { Item = stack.Item, Tab = tab, Order = order, Quantity = stack.Quantity, Price = Price(bank, stack.Item) };
+                Gear.Describe(entry);
+                list.Add(entry);
             }
         return list;
     }

@@ -110,4 +110,11 @@ public class OneStyleMod : IMod
         _window ??= new ClassWindow(_ctx.Tree);
         _window.Show();
     }
+
+    /// <summary>The window on its Elites page, where "How rare drops work" is (the "?" of a drop list).</summary>
+    public void OpenElitesPage()
+    {
+        if (_window is not { Visible: true }) ToggleWindow();
+        _window?.ShowPage(true);
+    }
 }

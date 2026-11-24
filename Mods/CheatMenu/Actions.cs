@@ -20,8 +20,14 @@ public static class Actions
     public static List<Currency> Currencies(Game game) =>
         game.Data.GetDataRegistryOutput<Currency>().GetAllObjects().ToList();
 
+    /// <summary>
+    /// Every game item, by name. One Style's rare items ("Os..." local ids) are left out: each one only exists with
+    /// One Style's own record of it, so a given copy would be broken (a sold one) or a duplicate (a unique).
+    /// </summary>
     public static List<Item> Items(Game game) =>
-        game.Data.GetDataRegistryOutput<Item>().GetAllObjects().OrderBy(ItemName, StringComparer.OrdinalIgnoreCase).ToList();
+        game.Data.GetDataRegistryOutput<Item>().GetAllObjects()
+            .Where(i => !i.LocalId.StartsWith("Os", StringComparison.Ordinal))
+            .OrderBy(ItemName, StringComparer.OrdinalIgnoreCase).ToList();
 
     public static string ItemName(Item item) => item.DisplayName.GetPluralText(1);
 

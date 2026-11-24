@@ -3,7 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>PhoneScreen</AssemblyName>
     <RootNamespace>PhoneScreen</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Product>Melvor Idle 2 Phone Screen</Product>
     <AssemblyTitle>Phone Screen</AssemblyTitle>
     <Description>Follow your Melvor Idle 2 character from your phone's browser on the same Wi-Fi: what is running, combat, the Action Queue, your adventurers and the bank, with alerts (requires Melvor Mod Loader). F2 opens it.</Description>

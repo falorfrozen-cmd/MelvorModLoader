@@ -130,12 +130,14 @@ Rewards:
   again. Monsters without loot (most dungeon bosses) pay gold from their hit points and
   half again the Ember. A dungeon's own reward does not change.
   Champions and Uniques also drop rare items (see RARE ITEMS).
-  Ember is the mod's own currency. Its first use: reroll a rare item's values. Select a Magic
-  or Rare item in your bank (not one you wear); under its affixes press "Reroll values". The
-  affixes and their tiers stay, every number is rolled again inside its tier's range, and you
-  see old and new side by side (green better, red worse): "Take the new values" or "Keep the
-  old ones". It costs 2 x (1 + item level / 20, at most 5) Ember: 2 to 10. Unique items are not
-  rerolled. A paid roll waits in the item until you choose, even over a restart.
+  Ember is the mod's own currency. Its first use: reroll a rare item's numbers, a small gamble.
+  Select a Magic or Rare item in your bank (not one you wear) and press "Reroll". The affixes
+  and their tiers stay, every number is rolled again inside its tier's range, and the item
+  keeps the new numbers at once: there is no going back. A window shows the item before (left)
+  and after (right), green where a number went up, red where it went down; "Reroll again" pays
+  once more. At least one number always changes; an item whose numbers are all fixed at its
+  tiers (common at item level 1) cannot be rerolled. It costs 2 x (1 + item level / 20, at
+  most 5) Ember: 2 to 10. Unique items are not rerolled.
 
 Trophies (179): the first Unique of a monster gives its trophy. Each trophy: +0.15% elite
 chance and +0.1% Ember. 10 trophies: +2% elite gold. 25: +1% max hit points. 50: +1 Unique
@@ -172,16 +174,29 @@ Who drops what:
   requirement and the level of its easiest source (the monster that drops it, its crafting
   level...): Hypnotic Amulet asks for no level but comes from a level 75 monster, so it is
   level 75 here. A weapon of another style can drop when no class is chosen: wear it, or keep it.
-  Every monster's drop list shows these items: under "One Style: rare items" press "Show the N
-  possible items" for the list, slot by slot, with each item's share of the rare items dropped.
+  Every monster's drop list has a short "Possible rare drops" part: the Magic and Rare chance
+  a kill, how often its Champion and Unique come and what they drop, the item level, and
+  "Show possible items" for the gear list, slot by slot, with each item's share of the
+  rare items dropped. Its "?" opens this explanation in the One Style window (Elites page,
+  "How rare drops work").
+  Most rare items come from Champions: about 6 kills in 100 are a Champion and it always
+  drops one. (Cheat Menu's faster respawns mean more kills a minute, so more of everything.)
+  The game has no picture yet for a few pieces of gear (Beastslayer armour, Storm Fang...):
+  they never come as rare items.
 
 Item level and tiers: the item level is the monster's combat level (+5, see above). It sets
 the best tier an affix can roll:
     item level  1-14: T5    15-34: T4    35-59: T3    60-84: T2    85+: T1
   An affix rolls its best tier half the time, one lower 35%, two lower 15%. T1 is the highest.
-  Every tier has its own range and the ranges never overlap. Hold Alt over an item (in the
-  bank or worn) to see the item level and, for each affix, its tier, prefix or suffix, name
-  and range:  +16% max hit   [T1 prefix "Keen": 14-18]
+  Every tier has its own range and the ranges never overlap. Under a rare item's name you see
+  one line per affix (the game's own "Bonuses" list below it splits some into several lines:
+  "+2% combat XP" is six skills, so a 3-affix amulet can show 10 bonus lines). Hold Alt over an
+  item (in the bank or worn) to see, for each affix, its tier, prefix or suffix, name and range:
+  +16% max hit   [T1 prefix "Keen": 14-18]
+  With the Better Tooltips mod, its tooltips show the same: the name in the rarity's colour
+  and the affix lines under it (tiers with Alt).
+  Our other mods know rare items too: Bulk Sell filters them by rarity, slot, affix and level,
+  Action Queue and Phone Screen can equip and sell them, Cheat Menu does not list them.
 
 The 48 affixes (X = the rolled value; the best tier's range; where it can roll):
   Prefixes:
@@ -342,7 +357,7 @@ Your rare items in the save:
 - The item panel's "Found in" shows the combat icon: rare items only drop from monsters.
 - The game's drop lists show them: the chest tab of the fight screen, the drop icons on each
   monster in the combat area list (the Unique's item with its real chance per kill), and
-  "View all Stats & Drops" (with the button "Show the N possible items": the gear a rare item
+  "View all Stats & Drops" (with the button "Show possible items": the gear a rare item
   can be made from, slot by slot). Rare items are rolled on their own, next to the monster's
   loot; the monster's own loot does not change.
 - The Elites page of the window lists your last drops.

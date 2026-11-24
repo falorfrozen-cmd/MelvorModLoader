@@ -1,4 +1,4 @@
-Bulk Sell 0.2.4  -  a mod for Melvor Idle 2
+Bulk Sell 0.3.0  -  a mod for Melvor Idle 2
 ===========================================
 
 Quality-of-life buttons for the bank. Not a cheat: everything goes through the game's own
@@ -31,6 +31,14 @@ Open the bank. Next to the search box there are new buttons:
               "junk" in the first column; "My junk list" marks all of them.
   Bury all    buries every bone in the bank. Shown only when there is something to bury.
   Open all    opens every chest, bag and pack. Shown only when there is something to open.
+The Bulk sell window has two rows of filters:
+  Search, bank tab and kind (what the bank calls it). The search also finds a rare item by its
+  base item ("amulet") and its affixes ("lifesteal").
+  Gear slot (or "All gear" / "Not gear"), level ("Level 30 or lower"...) and,
+  with the One Style mod, rarity (Normal, Magic, Rare, Unique, Magic + Rare) and affix.
+  "Clear filters" puts them all back. The Level column shows a rare item's item level, or the
+  level a piece of gear asks for; rare items have their rarity's colour, and their affixes
+  show when you point at the name. Example: Rarity "Magic", "Mark: All shown", "Sell marked".
 F7 opens the Bulk sell window from anywhere (so does the Mods button in the top bar, where the key can be changed).
 
 
@@ -39,6 +47,8 @@ GOOD TO KNOW
 - Every one-click button asks once before it acts (the button text turns into a question).
 - Stacks you have locked in the bank are never sold, buried or opened.
 - The junk list is remembered per character in "bulksell.json" next to the mod.
+- One Style's rare items never go on the junk list (each is one of a kind): sell them with the
+  Rarity filter and "Sell marked".
 
 
 UNINSTALL

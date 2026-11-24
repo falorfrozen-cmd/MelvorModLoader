@@ -74,39 +74,72 @@ public static partial class RareItems
 
         var box = new VBoxContainer { Name = DropsName };
         box.SetMeta("enemy", key);
-        box.AddThemeConstantOverride("separation", 4);
+        box.AddThemeConstantOverride("separation", 3);
         var text = new List<string>();
-        void Line(string s, Color c, int size = 13)
+        // short, as the game's own lists: what can drop and how often; the long explanation is in the One Style window
+        // ("?" on the title, the Elites page's "How rare drops work"), in the README and on the mod page (user, 2026-11-24)
+        var title = new HBoxContainer();
+        title.AddThemeConstantOverride("separation", 6);
+        var head0 = new Label { Text = "Possible rare drops  ·  per kill", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 30),
+            VerticalAlignment = VerticalAlignment.Bottom };
+        head0.AddThemeFontSizeOverride("font_size", 15);
+        title.AddChild(head0);
+        var help = new Button { Text = "?", TooltipText = "How rare drops work (One Style window)", FocusMode = Control.FocusModeEnum.None,
+            CustomMinimumSize = new Vector2(30, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkEnd };
+        help.Pressed += () => OneStyleMod.Instance?.OpenElitesPage();
+        title.AddChild(help);
+        box.AddChild(title);
+        text.Add(head0.Text);
+        void Row(string left, string right, Color c)
         {
-            var l = new Label { Text = s, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(320, 0) };
-            l.AddThemeFontSizeOverride("font_size", size);
+            var row = new PanelContainer();
+            var bg = new StyleBoxFlat { BgColor = new Color(1, 1, 1, 0.045f) };
+            bg.SetCornerRadiusAll(4);
+            bg.SetContentMarginAll(5);
+            bg.ContentMarginLeft = bg.ContentMarginRight = 10;
+            row.AddThemeStyleboxOverride("panel", bg);
+            var h = new HBoxContainer();
+            var l = new Label { Text = left, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            l.AddThemeFontSizeOverride("font_size", 14);
             l.AddThemeColorOverride("font_color", c);
+            var r = new Label { Text = right, HorizontalAlignment = HorizontalAlignment.Right };
+            r.AddThemeFontSizeOverride("font_size", 14);
+            h.AddChild(l);
+            h.AddChild(r);
+            row.AddChild(h);
+            box.AddChild(row);
+            text.Add($"{left}  {right}");
+        }
+        void Note(string s)
+        {
+            var l = new Label { Text = s, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(300, 0) };
+            l.AddThemeFontSizeOverride("font_size", 12);
+            l.AddThemeColorOverride("font_color", new Color(0.62f, 0.64f, 0.68f));
             box.AddChild(l);
             text.Add(s);
         }
-        box.AddChild(new HSeparator());
-        Line("One Style: rare items", new Color(1f, 0.85f, 0.45f), 15);
-        bool elite = Elites.InfoOf(enemy.Id) != null;
+        bool elite = Elites.InfoOf(enemy.Id) != null && Elites.Enabled;
         int iLvl = PreviewItemLevel(enemy);
-        string poolLine = PoolLine(iLvl);
-        foreach (var (s, c, _) in DropLines(enemy, EliteTier.Normal)) Line(s == poolLine ? PoolLine(iLvl, inDrops: true) : s, c);
+        double m = UniquePowers.RareLootMultiplier;
+        string Pct(double p) => FormattableString.Invariant($"{Math.Min(1, p) * 100:0.##}%");
+        Row("Magic item", Pct(NormalMagic * m), Colors[Rarity.Magic]);
+        Row("Rare item", Pct(NormalRare * m), Colors[Rarity.Rare]);
         if (elite)
         {
-            foreach (var (s, c, _) in DropLines(enemy, EliteTier.Champion)) Line("As a Champion: " + s, c);
-            Line("As a Unique: 2 items: 1 Rare (80% with 3 affixes, 20% with 4), plus 1 with a Champion's chances.", Colors[Rarity.Rare]);
+            var (champion, unique) = Elites.Chances(enemy, inArea: true);
+            Row($"Champion ({Pct(champion)} of kills)", "1 item", new Color(0.55f, 0.75f, 1f));
+            Row($"Unique ({Pct(unique)} of kills)", "2 items", new Color(1f, 0.6f, 0.3f));
         }
+        Note($"Item level {iLvl}{(iLvl > enemy.CombatLevel ? " (Slayer task +5)" : "")}  ·  level {Math.Clamp((int)Math.Round(iLvl * 0.8), 1, 99)}+ to wear");
         // the game items a rare drop can be made from, as the game's own rows (icon, tooltip, chance of each)
         var shares = BaseShares(game, iLvl, DropStyle());
         if (shares.Count > 0)
         {
             var slots = shares.GroupBy(x => SlotOf(x.Item)).ToList();
-            Line($"The list shows base items only: each drops as a Magic or Rare item with its own name and needs level "
-                 + $"{Math.Clamp((int)Math.Round(iLvl * 0.8), 1, 99)}+ to wear. The percentage next to an item is the chance that a dropped "
-                 + "rare item uses that base, not a chance per kill.", new Color(0.85f, 0.85f, 0.85f));
             // the list is long: closed until asked for, one part per slot
             var list = new VBoxContainer { Visible = false };
             list.AddThemeConstantOverride("separation", 2);
-            string rest = $"the {shares.Count} possible items ({slots.Count} slots)";
+            string rest = $"possible items ({shares.Count})";
             var toggle = new Button { Text = "▸  Show " + rest, Alignment = HorizontalAlignment.Left };
             toggle.AddThemeColorOverride("font_color", new Color(1f, 0.9f, 0.55f));
             toggle.AddThemeColorOverride("font_hover_color", new Color(1f, 1f, 0.8f));
@@ -121,7 +154,7 @@ public static partial class RareItems
             foreach (var group in slots)
             {
                 int n = group.Count();
-                var head = new Label { Text = FormattableString.Invariant($"{group.Key}: {n} {(n == 1 ? "item" : "items")}, {100.0 / slots.Count:0.#}% of rare drops together") };
+                var head = new Label { Text = FormattableString.Invariant($"{group.Key}  ·  {100.0 / slots.Count:0.#}% of rare drops") };
                 head.AddThemeFontSizeOverride("font_size", 13);
                 head.CustomMinimumSize = new Vector2(0, 24);   // a little room above each slot
                 head.VerticalAlignment = VerticalAlignment.Bottom;
@@ -141,13 +174,17 @@ public static partial class RareItems
         {
             string who = Elites.InfoOf(enemy.Id)?.UniqueName is { Length: > 0 } n ? n : "its Unique";
             double chance = Uniques.ChanceNow(u);
-            Line($"Its Unique ({who}) also drops its own item, {u.Name}: {chance * 100:0}% on every Unique kill. "
-                 + "Its chance below is per Unique kill.", Colors[Rarity.Unique]);
+            var uh = new Label { Text = $"{who}'s own item (per Unique kill)", CustomMinimumSize = new Vector2(0, 26), VerticalAlignment = VerticalAlignment.Bottom };
+            uh.AddThemeFontSizeOverride("font_size", 13);
+            uh.AddThemeColorOverride("font_color", Colors[Rarity.Unique]);
+            box.AddChild(uh);
+            text.Add($"{uh.Text}: {u.Name} {chance * 100:0}%");
             var table = new WeightedTable<WeightedItemDrop>();
             table.AddItem(new WeightedItemDrop(1, item, 1, 1));
             var row = TableSceneOf(drops).Instantiate<ItemDropTableChanceContainer>();
             box.AddChild(row);
             row.SetTable(new ItemDropTableChance(Math.Min(1, chance), table), null);
+            TitleOf(row).Visible = false;   // our own line above says what it is
         }
         tables.AddChild(box);
         DropListText = string.Join("\n", text);

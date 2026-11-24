@@ -143,6 +143,7 @@ public sealed class Catalog
                 w.WriteNumber("price", item.SellsFor.Quantity);
                 if (group.Any(x => x.IsLocked)) w.WriteBoolean("locked", true);
                 if (item.Capabilities.Contains<FoodCapability>()) w.WriteBoolean("food", true);
+                Rares.Write(w, item);
                 w.WriteEndObject();
             }
         w.WriteEndArray();

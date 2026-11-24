@@ -15,12 +15,18 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\BulkSell-0.2.4.zip   (name: Bulk Sell, version 0.2.4)
+MAIN FILE:  dist\BulkSell-0.3.0.zip   (name: Bulk Sell, version 0.3.0)
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\banka-2-toplu-satis.png (main image), banka-1-dugmeler.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.3.0
+- New gear filters: slot, level ("Level 30 or lower") and, with the One Style mod, rarity (Magic, Rare, Unique...) and affix; "Clear filters"
+- A Level column; rare items in their rarity's colour, their affixes when you point at the name
+- The search also finds a rare item's base item and affixes
+- Rare items are left off the junk list (each is one of a kind)
+
 0.2.4
 - Items can be taken off the junk list again: mark them and press "Remove marked from junk" (asked for on Nexus, thank you!). "Add marked to junk" adds without touching the rest
 - Rows on your junk list say "junk" in the first column
@@ -59,6 +65,7 @@ This is Bulk Sell [b]0.2.4[/b], tested on game version [b]0.11.6-alpha.1[/b] wit
 [*]Every sellable stack in one table: icon, amount, price each, what you would get.
 [*]Click a row to mark it. "All shown", "None" and "Invert shown" mark many at once.
 [*]Filter by search text, by bank tab and by kind (Woodcutting, Smithing, ... or "Untagged").
+[*][b]Gear filters:[/b] slot, level ("Level 30 or lower") and, with the One Style mod, rarity (Magic, Rare, Unique, Magic + Rare) and affix. Rare items show in their colour, their affixes when you point at the name, and the search finds affixes too ("lifesteal").
 [*][b]Keep of each:[/b] leave a number of every marked item in the bank.
 [*]Click a column title to sort, for example most valuable first.
 [*]The bottom line always shows how many items go and for how much. Selling needs a second click.

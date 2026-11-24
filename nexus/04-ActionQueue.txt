@@ -30,6 +30,7 @@ DEGISIKLIK LISTESI (Changelogs sekmesi):
 - Safer while the game is closed: the queue never pauses itself with "you started something else" while the game works out the time you were away (right after a restart Multitask has not yet said which running action is its own), and it remembers how many actions Multitask runs at once. Together with 0.9.1's fix this answers "it stopped after the stone" (reported on Nexus, thank you!)
 - The queue diary (queue-log.txt) now says why a queue did not carry on after a restart (another save, or steps changed after the game last saved)
 - Share codes that use the new things start with AQ2: (older versions refuse them with a clear message instead of dropping parts)
+- Works with One Style's rare items: Equip, Sell and item goals find them; the lists show the ones you own in their colour. A step for one you sold says "this rare item is no longer owned"
 
 0.9.1
 - Fixed: out of ammo with "start over at the end" on, the fight step was started again and again, so the character stood in the fight taking hits. A fight you cannot attack in is no longer started ("skipped: out of ammo"); a fight as the idle action is stopped or not started either (reported on Nexus, thank you!)

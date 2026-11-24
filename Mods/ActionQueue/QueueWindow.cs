@@ -516,8 +516,6 @@ public sealed class QueueWindow
         {
             _game = game;
             _skills = Targets.Skills(game);
-            _items = game.Data.GetDataRegistryOutput<Item>().GetAllObjects()
-                .OrderBy(i => i.DisplayName.GetPluralText(1), StringComparer.OrdinalIgnoreCase).ToList();
             _levelSkills = game.LeveledEntities.Select(s => s.DisplayName.Text).ToList();
             Fill(_skillPick, _skills.Select(s => s.Entity.DisplayName.Text).Append(SellChoice).Append(EquipChoice).Append(SwitchChoice));
             Fill(_idleSkill, _skills.Select(s => s.Entity.DisplayName.Text).Prepend("Nothing"));
@@ -528,9 +526,14 @@ public sealed class QueueWindow
             FillTargets(null);
         }
         else FillTargets(_target.SelectedKey, suggest: false);   // what is locked or shown may have changed since
-        // The bank counts in the item lists are those of the moment the window opens.
-        _item.SetEntries(Catalog.Items(game, _items));
-        _orItem.SetEntries(Catalog.Items(game, _items), _orItem.SelectedKey);
+        // The bank counts in the item lists are those of the moment the window opens. They are made again each time:
+        // One Style's rare items come and go while the game runs (only the ones the character owns are listed).
+        _items = Rares.ItemList(game);
+        List<PickEntry<Item>> itemEntries = Rares.Describe(Catalog.Items(game, _items));
+        _item.SetEntries(itemEntries);
+        _orItem.SetEntries(itemEntries, _orItem.SelectedKey);
+        Rares.Paint(_item, game, itemEntries);
+        Rares.Paint(_orItem, game, itemEntries);
         _planPick.SetEntries(Catalog.Items(game, _makeable));
         UntilChanged();
         Repaint();
@@ -916,7 +919,13 @@ public sealed class QueueWindow
     /// </summary>
     void FillTargets(string? select, bool suggest = true)
     {
-        if (_game != null && Equipping) { List<PickEntry<Target>> gear = EquipEntries(_game); _target.SetEntries(gear, KeyIn(gear, select) ?? gear.FirstOrDefault(e => !e.Muted && e.Enabled)?.Key); return; }
+        if (_game != null && Equipping)
+        {
+            List<PickEntry<Target>> gear = EquipEntries(_game);
+            _target.SetEntries(gear, KeyIn(gear, select) ?? gear.FirstOrDefault(e => !e.Muted && e.Enabled)?.Key);
+            Rares.Paint(_target, _game, gear);
+            return;
+        }
         if (_game != null && Switching) { List<PickEntry<Target>> queues = SavedQueueEntries(); _target.SetEntries(queues, KeyIn(queues, select) ?? queues.FirstOrDefault(e => e.Enabled)?.Key); return; }
         if (_game == null || _skillPick.Selected < 0 || _skillPick.Selected >= _skills.Count) return;
         var (entity, action) = _skills[_skillPick.Selected];
@@ -1343,7 +1352,10 @@ public sealed class QueueWindow
         }
     }
 
-    /// <summary>For the Equip step: the game's loadouts first, then every piece of gear, grouped by kind (bank count as hint).</summary>
+    /// <summary>
+    /// For the Equip step: the game's loadouts first, then every piece of gear, grouped by kind (bank count as hint).
+    /// One Style's rare items only while the character has them (in the bank or worn), with their affixes as tooltip.
+    /// </summary>
     static List<PickEntry<Target>> EquipEntries(Game game)
     {
         var entries = new List<PickEntry<Target>>();
@@ -1361,6 +1373,14 @@ public sealed class QueueWindow
             if (!item.Capabilities.TryGet<GamesByMalcs.Melvor2.Components.Equipment.EquipmentCapability>(out var equip)) continue;
             string name = item.DisplayName.GetPluralText(1);
             int owned = bank?.Inventory.GetQuantity(item) ?? 0;
+            if (Rares.Is(item))
+            {
+                bool worn = Rares.Worn(game, item);
+                if (owned <= 0 && !worn) continue;   // sold or never found: One Style keeps it in the game until a restart
+                gear.Add(new PickEntry<Target>(item.Id, name, new Target(item.Id, name, ""), equip.Type.DisplayName.Text, "", item.Icon, equip.Type.Icon,
+                    worn ? "worn" : $"{owned:N0} in bank", Rares.Tooltip(item)));
+                continue;
+            }
             gear.Add(new PickEntry<Target>(item.Id, name, new Target(item.Id, name, ""), equip.Type.DisplayName.Text, "", item.Icon, equip.Type.Icon,
                 owned > 0 ? $"{owned:N0} in bank" : "", Muted: owned <= 0));
         }

@@ -227,6 +227,25 @@ public static class Queue
     static string s_character = "";
     static string s_saveId = "";
     static Dictionary<string, Item> s_items = new();
+    static readonly object s_itemsLock = new();
+
+    /// <summary>
+    /// The item with this id. Items added while the game runs (One Style's rare drops) are not in the copy taken when
+    /// the character was opened: they are looked up in the game and kept. Also called on the game's own thread.
+    /// </summary>
+    static Item? ItemOf(Game game, string id)
+    {
+        lock (s_itemsLock) { if (s_items.TryGetValue(id, out Item? known)) return known; }
+        Item? live = null;
+        try { if (id != "" && !game.Data.GetDataRegistryOutput<Item>().TryGetObjectById(id, out live)) live = null; }
+        catch (Exception) { live = null; }
+        if (live != null) lock (s_itemsLock) s_items[id] = live;
+        return live;
+    }
+
+    /// <summary>Why an item step cannot find its item: a rare drop that is gone was sold (or otherwise lost).</summary>
+    static string NoItem(string id) => Rares.IsDropId(id) ? "skipped: this rare item is no longer owned" : "skipped: this item is not in the game";
+
     static bool s_ranThisRound;
     static volatile bool s_died;   // set from the game's own thread too (a death while offline progress is computed)
     /// <summary>True after a pause: the next Start carries on (finished steps stay finished, wherever they are now).</summary>
@@ -383,7 +402,7 @@ public static class Queue
         if (ReferenceEquals(s_game, game)) return;
         s_game = game;
         s_character = game.CharacterName;
-        s_items = game.Data.GetDataRegistryOutput<Item>().GetAllObjects().ToDictionary(i => i.Id);
+        lock (s_itemsLock) s_items = game.Data.GetDataRegistryOutput<Item>().GetAllObjects().ToDictionary(i => i.Id);
         Read().TryGetValue(s_character, out Saved? saved);
         Steps = saved?.Steps ?? new List<Step>();
         Repeat = saved?.Repeat ?? false;
@@ -908,9 +927,9 @@ public static class Queue
         if (s_game != null)
             foreach (Step step in steps)
             {
-                if (step.IsSell) { if (s_items.ContainsKey(step.TargetId)) known++; continue; }
+                if (step.IsSell) { if (ItemOf(s_game, step.TargetId) != null) known++; continue; }
                 if (step.IsSwitch) { known++; continue; }   // (a name: checked when its turn comes)
-                if (step.IsEquip) { if (step.TargetId.StartsWith(Step.LoadoutPrefix, StringComparison.Ordinal) || s_items.ContainsKey(step.TargetId)) known++; continue; }
+                if (step.IsEquip) { if (step.TargetId.StartsWith(Step.LoadoutPrefix, StringComparison.Ordinal) || ItemOf(s_game, step.TargetId) != null) known++; continue; }
                 ActionComponent? action = Targets.Find(s_game, step.Entity);
                 if (action != null && Targets.All(action).Any(t => t.Id == step.TargetId && t.Extra == step.Extra)) known++;
             }
@@ -1595,10 +1614,13 @@ public static class Queue
     {
         if (EarlierAtWork(step)) { Wait(step, "waiting: for the steps before it to finish"); return; }
         string name = step.SubjectName != "" ? step.SubjectName : step.Name;
-        if (Bank(game) is not { } bank || !s_items.TryGetValue(step.TargetId, out Item? item)) { End(step, "skipped: this item is not in the game"); return; }
+        if (Bank(game) is not { } bank) { End(step, "skipped: this item is not in the game"); return; }
+        if (ItemOf(game, step.TargetId) is not { } item) { End(step, NoItem(step.TargetId)); return; }
         var stacks = bank.Inventory.Stacks.Where(st => st.Item == item && !st.IsPlaceholder && st.Quantity > 0).ToList();
         if (stacks.Any(st => st.IsLocked)) { End(step, $"skipped: {name} is locked in your bank"); return; }
         long owned = stacks.Sum(st => (long)st.Quantity), keep = (long)Math.Max(0, Math.Floor(step.Amount));
+        // A rare drop that was sold stays in the game until it restarts: it is gone all the same.
+        if (owned == 0 && Rares.Is(item) && !Rares.Owned(game, item)) { End(step, NoItem(step.TargetId)); return; }
         if (owned <= keep) { End(step, $"done: nothing to sell (the bank holds {owned:N0})"); return; }
         long sold = 0, paid = 0;
         string currency = "gold";
@@ -1644,7 +1666,7 @@ public static class Queue
             End(step, swapped ? $"done: switched to '{loadout.Name}'" : "skipped: the game did not switch the loadout");
             return;
         }
-        if (!s_items.TryGetValue(step.TargetId, out Item? item)) { End(step, "skipped: this item is not in the game"); return; }
+        if (ItemOf(game, step.TargetId) is not { } item) { End(step, NoItem(step.TargetId)); return; }
         string name = item.DisplayName.GetPluralText(2);
         if (!item.Capabilities.TryGet<GamesByMalcs.Melvor2.Components.Equipment.EquipmentCapability>(out var equip)) { End(step, $"skipped: {name} cannot be equipped"); return; }
         int have = Bank(game)?.Inventory.GetQuantity(item) ?? 0;
@@ -1652,6 +1674,7 @@ public static class Queue
         if (!stack && combat.Equipment.IsItemEquipped(item)) { End(step, $"done: {item.DisplayName.GetPluralText(1)} is already equipped"); return; }
         long keep = (long)Math.Max(0, Math.Floor(step.Amount));
         int quantity = stack ? (int)Math.Max(0, have - keep) : Math.Min(1, have);
+        if (quantity <= 0 && have <= 0 && Rares.Is(item)) { End(step, NoItem(step.TargetId)); return; }   // (sold, but still in the game until it restarts)
         if (quantity <= 0) { End(step, have <= 0 ? $"skipped: no {name} in the bank" : $"done: nothing to equip (the bank holds {have:N0}, {keep:N0} are kept)"); return; }
         if (!equip.Requirements.AreMet) { End(step, $"skipped: {name} need {Targets.Missing(equip.Requirements)}"); return; }
         var slots = combat.Equipment.GetAvailableSlotsForItem(item);
@@ -1847,7 +1870,7 @@ public static class Queue
 
     static int Owned(Game game, Step step) => Owned(game, (IGoal)step);
     static int Owned(Game game, IGoal g) =>
-        s_items.TryGetValue(g.Subject, out Item? item) ? Bank(game)?.Inventory.GetQuantity(item) ?? 0 : 0;
+        ItemOf(game, g.Subject) is { } item ? Bank(game)?.Inventory.GetQuantity(item) ?? 0 : 0;
 
     static long Gained(IGoal g) { lock (s_gained) return s_gained.GetValueOrDefault(g.Subject); }
 

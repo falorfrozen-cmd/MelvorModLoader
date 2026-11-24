@@ -16,7 +16,7 @@ Melvor Mod Loader (file requirement, min 0.2.0)
 Off-site: Tailscale  https://tailscale.com/download  ("only to use it away from home")
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\PhoneScreen-0.1.0.zip   (name: Phone Screen, version 0.1.0)
+MAIN FILE:  dist\PhoneScreen-0.1.1.zip   (name: Phone Screen, version 0.1.1)
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src\Dev\shots\telefon-rehber):
 (sira ve aciklamalari - her goruntunun Description kutusuna yazilacak metin)
@@ -36,6 +36,10 @@ YUKLENECEK GORUNTULER (MelvorModLoader_src\Dev\shots\telefon-rehber):
 01-pencere-kapali.png              The Phone window before Start
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.1.1
+- One Style rare items: shown in their rarity's colour with item level and affixes in Gear and the Bank
+- Fixed: a rare item that dropped after the phone opened could not be equipped from the phone ("That is not something to wear")
+
 0.1.0
 - First version
 
@@ -48,7 +52,7 @@ At work, at school, in a café: see what your character is doing and change it f
 
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
-This is Phone Screen [b]0.1.0[/b], tested on game version [b]0.11.6-alpha.1[/b] with Melvor Mod Loader 0.2.0. It is still young: your feedback is very welcome.
+This is Phone Screen [b]0.1.1[/b], tested on game version [b]0.11.6-alpha.1[/b] with Melvor Mod Loader 0.2.0. It is still young: your feedback is very welcome.
 
 [size=5][b]What you need[/b][/size]
 [list]
@@ -102,7 +106,7 @@ Install the new version, restart the game, then refresh the page on your phone. 
 [list=1]
 [*]Install [b]Melvor Mod Loader[/b] first (see Requirements).
 [*]Open the game folder: Steam > right-click Melvor Idle 2 > Manage > Browse local files.
-[*]Extract [b]PhoneScreen-0.1.0.zip[/b] there. The mod ends up in [b]mods\PhoneScreen[/b].
+[*]Extract [b]PhoneScreen-0.1.1.zip[/b] there. The mod ends up in [b]mods\PhoneScreen[/b].
 [*]Start the game from Steam as usual.
 [/list]
 No installer, no .exe, no script.

@@ -139,9 +139,36 @@ public static partial class RareItems
         }
         string what = s_game != null && s_game.Data.TryGetObject(record.BaseId, out Item? b) ? b.DisplayName.Singular : "";
         string head = $"{RarityName(record.Rarity)} {what}, item level {record.ILvl}, {record.Affixes.Count} affixes";
-        // the affixes' values are in the game's own "Bonuses" list just below; Alt adds their tiers and ranges here
-        return tiers ? $"{head}\n{Describe(record, true)}" : $"{head}\nHold Alt to see each affix's tier and range.";
+        if (tiers) return $"{head}\n{Describe(record, true)}";
+        // one line per affix, always: the game's own "Bonuses" list below splits some into many lines ("+2% combat XP" is
+        // six skills, "avoid Poison, Bleed and Burn" three) and cannot show others at all (Ember, chances on hit...)
+        return $"{head}\n{Describe(record)}\nHold Alt for tiers and ranges.";
     }
+
+    /// <summary>
+    /// For our other mods (Bulk Sell, Phone Screen...), found by reflection so they work without One Style: what a rare or
+    /// unique item is, or null for any other item. [0] rarity ("Magic", "Rare", "Unique"), [1] item level, [2] the base
+    /// item's name, [3] the rarity colour as "rrggbb", then one line per affix (a Unique: its power's name and text).
+    /// </summary>
+    public static string[]? Facts(Item item)
+    {
+        if (RecordOf(item) is not { } record) return null;
+        Godot.Color c = Colors[record.Rarity];
+        var facts = new List<string> { RarityName(record.Rarity), "", "", c.ToHtml(false) };
+        if (record.UniqueId != "" && Uniques.Defs.TryGetValue(record.UniqueId, out UniqueDef? u))
+        {
+            facts[1] = u.Level.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            facts[2] = s_game != null && s_game.Data.TryGetObject(u.BaseId, out Item? ub) ? ub.DisplayName.Singular : "";
+            if (u.MechanicName != "") facts.Add($"{u.MechanicName}: {u.Mechanic}");
+            return facts.ToArray();
+        }
+        facts[1] = record.ILvl.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        facts[2] = s_game != null && s_game.Data.TryGetObject(record.BaseId, out Item? b) ? b.DisplayName.Singular : "";
+        foreach (RolledAffix r in record.Affixes)
+            if (Affixes.TryGetValue(r.Id, out AffixDef? a)) facts.Add(AffixLine(a, r, false));
+        return facts.ToArray();
+    }
+
 
     // ================================================================ colours on cells, slots and worn items
 
@@ -158,6 +185,7 @@ public static partial class RareItems
             if (s_tooltipItem != null) Decorate(s_tooltipItem);
         }
         if (++s_frame % 6 != 0) return;
+        BetterTooltipsPass();
         try
         {
             foreach (Node n in Walk(tree.Root))
@@ -293,8 +321,8 @@ public static partial class RareItems
             string baseName = s_game != null && s_game.Data.TryGetObject(record.BaseId, out Item? b) ? b.DisplayName.Singular : "";
             string text = record.Rarity == Rarity.Unique ? $"Unique item: {record.Name}" :
                 record.Rarity == Rarity.Magic ? $"Magic item: {record.Name}" : $"Rare item: {record.Name} ({baseName})";
-            // at most four at a time, the oldest goes first; each on a dark plate so they never run into the screen behind
-            while (col.GetChildCount() >= 4) { Node oldest = col.GetChild(0); col.RemoveChild(oldest); oldest.QueueFree(); }
+            // at most three at a time, the oldest goes first; each on a dark plate so they never run into the screen behind
+            while (col.GetChildCount() >= 3) { Node oldest = col.GetChild(0); col.RemoveChild(oldest); oldest.QueueFree(); }
             Color c = Colors[record.Rarity];
             var plate = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Ignore, SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd };
             var box = new StyleBoxFlat { BgColor = new Color(0.04f, 0.03f, 0.02f, 0.86f), BorderColor = c };
@@ -310,7 +338,7 @@ public static partial class RareItems
             label.AddThemeColorOverride("font_color", c);
             plate.AddChild(label);
             col.AddChild(plate);
-            tree.CreateTimer(6.0).Timeout += () => { if (GodotObject.IsInstanceValid(plate)) plate.QueueFree(); };
+            tree.CreateTimer(4.0).Timeout += () => { if (GodotObject.IsInstanceValid(plate)) plate.QueueFree(); };
         }
         catch (Exception e) { Log("One Style: drop note: " + e.Message); }
     }

@@ -9,13 +9,15 @@ namespace CheatMenu;
 /// One entry of a <see cref="PickList{T}"/>. <paramref name="Key"/> must be stable (an id, never a list position);
 /// <paramref name="Group"/> and <paramref name="Subgroup"/> are display texts, "" for none (entries without a group
 /// sit on top). A disabled entry cannot be picked; a muted one is drawn dimmed (locked for now) but can be.
+/// <paramref name="Tint"/> colours the name (a rare item's rarity colour, for example), dimmed when disabled or muted.
 /// </summary>
 internal sealed record PickEntry<T>(
     string Key, string Text, T Value,
     string Group = "", string Subgroup = "",
     Texture2D? Icon = null, Texture2D? GroupIcon = null,
     string Hint = "", string Tooltip = "",
-    bool Enabled = true, bool Muted = false, string Keywords = "");
+    bool Enabled = true, bool Muted = false, string Keywords = "",
+    Color? Tint = null);
 
 /// <summary>
 /// "Pick one of many": a button that opens a popup with a search box on top and the entries grouped below,
@@ -197,7 +199,7 @@ internal sealed class PickList<T>
             _button.Text = e.Text;
             _button.Icon = e.Icon;
             _button.TooltipText = string.Join("  >  ", new[] { e.Group, e.Subgroup, e.Text }.Where(s => s != "")) + (e.Tooltip != "" ? "\n" + e.Tooltip : e.Hint != "" ? "\n" + e.Hint : "");
-            _button.AddThemeColorOverride("font_color", e.Muted ? Style.Muted : Style.Text);
+            _button.AddThemeColorOverride("font_color", e.Muted ? Style.Muted : e.Tint ?? Style.Text);
         }
         else
         {
@@ -232,8 +234,9 @@ internal sealed class PickList<T>
             row.SetText(1, e.Hint);
             row.SetTextAlignment(1, HorizontalAlignment.Right);
             row.SetCustomColor(1, Style.Muted);
-            if (!e.Enabled) { row.SetCustomColor(0, new Color(Style.Muted, 0.55f)); row.SetSelectable(0, false); row.SetSelectable(1, false); }
-            else if (e.Muted) row.SetCustomColor(0, Style.Muted);
+            if (!e.Enabled) { row.SetCustomColor(0, new Color(e.Tint ?? Style.Muted, 0.55f)); row.SetSelectable(0, false); row.SetSelectable(1, false); }
+            else if (e.Muted) row.SetCustomColor(0, e.Tint is { } dim ? new Color(dim, 0.7f) : Style.Muted);
+            else if (e.Tint is { } tint) row.SetCustomColor(0, tint);
             if (e.Tooltip != "") { row.SetTooltipText(0, e.Tooltip); row.SetTooltipText(1, e.Tooltip); }
             row.SetMetadata(0, e.Key);
             row.SetMetadata(1, "");
