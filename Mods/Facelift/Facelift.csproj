@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Facelift</AssemblyName>
+    <RootNamespace>Facelift</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>Melvor Idle 2 Facelift</Product>
+    <AssemblyTitle>Facelift</AssemblyTitle>
+    <Description>Facelift for Melvor Idle 2: a new look for the whole game (requires Melvor Mod Loader). Clean charcoal panels with thin bronze borders, readable text, and tidier screens. Every part can be switched off; off means the game's own look.</Description>
+    <Company>Melvor Mod Loader</Company>
+    <Copyright>MIT License</Copyright>
+    <Nullable>enable</Nullable>
+    <DebugType>none</DebugType>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <GameData>..\..\..\data_GamesByMalcs.Melvor2_windows_x86_64</GameData>
+    <LoaderDir>..\..\..\data_MelvorModLoader_windows_x86_64</LoaderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\WindowKey.cs" Link="WindowKey.cs" />
+    <Reference Include="MelvorModLoader"><HintPath>$(LoaderDir)\MelvorModLoader.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="GodotSharp"><HintPath>$(GameData)\GodotSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="GamesByMalcs.Melvor2"><HintPath>$(GameData)\GamesByMalcs.Melvor2.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

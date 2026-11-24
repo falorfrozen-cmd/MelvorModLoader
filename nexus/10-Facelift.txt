@@ -1,0 +1,56 @@
+==========================================================================================
+FACELIFT  -  NEXUS MODS SAYFA BILGILERI
+==========================================================================================
+
+MOD ADI (Name):
+Facelift
+
+KATEGORI ONERISI (Category):
+User Interface
+
+KISA ACIKLAMA (Summary / Brief overview, 240 karakter):
+A new look for the whole game: clean charcoal panels with thin bronze lines instead of torn stone, readable text, serif titles, and tidier Shop, Bank and notifications. Every part can be switched off.
+
+GEREKSINIM (Requirements):
+Melvor Mod Loader (link the loader's mod page)
+
+YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
+MAIN FILE:  dist\Facelift-0.1.0.zip   (name: Facelift, version 0.1.0)   -  henuz paketlenmedi
+
+YUKLENECEK GORUNTULER:
+OneDrive\Belgeler\Ortak-Calisma\arayuz\oyunda\Shop.png (main image), Bank.png, Combat.png, Woodcutting.png, Alan-secimi.png, Ayar-penceresi.png
+
+DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.1.0
+- First version
+
+UZUN ACIKLAMA (Description) - asagidaki cizgiden sonrasini oldugu gibi kopyala
+------------------------------------------------------------------------------------------
+[center][size=6][b]FACELIFT[/b][/size]
+[size=4][i]A new look for the whole game.[/i][/size]
+Charcoal panels with thin bronze lines, warm readable text, serif titles. The game's own art stays.[/center]
+
+[size=5][b]New look[/b][/size]
+[list]
+[*]Every panel, button, tab, tooltip and frame gets a clean charcoal surface with a thin bronze line and small cut corners, instead of torn stone.
+[*]Buttons keep their meaning: green to go, red to stop, amber when you point at them.
+[*]Warm ivory text, quieter notes, softer greens and oranges.
+[*]Titles in a serif font (Georgia, from Windows).
+[*]Figures of one width: counters such as XP per hour stop jittering.
+[*]Item counts on pictures always sit on a dark backing.
+[/list]
+
+[size=5][b]Tidier screens[/b][/size]
+[list]
+[*][b]Shop[/b] opens on its first category instead of an empty page.
+[*][b]Bank[/b]: with nothing selected, the right panel shows Bank Space, Bank Value, Tab Value and a bar.
+[*][b]Notifications[/b]: at most four per side and one banner in the middle at a time (rewards are in your bank already).
+[*][b]Enemy cards[/b] leave out "Special Abilities: None" and "Passives: None".
+[*][b]Top bar[/b]: no version text, no greyed "Cozy UI Mode - Coming soon".
+[/list]
+
+[size=5][b]Your choice[/b][/size]
+Open the loader's Mods menu (top bar or F1) and choose Facelift: every part has its own switch and works at once, plus "Game's own look (all off)". When the game's own Cozy UI Mode arrives and you switch it on, Facelift steps aside by itself.
+
+[size=5][b]Safe[/b][/size]
+Nothing is written into your save and no game file is changed: Facelift changes the game's styles in memory only, notes what each one was and puts it back when switched off. No game picture is shipped; every new frame is drawn by the mod. Uninstall: delete mods\Facelift.
