@@ -16,7 +16,7 @@ None.
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
 MAIN FILE:      dist\MelvorModLoader-0.3.0.zip      (name: Melvor Mod Loader, version 0.3.0)
-OPTIONAL FILE:  dist\MelvorModLoader-ModdersKit-0.3.0.zip   (name: Modder's Kit - guide and example mod, version 0.3.0)   -  HENUZ KURULMADI: dist klasorunde yalniz 0.2.0 var; yuklemeden once kurulmali
+OPTIONAL FILE:  dist\MelvorModLoader-ModdersKit-0.2.0.zip   (name: Modder's Kit - guide and example mod, version 0.2.0)   -  0.3.0'da degismedi, Nexus'taki 0.2.0 kalir
 OPTIONAL FILE:  dist\DebugMenu-1.0.3.zip            (name: Debug Menu (F9), version 1.0.3)
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):

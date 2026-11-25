@@ -22,7 +22,7 @@ Dev\shots\banka-2-toplu-satis.png (main image), banka-1-dugmeler.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
 0.3.0
-- Auto-sell (with One Style 0.4.0 or newer): rules sell new Magic and Rare items as they drop (only real new drops, never an item you take off or already own): every Magic, every Rare, below an item level, or with an affix you marked Sell; a Keep affix wins; locked, worn and Unique items never
+- Auto-sell (with One Style 0.4.0 or newer): rules sell new Magic and Rare items as they drop (only real new drops, never an item you take off or already own): every Magic, every Rare, below an item level, or with an affix you marked Sell; a Keep affix wins; locked, worn and Unique items are never sold
 - Shift+click marks a range of rows
 - New gear filters: slot, level ("Level 30 or lower") and, with the One Style mod, rarity (Magic, Rare, Unique...) and affix; "Clear filters"
 - A Level column; rare items in their rarity's colour, their affixes when you point at the name
