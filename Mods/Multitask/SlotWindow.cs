@@ -14,6 +14,7 @@ public sealed class SlotWindow
     readonly Label _status = Style.Label("", Style.Muted);
     readonly List<Label> _lines = new();
     readonly List<Button> _drops = new();
+    readonly List<Button> _locks = new();
     readonly List<HBoxContainer> _rows = new();
     readonly Label _summary = Style.Label("", Style.Text);
     Button _close = null!, _minus = null!, _plus = null!;
@@ -137,10 +138,19 @@ public sealed class SlotWindow
             int index = i;
             var drop = new Button { Text = "x", CustomMinimumSize = new Vector2(30, 0), TooltipText = "Take this action off the list. It stops and is not started again." };
             drop.Pressed += () => Slots.Drop(index);
+            var lockButton = new Button
+            {
+                Text = "Lock", CustomMinimumSize = new Vector2(66, 0), ToggleMode = true,
+                TooltipText = "Locked: starting something new never pushes this action out of its slot. One slot always stays free for switching.\n" +
+                              "Its own Stop button and the x still stop it. The Action Queue runs its steps only in the slots that are not locked.",
+            };
+            lockButton.Toggled += on => { if (!Slots.SetLocked(index, on)) lockButton.SetPressedNoSignal(false); };
             row.AddChild(line);
+            row.AddChild(lockButton);
             row.AddChild(drop);
             _lines.Add(line);
             _drops.Add(drop);
+            _locks.Add(lockButton);
             _rows.Add(row);
             _grid.AddChild(row);
         }
@@ -159,6 +169,7 @@ public sealed class SlotWindow
             "Nothing to pick here. Play as usual: when you start a new action, the one before it keeps going next to it.\n" +
             $"Each extra slot keeps one more of your recent actions running: 1 slot = your last two, 2 = your last three, {Slots.Count} = all of them. When there is no room, an action whose materials ran out makes room first.\n" +
             "To drop an action, press the x next to it here, or its own Stop button in the game. A skill can only do one thing: choose another rock or recipe and it just switches.\n" +
+            "Lock an action to keep it in its slot: new actions then swap only among the slots that are not locked, so you can switch quickly without stopping it by mistake (one slot always stays free).\n" +
             "An action waits when its materials run out and goes on when there are some again (unless you untick the box above). A fight is dropped if your character dies." +
             // Players looked for "lanes" here; they live in the Action Queue window, when that mod is installed.
             (AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "ActionQueue")
@@ -205,6 +216,10 @@ public sealed class SlotWindow
     public bool LineShown(int index) => _rows[index].Visible;
     public bool DropShown(int index) => _rows[index].Visible && _drops[index].Visible;
     public void PressDrop(int index) => _drops[index].EmitSignal(BaseButton.SignalName.Pressed);
+    /// <summary>For tests: click a row's Lock the way a click does (it toggles).</summary>
+    public void PressLock(int index) => _locks[index].ButtonPressed = !_locks[index].ButtonPressed;
+    public bool LockShown(int index) => _rows[index].Visible && _locks[index].Visible;
+    public string LockText(int index) => _locks[index].Text;
     public void SetWait(bool on) => _wait.ButtonPressed = on;
     public bool WaitTicked => _wait.ButtonPressed;
     public string StatusText => _status.Text;
@@ -227,6 +242,12 @@ public sealed class SlotWindow
             Label line = _lines[i];
             _rows[i].Visible = i < room;
             _drops[i].Visible = i < recent.Count;
+            _locks[i].Visible = i < recent.Count && Slots.Extra > 0 && !recent[i].ByQueue;
+            if (i < recent.Count)
+            {
+                _locks[i].SetPressedNoSignal(recent[i].Locked);
+                _locks[i].Text = recent[i].Locked ? "Locked" : "Lock";
+            }
             if (i >= recent.Count)
             {
                 line.Text = i == 0 ? "1.  (nothing yet: start an action in the game)"
@@ -237,7 +258,7 @@ public sealed class SlotWindow
             }
             Kept kept = recent[i];
             string state = kept.State == "" ? "starting..." : kept.State;
-            line.Text = $"{i + 1}.  {kept.Title}   -   {state}";
+            line.Text = $"{i + 1}.  {(kept.Locked ? "[locked]  " : "")}{kept.Title}   -   {state}";
             line.AddThemeColorOverride("font_color", kept.State == "running" ? Style.Good : kept.State.StartsWith("waiting") ? Style.Accent : Style.Text);
         }
 
@@ -245,6 +266,6 @@ public sealed class SlotWindow
         _status.Text = Slots.Note != "" ? Slots.Note
             : room == 1 ? "No extra slot: one action at a time."
             : running <= 1 ? "Start another action in the game: the one you are doing now will keep running."
-            : $"{running} actions are running together.";
+            : $"{running} actions are running together." + (Slots.LockedCount > 0 ? $" {Slots.LockedCount} locked." : "");
     }
 }

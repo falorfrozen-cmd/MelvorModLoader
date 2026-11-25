@@ -148,6 +148,8 @@ public sealed class Preset
 {
     public List<Step> Steps { get; set; } = new();
     public bool Repeat { get; set; }
+    /// <summary>0.11.0+: with "start over" on, the lanes that run once.</summary>
+    public List<int> OnceLanes { get; set; } = new();
 }
 
 /// <summary>
@@ -166,6 +168,8 @@ public static class Queue
     {
         public List<Step> Steps { get; set; } = new();
         public bool Repeat { get; set; }
+        /// <summary>0.10.2+: with "start over" on, the lanes that run once and do not start over.</summary>
+        public List<int> OnceLanes { get; set; } = new();
         /// <summary>The saved queue the steps above came from ("" when they were never saved).</summary>
         public string Name { get; set; } = "";
         public Dictionary<string, Preset> Presets { get; set; } = new();
@@ -196,6 +200,8 @@ public static class Queue
         /// <summary>How many actions Multitask let run at once when the game saved (it has not said so yet while the
         /// game computes the closed time right after a restart).</summary>
         public int Capacity { get; set; }
+        /// <summary>How many of those places Multitask kept locked for the player's own actions (0.11.0+).</summary>
+        public int Locked { get; set; }
         public List<StepSnapshot> Progress { get; set; } = new();
     }
 
@@ -268,7 +274,17 @@ public static class Queue
     /// <summary>Run steps side by side when the Multitask mod has room for it (the player can switch this off).</summary>
     public static bool SideBySide { get; private set; } = true;
     /// <summary>How many steps may run at once right now.</summary>
-    public static int Lanes => SideBySide || LaneMode ? Capacity() : 1;
+    public static int Lanes => SideBySide || LaneMode ? Math.Max(1, Capacity() - Locked()) : 1;
+
+    /// <summary>
+    /// Places Multitask keeps locked for the player's own actions (they count in <see cref="Capacity"/> and among the
+    /// player's kept actions; the queue's lanes use only the rest). While the game computes the closed time Multitask
+    /// has not said so yet: then what it said when the game last saved.
+    /// </summary>
+    static int Locked() => Math.Min(Capacity() - 1, Targets.OnMainThread ? Targets.MultitaskLocked() : Math.Max(Targets.MultitaskLocked(), s_savedLocked));
+
+    /// <summary>Multitask's locked places as they were when the game last saved.</summary>
+    static int s_savedLocked;
 
     /// <summary>How many lanes a queue can have.</summary>
     public const int MaxLanes = Targets.MostActions;   // as many lanes as Multitask can run actions at once (was 5)
@@ -285,6 +301,17 @@ public static class Queue
 
     public static List<Step> Steps { get; private set; } = new();
     public static bool Repeat { get; private set; }
+    /// <summary>With "start over" on and steps in lanes: the lanes that run once (the others start over by themselves).</summary>
+    static HashSet<int> s_onceLanes = new();
+    /// <summary>True when this lane starts over when it is through ("start over" on, and the lane not set to run once).</summary>
+    public static bool LaneRepeats(int lane) => Repeat && (!LaneMode || !s_onceLanes.Contains(lane));
+    /// <summary>One lane's own "start over" (only counts while "start over at the end" is on).</summary>
+    public static void SetLaneRepeat(int lane, bool repeat)
+    {
+        if (repeat) s_onceLanes.Remove(lane); else s_onceLanes.Add(lane);
+        Save();
+        RaiseChanged();
+    }
     static Dictionary<string, Preset> s_presets = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>The saved queue the current steps came from, or "" when they are not saved.</summary>
     public static string Name { get; private set; } = "";
@@ -406,6 +433,7 @@ public static class Queue
         Read().TryGetValue(s_character, out Saved? saved);
         Steps = saved?.Steps ?? new List<Step>();
         Repeat = saved?.Repeat ?? false;
+        s_onceLanes = new HashSet<int>(saved?.OnceLanes ?? new List<int>());
         s_presets = new Dictionary<string, Preset>(saved?.Presets ?? new(), StringComparer.OrdinalIgnoreCase);
         Name = saved?.Name is { } savedName && s_presets.ContainsKey(savedName) ? savedName : "";
         SideBySide = saved?.SideBySide ?? true;
@@ -470,6 +498,7 @@ public static class Queue
         RanThisRound = s_ranThisRound,
         IdleOwned = s_idleOwned,
         Capacity = Targets.MultitaskCapacity(),
+            Locked = Targets.MultitaskLocked(),
         Progress = Steps.Select(s => new StepSnapshot
         {
             Run = s.Run, State = s.State, Ran = s.Ran, Seconds = s.Seconds,
@@ -537,6 +566,7 @@ public static class Queue
         Running = snap.Running;
         s_resume = snap.Resume;
         s_savedCapacity = snap.Capacity;
+        s_savedLocked = snap.Locked;
         s_ranThisRound = snap.RanThisRound;
         s_laneRan.Clear();
         foreach (Step s in Steps.Where(s => s.Ran)) s_laneRan.Add(LaneOf(s));
@@ -559,7 +589,7 @@ public static class Queue
             // Only this character's entry is replaced in what is on disk right now.
             Dictionary<string, Saved> all = Read();
             Snapshot? run = withRun ? TakeSnapshot() : all.TryGetValue(s_character, out Saved? old) ? old.Run : null;
-            all[s_character] = new Saved { Steps = Steps, Repeat = Repeat, Name = Name, Presets = new Dictionary<string, Preset>(s_presets), SideBySide = SideBySide, Idle = Idle, IdleAlways = IdleAlways, GameCreate = GameCreate, Run = run };
+            all[s_character] = new Saved { Steps = Steps, Repeat = Repeat, OnceLanes = s_onceLanes.OrderBy(l => l).ToList(), Name = Name, Presets = new Dictionary<string, Preset>(s_presets), SideBySide = SideBySide, Idle = Idle, IdleAlways = IdleAlways, GameCreate = GameCreate, Run = run };
             File.WriteAllText(FilePath, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception e) { Log("The queue could not be saved: " + e.Message); }
@@ -600,6 +630,22 @@ public static class Queue
     {
         int first = Steps.FindIndex(s => s.Run != RunState.Done);
         Index = first < 0 ? 0 : first;
+    }
+
+    /// <summary>
+    /// Puts a changed step in the place of another (the window's Edit). A step that runs is stopped and starts again with
+    /// its new settings, from nothing counted; one that is already done this round stays done (it runs again next round).
+    /// </summary>
+    public static void ReplaceAt(int index, Step step)
+    {
+        if (index < 0 || index >= Steps.Count) return;
+        Step old = Steps[index];
+        StopOwn(old);
+        step.Run = old.Run == RunState.Done ? RunState.Done : RunState.Idle;
+        Steps[index] = step;
+        if (Running) LineUpAgain();
+        Save();
+        RaiseChanged();
     }
 
     public static void RemoveAt(int index)
@@ -681,6 +727,7 @@ public static class Queue
     {
         foreach (Step step in Steps) StopOwn(step);
         Steps.Clear();
+        s_onceLanes.Clear();
         Name = "";
         Finish(Running ? "The queue was emptied, so what it had started was stopped." : "");
         Save();
@@ -845,7 +892,7 @@ public static class Queue
     /// <summary>True when the steps on screen differ from the saved queue they came from.</summary>
     public static bool Modified =>
         Name != "" && s_presets.TryGetValue(Name, out Preset? preset)
-        && (preset.Repeat != Repeat || preset.Steps.Count != Steps.Count || preset.Steps.Where((s, i) => !Same(s, Steps[i])).Any());
+        && (preset.Repeat != Repeat || !(preset.OnceLanes ?? new List<int>()).OrderBy(l => l).SequenceEqual(s_onceLanes.OrderBy(l => l)) || preset.Steps.Count != Steps.Count || preset.Steps.Where((s, i) => !Same(s, Steps[i])).Any());
 
     /// <summary>Keeps the current steps under a name (an existing queue of that name is replaced).</summary>
     public static bool SavePreset(string? name, out string message)
@@ -854,7 +901,7 @@ public static class Queue
         if (name == "") { message = "Type a name for the queue first."; return false; }
         if (Steps.Count == 0) { message = "There are no steps to save. Add some first."; return false; }
         bool replaced = s_presets.ContainsKey(name);
-        s_presets[name] = new Preset { Steps = Steps.Select(Copy).ToList(), Repeat = Repeat };
+        s_presets[name] = new Preset { Steps = Steps.Select(Copy).ToList(), Repeat = Repeat, OnceLanes = s_onceLanes.OrderBy(l => l).ToList() };
         Name = s_presets.Keys.First(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase));
         Save();
         message = replaced ? $"Saved over '{Name}' ({Steps.Count} step(s))." : $"Saved as '{Name}' ({Steps.Count} step(s)).";
@@ -873,13 +920,14 @@ public static class Queue
         bool kept = false;
         if (Steps.Count > 0 && (Name == "" || Modified) && !string.Equals(name, AutoName, StringComparison.OrdinalIgnoreCase))
         {
-            s_presets[AutoName] = new Preset { Steps = Steps.Select(Copy).ToList(), Repeat = Repeat };
+            s_presets[AutoName] = new Preset { Steps = Steps.Select(Copy).ToList(), Repeat = Repeat, OnceLanes = s_onceLanes.OrderBy(l => l).ToList() };
             kept = true;
         }
         foreach (Step step in Steps) StopOwn(step);   // a clean switch: the old queue's actions do not linger
         Steps = preset.Steps.Select(Copy).ToList();
         s_laneRan.Clear();
         Repeat = preset.Repeat;
+        s_onceLanes = new HashSet<int>(preset.OnceLanes ?? new List<int>());
         Name = s_presets.Keys.First(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase));
         Index = 0;
         s_ranThisRound = false;
@@ -1086,6 +1134,7 @@ public static class Queue
             foreach (int lane in Steps.Select(LaneOf).Distinct().ToList())
             {
                 var mine = Steps.Where(s => LaneOf(s) == lane).ToList();
+                if (!LaneRepeats(lane)) continue;   // this lane runs once: it stays finished
                 if (!mine.All(s => s.Run == RunState.Done) || !s_laneRan.Remove(lane)) continue;
                 foreach (Step s in mine) { s.State = ""; s.Run = RunState.Idle; s.Ran = false; s.Seconds = s.RetryAt = s.GrewAt = 0; s.Pile = 0; ClearCounts(s); }
                 Trace($"lane {lane} starts over");
@@ -1573,7 +1622,7 @@ public static class Queue
         // With Multitask's room, what the player keeps running in another skill (a fight beside the queue's smithing)
         // stays running: starting in place of everything would stop it, and Multitask would start it again from the
         // beginning (a fight against a new monster). Without a free slot it is the plain game: the step takes over.
-        if (!othersAtWork && Capacity() > 1 && FreeSlots(game) > 0
+        if (!othersAtWork && Capacity() > 1 && (FreeSlots(game) > 0 || Locked() > 0)
             && game.ActionManager.ActiveActions.Any(a => a.Entity.Id != step.Entity && (!(s_idleOwned && Idle?.Entity == a.Entity.Id) || HandsOff(a))))
         {
             othersAtWork = true;

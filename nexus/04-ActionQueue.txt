@@ -15,13 +15,18 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.10.1.zip   (name: Action Queue, version 0.10.1)  -  0.10.0 dosyasini Archived yap
+MAIN FILE:  dist\ActionQueue-0.11.0.zip   (name: Action Queue, version 0.11.0)  -  0.10.0 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
-0.10.1
+0.11.0
+- New: "Edit" next to Move up / Move down. The selected step opens in the form; change it and press "Save step N" and it stays in its place, no more adding a new one and removing the old (asked for on Nexus, thank you!)
+- Fixed: a planned queue that starts over did nothing after its first round (also while you were away): its item step was "until I own N", which is reached once (reported on Nexus, thank you!)
+- New: "every material" in the planner, ticked by itself while "Start over at the end" is on. Every material gets its step (none is skipped because the bank has some), each round tops the materials up to what it needs and makes the item again: no surplus piles up round after round (asked for on Nexus, thank you!)
+- New: "Start over at the end" per lane. With steps in lanes, a box per lane under the list: untick one and that lane runs once while the others keep going round (asked for on Nexus, thank you!)
+- With Multitask 0.7.0: locked actions keep their slots, and the queue runs its steps only in the slots that are not locked
 - New: works with the One Style mod's rare items (Magic, Rare, Unique). Equip, Sell and item goals find them; the lists show the ones you own in their rarity colour, with their affixes when you point at them. A step for one you have since sold is skipped with "this rare item is no longer owned"
 - Checked on the game's 0.11.7 update with Melvor Mod Loader 0.3.0
 
@@ -116,10 +121,14 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.10.1[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed).
+This is Action Queue [b]0.11.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed).
 
-[size=5][b]New in 0.10.1[/b][/size]
+[size=5][b]New in 0.11[/b][/size]
 [list]
+[*][b]Edit a step in place:[/b] select it, press Edit, change it, press "Save step N". It keeps its place.
+[*][b]Plans for a queue that starts over:[/b] "every material" lists every material and plans one round: each round tops the materials up to what it needs and makes the item again, so nothing is skipped and no surplus piles up.
+[*][b]Start over per lane:[/b] untick a lane under the list and it runs once while the other lanes keep going round.
+[*][b]Multitask 0.7.0's locks:[/b] the queue runs its steps only in the slots you have not locked.
 [*][b]Works with One Style's rare items:[/b] Magic, Rare and Unique gear in Equip, Sell and item goals, shown in their rarity colour with their affixes. A step for one you have since sold is skipped and says so.
 [/list]
 

@@ -15,12 +15,18 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (file requirement, min 0.1.3)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\Multitask-0.6.1.zip   (name: Multitask, version 0.6.1)  -  0.6.0 dosyasini Archived yap
+MAIN FILE:  dist\Multitask-0.7.0.zip   (name: Multitask, version 0.7.0)  -  0.6.1 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\coklu-1-pencere.png (main image)
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.7.0
+- Fixed: a heist's stage (Thieving), a hunt's tracking (Hunting) and a potion's stirring (Herblore) were lost when you started another action. The game resets them whenever it stops an action; Multitask now puts them back when it starts the action again (reported on Nexus, thank you!)
+- New: lock an action in its slot with the Lock button in the F5 window. Starting something new never pushes it out, so you can switch quickly without stopping it by mistake. One slot always stays free (asked for on Nexus, thank you!)
+- Action Queue 0.11.0 runs its steps only in the slots that are not locked
+- Checked on the game's 0.11.7 update with Melvor Mod Loader 0.3.0
+
 0.6.1
 - Fixed: a crafting action's "stop when" (make N, reach level N...) was lost when Multitask started it again. It now comes back with the progress it had, and once the goal is reached the action stops for good (reported on Nexus, thank you!)
 - Fixed: an action that ran out of materials could drop off the list when another action (Hunting, for example) brought new materials a moment later. It now waits and starts again (reported on Nexus, thank you!)
@@ -67,7 +73,7 @@ When you start a new action, the ones you were doing keep running next to it.[/c
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Multitask [b]0.6.1[/b], tested on game version [b]0.11.6-alpha.1[/b] with Melvor Mod Loader 0.2.0. Open a character, press [b]F5[/b] (or use the [b]Mods[/b] button in the top bar) and set [b]Extra slots[/b] with + and -.
+This is Multitask [b]0.7.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character, press [b]F5[/b] (or use the [b]Mods[/b] button in the top bar) and set [b]Extra slots[/b] with + and -.
 
 [b]This is a cheat.[/b] The game is balanced around one action at a time; this mod lets two of them run together, or more, up to all of them. Use it if that is the game you want to play.
 
@@ -86,11 +92,13 @@ Fish, then start cooking: both run. Go mining, then start a fight: both run. Eac
 [*][b]Press the x next to it in the F5 window, or its own Stop button:[/b] that action is dropped. The others go on.
 [*][b]Choose another rock, tree or recipe:[/b] that skill simply does the new thing. (A skill can only do one thing at a time.)
 [*][b]Fewer slots:[/b] what no longer fits is stopped, the oldest first. With no extra slot (Off), the mod does nothing at all.
+[*][b]Lock an action[/b] with the Lock button next to it: starting something new never pushes it out of its slot. New actions swap only among the slots that are not locked, so you can switch quickly without stopping it by mistake. One slot always stays free.
 [/list]
 
 [size=5][b]It looks after itself[/b][/size]
 [list]
 [*][b]It waits for materials.[/b] Cooking or smithing pauses when it runs out and goes on when there is more. It works in small piles (about ten at a time) so the game does not report "action stopped" for every single fish. Untick "Keep an action on the list when its materials run out" and it leaves the list instead.
+[*][b]It keeps work done in steps.[/b] A heist's stage, a hunt's tracking and a potion's stirring go on from where they were when you start something else (the game itself resets them whenever it stops an action).
 [*][b]It keeps your "stop when".[/b] A crafting action's goal (make N, reach level N...) comes back with its progress when Multitask starts it again; once it is reached, the action stops for good.
 [*][b]It does not walk back into a fight.[/b] A fight is dropped if your character dies.
 [*][b]It works while you are away.[/b] Everything that was running when you closed the game goes on in the game's own offline progress.
@@ -98,7 +106,7 @@ Fish, then start cooking: both run. Go mining, then start a fight: both run. Eac
 [/list]
 
 [size=5][b]Works with Action Queue[/b][/size]
-With [url=https://www.nexusmods.com/melvoridle2/mods/5]Action Queue[/url] 0.5.0 or newer, the queue runs as many of its own steps at the same time as there are places: one extra slot, two steps; two, three; and so on. Plan "100 cooked herring", press start, and it fishes and cooks at once. One button in the queue window switches that back to one step at a time, beside what you were doing.
+With [url=https://www.nexusmods.com/melvoridle2/mods/5]Action Queue[/url] 0.5.0 or newer, the queue runs as many of its own steps at the same time as there are places: one extra slot, two steps; two, three; and so on. Plan "100 cooked herring", press start, and it fishes and cooks at once. One button in the queue window switches that back to one step at a time, beside what you were doing. Locked actions keep their slots: the queue only uses the ones that are not locked.
 
 [size=5][b]Good to know[/b][/size]
 [list]

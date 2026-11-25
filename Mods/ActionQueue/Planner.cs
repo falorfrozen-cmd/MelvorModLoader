@@ -77,6 +77,10 @@ public sealed class PlanResult
     public List<PlanLine> Supply = new();
     /// <summary>Materials the plan needs and the bank already holds enough of: no step, but worth showing.</summary>
     public List<PlanLine> Covered = new();
+    /// <summary>Planned from nothing: the bank was not counted, every material has its step.</summary>
+    public bool Everything;
+    /// <summary>What the bank held (and the queue would make) of the item before the plan: a "then sell them" keeps it.</summary>
+    public long StockBefore;
     public Dictionary<string, long> Money = new();
     public double Seconds;
     public int UnknownTimes;
@@ -260,7 +264,7 @@ public static class Planner
             }
             // (A step with a second goal may end before it has made all of it: the plan does not count on it.)
             if (step.Or != null || step.Until is not (Until.Item or Until.Made) || !byId.TryGetValue(step.Subject, out Item? item)) continue;
-            Maker? maker = makers[item].FirstOrDefault(m => m.Entity.Id == step.Entity && m.Target.Id == step.TargetId);
+            Maker? maker = makers.TryGetValue(item, out List<Maker>? list) ? list.FirstOrDefault(m => m.Entity.Id == step.Entity && m.Target.Id == step.TargetId) : null;
             if (maker == null) continue;
             long before = Now(item), goal = (long)Math.Ceiling(step.Amount) + (step.Until == Until.Made ? before : 0);
             if (goal <= before) continue;
@@ -330,12 +334,14 @@ public static class Planner
     /// <summary>
     /// Plans owning <paramref name="own"/> of <paramref name="item"/>, counting the bank and the steps in <paramref name="queued"/>.
     /// With <paramref name="more"/> the number means "this many on top of what I have (and what the queue will make)".
+    /// With <paramref name="everything"/> the bank is not counted at all: every material gets its step, for the whole
+    /// amount (a queue that starts over makes one round's worth each time, without leftovers piling up).
     /// </summary>
-    public static PlanResult Compute(Game game, Item item, long own, IEnumerable<Step>? queued = null, bool more = false)
+    public static PlanResult Compute(Game game, Item item, long own, IEnumerable<Step>? queued = null, bool more = false, bool everything = false)
     {
-        var result = new PlanResult { Item = item, Own = own, Asked = own, More = more };
+        var result = new PlanResult { Item = item, Own = own, Asked = own, More = more, Everything = everything };
         Dictionary<Item, List<Maker>> makers = Makers(game);
-        Dictionary<Item, long> stock = StockAfterQueue(game, makers, queued ?? Queue.Steps);
+        Dictionary<Item, long> stock = everything ? new Dictionary<Item, long>() : StockAfterQueue(game, makers, queued ?? Queue.Steps);
         var problems = new Dictionary<Maker, string>();
         var chosen = new Dictionary<Item, Maker?>();
         var choosing = new HashSet<Item>();          // a recipe loop leads back here: that way is not taken
@@ -358,8 +364,9 @@ public static class Planner
             return open[i] = m == null || ChainOpen(m);
         }
         bool ChainOpen(Maker m) => Problem(m, problems) == "" && m.Costs.All(c => ItemOpen(c.Item));
-        long Stock(Item i) => stock.TryGetValue(i, out long n) ? n : Bank(game)?.Inventory.GetQuantity(i) ?? 0;
+        long Stock(Item i) => everything ? 0 : stock.TryGetValue(i, out long n) ? n : Bank(game)?.Inventory.GetQuantity(i) ?? 0;
 
+        result.StockBefore = everything ? Bank(game)?.Inventory.GetQuantity(item) ?? 0 : Stock(item);
         if (more) result.Own = own = Stock(item) + own;
         if (MakerOf(item) == null) { result.Problem = "None of the skills the queue can drive makes this item."; return result; }
 
@@ -441,7 +448,10 @@ public static class Planner
     }
 
     /// <summary>
-    /// Adds the plan's steps to the end of the queue, in the given lane. With <paramref name="sell"/> a step that sells
+    /// Adds the plan's steps to the end of the queue, in the given lane. A plan's materials are "until I own N": the
+    /// bank is topped up to what the plan needs. With "every material" (a queue that starts over) N is one round's need,
+    /// so each round tops up only what the last one used, and the item itself is "make N more": an "until I own N" for
+    /// it would be reached in the first round and leave every later round with nothing to do. With <paramref name="sell"/> a step that sells
     /// what was made comes last (keeping what the bank held before a "make N more"). Returns how many were added.
     /// </summary>
     public static int AddToQueue(PlanResult plan, int lane = 1, bool sell = false)
@@ -449,11 +459,13 @@ public static class Planner
         var steps = plan.Steps.Select(line => new Step
         {
             Entity = line.Maker!.Entity.Id, TargetId = line.Maker.Target.Id, Extra = line.Maker.Target.Extra,
-            Name = line.Maker.Name, Until = Until.Item, Amount = line.Need,
+            Name = line.Maker.Name,
+            Until = plan.Everything && line.Item == plan.Item ? Until.Made : Until.Item,
+            Amount = plan.Everything && line.Item == plan.Item ? line.Missing : line.Need,
             Subject = line.Item.Id, SubjectName = line.ItemName, Lane = lane,
         }).ToList();
         if (sell && steps.Count > 0)
-            steps.Add(SellStep(plan.Item, plan.More ? Math.Max(0, plan.Own - plan.Asked) : 0, lane));
+            steps.Add(SellStep(plan.Item, plan.More ? plan.StockBefore : 0, lane));
         Queue.AddRange(steps);
         return steps.Count;
     }

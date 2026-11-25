@@ -49,16 +49,26 @@ public sealed class QueueWindow
     readonly Tree _table;
     readonly Button _run = new() { CustomMinimumSize = new Vector2(150, 0) };
     readonly Button _repeat = new() { ToggleMode = true, CustomMinimumSize = new Vector2(205, 0) };
+    /// <summary>With steps in lanes and "start over" on: which lanes start over (a lane can also run once).</summary>
+    readonly HBoxContainer _laneRepeats = new() { Visible = false };
+    string _laneRepeatsShown = "";
     readonly Button _side = new() { ToggleMode = true, CustomMinimumSize = new Vector2(175, 0), Visible = false };
     // Lanes: which lane a new step (or plan) goes to, and moving the selected step to another lane.
     readonly OptionButton _lanePick = new() { Visible = false }, _planLanePick = new() { Visible = false };
     readonly Button _laneButton = new() { Visible = false, CustomMinimumSize = new Vector2(120, 0) };
     readonly CheckBox _planSell = new() { Text = "then sell them" };
+    /// <summary>The planner: every material from nothing (the bank not counted), for a queue that starts over.</summary>
+    readonly CheckBox _planAll = new() { Text = "every material" };
+    bool _planAllSet;
     /// <summary>A recipe's other way of making for this step (Smithing's Sacrificial Anvil); shown only where the game offers one.</summary>
     readonly CheckBox _mode = new() { Visible = false };
     string _modeId = "";
     readonly Label _untilLabel = Style.Label("until", Style.Text);
     Button _useNow = null!;
+    // Editing a step in place: the form shows the step, and its button saves it back where it was.
+    Button _addButton = null!;
+    readonly Button _cancelEdit = new() { Text = "Cancel", Visible = false };
+    Step? _editing;
 
     // "When the queue waits or ends, do": an action for the idle time.
     readonly OptionButton _idleSkill = new() { CustomMinimumSize = new Vector2(170, 0) };
@@ -259,7 +269,11 @@ public sealed class QueueWindow
         _lanePick.ItemSelected += i => _planLanePick.Select((int)i);
         _planLanePick.ItemSelected += i => { _lanePick.Select((int)i); _planShown = ""; Replan(); };
         until.AddChild(_lanePick);
-        until.AddChild(MakeButton("Add step", AddStep));
+        _addButton = MakeButton("Add step", AddStep);
+        until.AddChild(_addButton);
+        _cancelEdit.TooltipText = "Stop editing: the step stays as it was.";
+        _cancelEdit.Pressed += () => { EndEdit(); Say("Nothing was changed."); };
+        until.AddChild(_cancelEdit);
         _stepForm.AddChild(until);
         // -- the second goal, under the first
         _orRow.AddThemeConstantOverride("separation", 10);
@@ -341,6 +355,9 @@ public sealed class QueueWindow
         buttons.AddChild(Style.Label("Selected step:", Style.Muted));
         buttons.AddChild(MakeButton("Move up", () => MoveSelected(-1)));
         buttons.AddChild(MakeButton("Move down", () => MoveSelected(1)));
+        Button edit = MakeButton("Edit", EditSelected);
+        edit.TooltipText = "Shows the selected step in the form above. Change what you like and press \"Save step\": it stays in its place.";
+        buttons.AddChild(edit);
         buttons.AddChild(MakeButton("Remove", () => { int i = SelectedIndex(); if (i >= 0) Queue.RemoveAt(i); }));
         _laneButton.TooltipText = "Puts the selected step into the next lane (after the last lane it goes back to lane 1).";
         _laneButton.Pressed += NextLane;
@@ -359,6 +376,9 @@ public sealed class QueueWindow
         buttons.AddChild(_repeat);
         buttons.AddChild(MakeButton("Remove all", Queue.Clear));
         body.AddChild(buttons);
+        _laneRepeats.AddThemeConstantOverride("separation", 12);
+        _laneRepeats.Alignment = BoxContainer.AlignmentMode.End;
+        body.AddChild(_laneRepeats);
 
         // ---- footer
         StyleBoxFlat footBox = Style.Box(Style.Sidebar, 0, null, 0, 18, 8);
@@ -399,6 +419,12 @@ public sealed class QueueWindow
         _planAdd.AddThemeStyleboxOverride("hover", Style.Box(new Color(0.16f, 0.38f, 0.23f), 5, Style.Good, 1, 12, 5));
         _planAdd.Pressed += AddPlan;
         _planSell.TooltipText = "Adds a last step that sells what the plan made (with \"Make\", what you had before is kept).";
+        _planAll.TooltipText = "Ticked: the bank is not counted. Every material gets its step, for the whole amount, so a queue that\n"
+            + "starts over makes one round's worth each time (nothing is skipped and no surplus piles up).\n"
+            + "Unticked: what the bank already holds is used, and only what is missing is made.\n"
+            + "Ticked by itself while \"Start over at the end\" is on.";
+        _planAll.Toggled += _ => { _planAllSet = true; _planShown = ""; Replan(); };
+        row.AddChild(_planAll);
         row.AddChild(_planSell);
         row.AddChild(_planLanePick);
         row.AddChild(_planAdd);
@@ -785,8 +811,9 @@ public sealed class QueueWindow
         // In lanes, what other lanes will make is not counted: they run at the same time, not before.
         int lane = NewLane;
         IEnumerable<Step> before = Queue.LaneMode || lane > 1 ? Queue.Steps.Where(st => Math.Clamp(st.Lane, 1, Queue.MaxLanes) == lane) : Queue.Steps;
-        PlanResult plan = _plan = Planner.Compute(_game, item, (long)_planAmount.Value, before.ToList(), more: _planKind.Selected == 0);
-        string shown = item.Id + "|" + lane + "|" + plan.Own + "|" + plan.More + "|" + plan.Problem + "|" + string.Join(";", plan.Steps.Concat(plan.Supply).Concat(plan.Covered)
+        if (!_planAllSet) _planAll.SetPressedNoSignal(Queue.LaneRepeats(lane));   // follows "start over" (of this lane) until the player ticks it
+        PlanResult plan = _plan = Planner.Compute(_game, item, (long)_planAmount.Value, before.ToList(), more: _planKind.Selected == 0, everything: _planAll.ButtonPressed);
+        string shown = item.Id + "|" + lane + "|" + plan.Own + "|" + plan.More + "|" + plan.Everything + "|" + plan.Problem + "|" + string.Join(";", plan.Steps.Concat(plan.Supply).Concat(plan.Covered)
             .Select(l => $"{l.Item.Id},{l.Maker?.Target.Id},{l.Need},{l.Have},{l.Actions},{l.Seconds:0},{l.Problem}"));
         DrawPlan(shown, () =>
         {
@@ -1433,8 +1460,7 @@ public sealed class QueueWindow
         {
             if (_item.Selected is not { } toSell) { Say("Pick the item to sell first."); return; }
             Step sale = Planner.SellStep(toSell.Value, (long)_amount.Value, NewLane);
-            Queue.Add(sale);
-            Say($"Added: {sale.Name}, {sale.Goal}.");
+            Put(sale);
             return;
         }
         if (Equipping)
@@ -1448,14 +1474,14 @@ public sealed class QueueWindow
                 Entity = Step.EquipEntity, TargetId = gear.Value.Id, Name = loadout ? $"Loadout: {gear.Text}" : $"Equip: {gear.Text}",
                 Amount = stack ? _amount.Value : 0, Subject = stack ? "stack" : "", Lane = NewLane,
             };
-            Queue.Add(equip);
-            Say($"Added: {equip.Name}, {equip.Goal}.");
+            Put(equip);
             return;
         }
         if (Switching)
         {
             if (_target.Selected is not { Enabled: true } saved || saved.Key == "") { Say("Save a queue under \"Saved queues\" first, then choose it here."); return; }
             var go = new Step { Entity = Step.SwitchEntity, TargetId = saved.Value.Id, Name = $"Go to saved queue: {saved.Value.Id}", Lane = NewLane };
+            if (_editing != null) { Put(go); return; }
             Queue.Add(go);
             Say($"Added: {go.Name}. When every step before it is over, the queue goes on with '{saved.Value.Id}'.");
             return;
@@ -1482,9 +1508,143 @@ public sealed class QueueWindow
             if (!ReadGoal(OrKind, _orAmount.Value, _orItem, _orLevel, _orNode, _orEvent, out Goal or)) return;
             step.Or = or;
         }
+        Put(step);
+    }
+
+    /// <summary>
+    /// With steps in lanes and "start over" on: one box per lane. Ticked, the lane starts over by itself whenever it is
+    /// through; unticked, it runs once and stays finished while the other lanes go on.
+    /// </summary>
+    void PaintLaneRepeats()
+    {
+        List<int> lanes = Queue.LaneMode ? Queue.Steps.Select(s => Math.Clamp(s.Lane, 1, Queue.MaxLanes)).Distinct().OrderBy(l => l).ToList() : new List<int>();
+        bool show = Queue.Repeat && lanes.Count > 1;
+        _laneRepeats.Visible = show;
+        string shown = show ? string.Join(",", lanes.Select(l => $"{l}{(Queue.LaneRepeats(l) ? "+" : "-")}")) : "";
+        if (shown == _laneRepeatsShown) return;
+        _laneRepeatsShown = shown;
+        foreach (Node child in _laneRepeats.GetChildren()) child.QueueFree();
+        if (!show) return;
+        _laneRepeats.AddChild(Style.Label("Lanes that start over:", Style.Muted));
+        foreach (int lane in lanes)
+        {
+            var box = new CheckBox
+            {
+                Text = $"Lane {lane}", ButtonPressed = Queue.LaneRepeats(lane),
+                TooltipText = "Ticked: this lane starts over by itself whenever its last step is done.\nUnticked: it runs once and then stays finished; the other lanes go on.",
+            };
+            int which = lane;
+            box.Toggled += on => { if (!_syncing) Queue.SetLaneRepeat(which, on); };
+            _laneRepeats.AddChild(box);
+        }
+    }
+
+    /// <summary>For tests: the lanes the window offers a "start over" box for, and ticking one.</summary>
+    public List<string> LaneRepeatBoxes => _laneRepeats.Visible ? _laneRepeats.GetChildren().OfType<CheckBox>().Select(b => $"{b.Text}:{(b.ButtonPressed ? "on" : "off")}").ToList() : new List<string>();
+    public void PressLaneRepeat(int lane)
+    {
+        foreach (CheckBox b in _laneRepeats.GetChildren().OfType<CheckBox>()) if (b.Text == $"Lane {lane}") b.ButtonPressed = !b.ButtonPressed;
+    }
+
+    /// <summary>A new step goes at the end; a step being edited goes back in its place.</summary>
+    void Put(Step step)
+    {
+        int at = _editing == null ? -1 : Queue.Steps.IndexOf(_editing);
+        if (at >= 0)
+        {
+            Queue.ReplaceAt(at, step);
+            EndEdit();
+            Say($"Step {at + 1} changed: {step.Name}, {step.Goal}.");
+            return;
+        }
+        EndEdit();
         Queue.Add(step);
         Say($"Added: {step.Name}, {step.Goal}.");
     }
+
+    void EndEdit()
+    {
+        _editing = null;
+        _addButton.Text = "Add step";
+        _cancelEdit.Visible = false;
+    }
+
+    /// <summary>The list's Edit: the selected step in the form, ready to be changed and saved back in its place.</summary>
+    void EditSelected()
+    {
+        int index = SelectedIndex();
+        if (index < 0 || index >= Queue.Steps.Count) { Say("Select a step in the list first, then press Edit."); return; }
+        Step s = Queue.Steps[index];
+        int skill = s.Entity switch
+        {
+            Step.SellEntity => _skills.Count,
+            Step.EquipEntity => _skills.Count + 1,
+            Step.SwitchEntity => _skills.Count + 2,
+            _ => _skills.FindIndex(x => x.Entity.Id == s.Entity),
+        };
+        if (skill < 0) { Say("This step's skill is not on the list here, so it cannot be edited (remove it and add it again)."); return; }
+        ShowStepForm();
+        _skillPick.Select(skill);
+        FillKinds(_untilPick, Astrology, withStops: true);
+        FillKinds(_orPick, Astrology, withStops: false);
+        FillTargets(Catalog.Key(s.TargetId, s.Extra), suggest: false);
+        if (Selling) _item.Select(s.TargetId);
+        else if (!Pseudo)
+        {
+            int kindAt = _untilPick.GetItemIndex((int)s.Until);
+            if (kindAt >= 0) _untilPick.Select(kindAt);
+        }
+        UntilChanged();
+        if (!Pseudo) LoadGoal(s, _item, _levelPick, _nodePick, _eventPick);
+        if (!Pseudo) CapNodes(_amount, _nodePick, Kind);   // a node goal's cap is the chosen kind's (minor or major)
+        _amount.Value = s.Amount;
+        _orBox.ButtonPressed = !Pseudo && s.Or != null;
+        if (!Pseudo && s.Or is { } or)
+        {
+            int orAt = _orPick.GetItemIndex((int)or.Until);
+            if (orAt >= 0) _orPick.Select(orAt);
+            OrChanged();
+            LoadGoal(or, _orItem, _orLevel, _orNode, _orEvent);
+            CapNodes(_orAmount, _orNode, OrKind);
+            _orAmount.Value = or.Amount;
+        }
+        if (_lanePick.Visible) _lanePick.Select(Math.Clamp(s.Lane, 1, _lanePick.ItemCount) - 1);
+        if (_mode.Visible) _mode.ButtonPressed = !string.IsNullOrEmpty(s.Mode);
+        _editing = s;
+        _addButton.Text = $"Save step {index + 1}";
+        _cancelEdit.Visible = true;
+        Say($"Editing step {index + 1}: change it above and press \"Save step {index + 1}\" (or Cancel).");
+    }
+
+    /// <summary>Puts a goal's item, skill, node kind or event back into its pickers.</summary>
+    void LoadGoal(IGoal g, PickList<Item> item, OptionButton level, OptionButton node, OptionButton ev)
+    {
+        switch (g.Until)
+        {
+            case Until.Item or Until.ItemLeft or Until.Made or Until.Spent:
+                item.Select(g.Subject);
+                break;
+            case Until.Level:
+                int at = _levelSkills.IndexOf(g.Subject);
+                if (at >= 0) level.Select(at);
+                break;
+            case Until.Nodes:
+                node.Select(g.Subject == "major" ? 1 : 0);
+                break;
+            case Until.Event:
+                for (int i = 0; i < ev.ItemCount; i++)
+                    if (ev.GetItemMetadata(i).AsString() == g.Subject) { ev.Select(i); break; }
+                break;
+        }
+    }
+
+    /// <summary>For tests: the list's Edit on the step at <paramref name="index"/>, and the form's button text.</summary>
+    public void EditStep(int index)
+    {
+        foreach (TreeItem row in StepRows()) if ((int)row.GetMetadata(0) == index) { row.Select(0); break; }
+        EditSelected();
+    }
+    public string AddButtonText => _addButton.Text;
 
     // ---------------------------------------------------------------- the list
 
@@ -1570,10 +1730,12 @@ public sealed class QueueWindow
         if (selected >= 0 && selected < Queue.Steps.Count) SelectRow(selected);
 
         _run.Text = Queue.Running ? "Pause" : "Start the queue";
+        if (_editing != null && !Queue.Steps.Contains(_editing)) EndEdit();   // the step being edited is gone (removed, another queue)
         _syncing = true;
         _repeat.ButtonPressed = Queue.Repeat;
         _syncing = false;
         _repeat.Text = Queue.Repeat ? "Start over at the end: ON" : "Start over at the end: OFF";
+        PaintLaneRepeats();
         PaintRoom();
         _syncing = true;
         _idleAlways.ButtonPressed = Queue.IdleAlways;

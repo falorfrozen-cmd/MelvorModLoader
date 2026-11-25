@@ -32,6 +32,7 @@ public class MultitaskMod : IMod
         _ctx = ctx;
         Slots.Dir = ctx.Directory;
         Slots.Log = ctx.Log;
+        Progress.Log = ctx.Log;
         Key = new WindowKey(ctx, "Multitask", ToggleWindow, Godot.Key.F5);
         ctx.Frame += Tick;
         ctx.Log($"Ready. Press {Key.Spoken} while a character is open.");

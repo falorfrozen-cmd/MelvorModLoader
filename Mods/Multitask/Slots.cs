@@ -26,6 +26,8 @@ public sealed class Kept
     public string TargetId { get; set; } = "";    // the rock, recipe, monster...
     public string Extra { get; set; } = "";       // combat only: the area
     public string Name { get; set; } = "";        // "Coal"
+    /// <summary>Locked by the player: a new action never pushes it out of its slot (0.7.0+).</summary>
+    public bool Locked { get; set; }
 
     /// <summary>What it is doing right now, in words (not saved).</summary>
     [JsonIgnore] public string State = "";
@@ -156,6 +158,14 @@ public static class Slots
     public static int Extra => s_extra;
     /// <summary>How many actions may run together: the latest one plus one per slot that is on.</summary>
     public static int Capacity => 1 + s_extra;
+    /// <summary>How many of the kept actions are locked in their slot.</summary>
+    public static int LockedCount => s_recent.Count(k => k.Locked);
+    /// <summary>
+    /// What the Action Queue may run side by side: the slots that are not locked. One slot always stays free (at most
+    /// <see cref="Extra"/> actions can be locked), so with every extra slot locked the queue runs one step at a time.
+    /// (The queue works it out itself from the two notes: the whole room, and how many are locked.)
+    /// </summary>
+    public static int FreeForQueue => Math.Max(1, Capacity - LockedCount);
     /// <summary>True: an action whose materials run out keeps its place and goes on when there are some again.
     /// False: it is dropped from the list, as if the player had pressed Stop.</summary>
     public static bool WaitForMaterials => s_wait;
@@ -173,7 +183,7 @@ public static class Slots
         catch { return new(); }   // also an older file with another layout: start clean
     }
 
-    static string Signature() => s_extra + (s_wait ? "" : "d") + "|" + string.Join(";", s_recent.Select(k => $"{k.Entity},{k.TargetId},{k.Extra}"));
+    static string Signature() => s_extra + (s_wait ? "" : "d") + "|" + string.Join(";", s_recent.Select(k => $"{k.Entity},{k.TargetId},{k.Extra}{(k.Locked ? ",L" : "")}"));
 
     static void Save()
     {
@@ -209,6 +219,7 @@ public static class Slots
         // What was running when the game was closed is brought back by the game itself. Anything on file that
         // is not running now is waiting to be started again (only looked at while a slot is on).
         foreach (Kept k in s_recent) k.Pending = true;
+        foreach (Kept k in s_recent.Where(k => k.Locked).Skip(s_extra).ToList()) k.Locked = false;
         s_savedAs = Signature();
         PublishCapacity(Capacity);
         s_gameStartedSomething = false;
@@ -226,7 +237,8 @@ public static class Slots
             fighter.Action.PlayerDied += (_, _) => { if (ReferenceEquals(game, s_game)) s_died = true; };
         s_stops.Clear();
         lock (s_ranOut) s_ranOut.Clear();
-        foreach (ActionComponent action in s_actions.Values) { WatchStops(action); WatchRunOut(action); }
+        Progress.Clear();
+        foreach (ActionComponent action in s_actions.Values) { WatchStops(action); WatchRunOut(action); Progress.Watch(action); }
         Changed?.Invoke();
     }
 
@@ -311,7 +323,14 @@ public static class Slots
 
     static void PublishCapacity(int capacity)
     {
-        try { ((Godot.SceneTree)Godot.Engine.GetMainLoop()).Root.SetMeta(Targets.CapacityMeta, capacity); } catch { }
+        try
+        {
+            Godot.Window root = ((Godot.SceneTree)Godot.Engine.GetMainLoop()).Root;
+            root.SetMeta(Targets.CapacityMeta, capacity);
+            // how many of those places are locked to the player's own actions (the queue leaves them alone)
+            root.SetMeta(Targets.LockedMeta, (capacity > 1 ? LockedCount : 0).ToString());
+        }
+        catch { }
     }
 
     /// <summary>Slots are on from the first one up: switching slot N on also switches on the ones before it,
@@ -328,8 +347,15 @@ public static class Slots
         extra = Math.Clamp(extra, 0, Count);
         if (extra == s_extra) return;
         s_extra = extra;
-        PublishCapacity(Capacity);
         Note = "";
+        // never more locks than extra slots: the oldest locks are taken off first
+        while (LockedCount > s_extra)
+        {
+            Kept oldest = s_recent.Last(k => k.Locked);
+            oldest.Locked = false;
+            Note = $"{oldest.Title} is no longer locked: there are fewer slots now.";
+        }
+        PublishCapacity(Capacity);
         if (s_game != null) Trim(s_game, stopExtras: true);   // a slot switched off: what no longer fits is stopped
         Save();
         Changed?.Invoke();
@@ -351,6 +377,33 @@ public static class Slots
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Locks one action in its slot (the lock in the window), or unlocks it. A locked action is never the one that makes
+    /// room when something new starts; it still stops with its own Stop button or the x. At most <see cref="Extra"/>
+    /// actions can be locked, so one slot is always free to switch between other things. The Action Queue's own steps
+    /// cannot be locked. Returns false (with a note) when it cannot be done.
+    /// </summary>
+    public static bool SetLocked(int index, bool locked)
+    {
+        if (index < 0 || index >= s_recent.Count) return false;
+        Kept kept = s_recent[index];
+        if (kept.Locked == locked) return true;
+        if (locked && kept.ByQueue) { Note = $"{kept.Title} is an Action Queue step: the queue decides when it runs."; Changed?.Invoke(); return false; }
+        if (locked && LockedCount >= s_extra)
+        {
+            Note = s_extra == 0 ? "Switch on an extra slot first: a lock keeps an action running next to your next one."
+                : $"At most {s_extra} locked (one slot stays free for switching): unlock one first, or add a slot.";
+            Changed?.Invoke();
+            return false;
+        }
+        kept.Locked = locked;
+        Note = locked ? $"{kept.Title} is locked: new actions will not push it out." : $"{kept.Title} is unlocked.";
+        PublishCapacity(Capacity);
+        Save();
+        Changed?.Invoke();
+        return true;
+    }
+
     /// <summary>Takes one action off the list (the x in the window): it is stopped if it runs, and not started again.</summary>
     public static bool Drop(int index)
     {
@@ -358,7 +411,9 @@ public static class Slots
         Kept kept = s_recent[index];
         s_recent.RemoveAt(index);
         if (s_game != null && IsRunning(kept)) s_actions[kept.Entity].TryStop(force: true);
+        Progress.Forget(kept.Entity);
         Note = $"{kept.Title} was taken off the list.";
+        PublishCapacity(Capacity);
         Save();
         Changed?.Invoke();
         return true;
@@ -424,6 +479,7 @@ public static class Slots
             kept.Pending = false;
             kept.OutOfMaterials = false;
             kept.ByQueue = queueSkills.Contains(kept.Entity);
+            if (kept.ByQueue) kept.Locked = false;   // the queue took this skill over: its steps are not the player's to lock
             kept.State = "running";
             lock (s_ranOut) s_ranOut.Remove(kept.Entity);
         }
@@ -492,8 +548,10 @@ public static class Slots
             //   2. one of the player's actions that waits because its materials ran out (it does nothing anyway),
             //   3. the oldest of the player's own actions.
             // The Action Queue's own steps keep their place.
-            int at = LastIndex(k => standIns.Contains(k.Entity) && !k.ByQueue);
-            if (at < 0) at = LastIndex(k => k.OutOfMaterials && !k.ByQueue && !IsRunning(k));
+            int at = LastIndex(k => standIns.Contains(k.Entity) && !k.ByQueue && !k.Locked);
+            if (at < 0) at = LastIndex(k => k.OutOfMaterials && !k.ByQueue && !k.Locked && !IsRunning(k));
+            if (at < 0) at = LastIndex(k => !k.ByQueue && !k.Locked);
+            if (at < 0) at = s_recent.FindLastIndex(k => !k.ByQueue && !k.Locked);   // only the latest is left unlocked
             if (at < 0) at = s_recent.FindLastIndex(k => !k.ByQueue);
             if (at < 0) at = s_recent.Count - 1;
             Kept oldest = s_recent[at];
@@ -601,6 +659,9 @@ public static class Slots
 
         if (!Beside(game, () => Targets.Start(game, action, target, out problem))) { kept.State = "waiting: " + problem; return; }
         PutStopBack(kept, action);
+        // a heist, a hunt or a potion goes on from the step it had reached (the game reset it when it stopped)
+        string back = Progress.PutBack(action);
+        if (back != "") Log($"Multitask: {kept.Title} goes on from where it was ({back}).");
         Starts++;
         s_startedNow = true;
         kept.Pending = false;
@@ -615,10 +676,12 @@ public static class Slots
         List<ActionComponent> kept = running.ToList();
         running.Clear();
         s_restoring = true;
+        Progress.Restarting = true;
         try { return start(); }
         finally
         {
             s_restoring = false;
+            Progress.Restarting = false;
             foreach (ActionComponent action in kept)
                 if (action.IsStarted && !running.Contains(action)) running.Add(action);
         }

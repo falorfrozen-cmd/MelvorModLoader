@@ -1,4 +1,4 @@
-Action Queue 0.10.1  -  a mod for Melvor Idle 2
+Action Queue 0.11.0  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:
@@ -62,6 +62,10 @@ Open a character and press F6 (or pick it from the Mods button in the top bar; t
 While the queue runs, one line at the top of the screen shows the current step.
 Steps can be moved up and down at any time, also while the queue runs: a running step
 is not interrupted, and the new order decides what comes next.
+To change a step, select it and press "Edit": the step is shown in the form above. Change
+what you like and press "Save step N": it stays in its place ("Cancel" leaves it as it
+was). A running step that is changed starts again with its new settings; one that is
+already done this round stays done.
 
 
 THE GAME'S OWN BUTTONS
@@ -91,6 +95,12 @@ Press "Plan an item" at the top of the window.
      takes off what your bank already holds, and lists the steps with the time they take.
   3. "Add these steps to the queue" puts them at the end of the queue. They are ordinary
      steps: reorder, remove or mix them with steps you add by hand.
+"every material" (next to the Add button) is for a queue that starts over. Every material
+gets its step, none is skipped because the bank already has some. Each material step tops
+the bank up to what one round needs ("I own this many"), so a round only gathers what the
+round before used and nothing piles up; the item itself is "make this many more", so every
+round makes it again. It is ticked by itself while "Start over at the end" is on for the
+plan's lane.
 Several plans can be added one after another. A later plan knows what the earlier ones will
 make and use up, so two plans never count on the same ore.
 The planner only uses what you can do now: when a faster recipe needs something you have not
@@ -129,7 +139,9 @@ planner's Add button). Lanes are queues of their own that run at the same time:
   - A step that needs what another lane makes waits for it (cooking in lane 1 waits for
     the fishing in lane 2).
   - "Start over at the end" works per lane: a short lane starts again as soon as it is
-    through and does not wait for a long one.
+    through and does not wait for a long one. Under the list, "Lanes that start over" has a
+    box per lane: untick one and that lane runs once and stays finished while the others
+    keep going round.
   - As many lanes run at once as Multitask has room for; two lanes that use the same skill
     take turns. With every step in lane 1 the queue works as one list, as before.
   - Up to 16 lanes: the list offers as many lanes as Multitask runs actions at once (at
@@ -256,7 +268,8 @@ GOOD TO KNOW
       after a restart: it waits for Start. The reason is written in queue-log.txt.
     - With "start over at the end" ON, prefer "make this many more" / "this many times" /
       "minutes" for steps that should take turns. "I own this many" is reached once, and a
-      round in which every step was already reached ends the queue.
+      round in which every step was already reached ends the queue. (A plan made with
+      "every material" works round after round: see PLAN AN ITEM.)
 - It never bypasses the game's requirements. A step you are not allowed to do yet, or have
   no materials for, is marked "skipped" and the next one starts.
 - If you start something else by hand, the queue pauses instead of fighting you.

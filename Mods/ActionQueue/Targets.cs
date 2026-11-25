@@ -268,7 +268,7 @@ public static class Targets
     {
         if (!OnMainThread) return;
         FlushMeta();
-        foreach (string name in new[] { HeldMeta, DrivingMeta, CapacityMeta, PlayerKeptMeta }) ReadMeta(name);
+        foreach (string name in new[] { HeldMeta, DrivingMeta, CapacityMeta, PlayerKeptMeta, LockedMeta }) ReadMeta(name);
     }
 
     /// <summary>Writes the notes made on the game's own thread (call on the main thread).</summary>
@@ -289,6 +289,14 @@ public static class Targets
     public const string CapacityMeta = "MultitaskCapacity";
 
     public static int MultitaskCapacity() => int.TryParse(ReadMeta(CapacityMeta), out int n) ? Math.Clamp(n, 1, MostActions) : 1;
+
+    /// <summary>
+    /// Multitask 0.7.0+ writes how many of the player's actions are locked in their slots under this name. They are
+    /// part of <see cref="CapacityMeta"/> and of the player's kept actions; the queue runs its lanes only in the rest.
+    /// </summary>
+    public const string LockedMeta = "MultitaskLocked";
+
+    public static int MultitaskLocked() => int.TryParse(ReadMeta(LockedMeta), out int n) ? Math.Clamp(n, 0, MostActions - 1) : 0;
 
     /// <summary>The most actions Multitask runs at once: every action the game has (15 skills plus combat).</summary>
     public const int MostActions = 16;

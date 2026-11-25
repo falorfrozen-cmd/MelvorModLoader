@@ -1,4 +1,4 @@
-Multitask 0.6.1  -  a mod for Melvor Idle 2
+Multitask 0.7.0  -  a mod for Melvor Idle 2
 ===========================================
 
 Do more than one thing at a time. Nothing to set up: pick how many extra slots and play as usual.
@@ -44,6 +44,11 @@ with + and - (or Off, 2, All). That is all.
   - Choose another rock, tree or recipe: that skill simply does the new thing.
     (A skill can only do one thing at a time.)
   - Fewer slots: what no longer fits is stopped, the oldest first.
+  - Lock an action (the Lock button next to it in the F5 window): starting something new
+    never pushes it out of its slot. New actions then swap only among the slots that are
+    not locked, so you can switch quickly without stopping it by mistake. At most as many
+    locks as extra slots: one slot always stays free for switching. Its own Stop button
+    and the x still stop it.
 The window lists what is running together right now, your latest first.
 
 
@@ -54,6 +59,11 @@ GOOD TO KNOW
   so the game does not report "action stopped" for every single fish.
   Untick "Keep an action on the list when its materials run out" in the F5 window and
   such an action leaves the list instead, making room for the next one.
+- Work done in steps is kept: a heist's stage (Thieving), a hunt's survey, tracks and
+  tracking steps (Hunting) and how far a potion has got (Herblore: preparing, heating,
+  stirring, bottling). The game throws those steps away whenever it stops an action, and it
+  stops every action when you start another; Multitask puts them back when it starts the
+  action again. Starting the same heist, hunt or potion yourself still begins it afresh.
 - A crafting action's "stop when" (the game's box for "make N", "reach level N"...) is kept:
   when you start something else and Multitask starts the crafting again, the goal is put
   back with the progress it had. Once the goal is reached the action stops for good.
@@ -68,6 +78,8 @@ GOOD TO KNOW
   The queue's steps take the room; what you were doing before makes way for them.
   Switch "Side by side" off in the queue window to have the queue do one step at a time
   beside what you were doing instead.
+  Locked actions keep their slots: the queue (Action Queue 0.11.0 or newer) runs its steps
+  only in the slots that are not locked, one step at a time when every extra slot is locked.
   With Action Queue 0.6.0 or newer, a free slot is used for the queue's "when the queue
   waits or ends" action. Your own actions keep their slots.
 - The game's bottom bar follows the page you have open: on the page of a skill that is
