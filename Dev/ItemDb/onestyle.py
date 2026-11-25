@@ -95,22 +95,31 @@ def add(db, img_dir):
     pre = [a for a in affixes if a["Kind"] == "P"]
     suf = [a for a in affixes if a["Kind"] == "S"]
     lines = lambda group: [f"{a['Name']}: {a['Text'].replace('{v}', 'X').replace('{style}', 'your style')} (T1 {tier_top(a['Tiers'])})" for a in group]
-    rules = ("Rolled by One Style when a monster dies, from a piece of gear near the monster's level. Item level = the monster's "
+    rules = ("Rolled by One Style in two ways. When a monster dies (online kills only): the base is any gear whose level is "
+             "within 20 below to 5 above the item level, not only the monster's own drops. When you open a dungeon chest in the bank: "
+             "the chest's own gear piece can come rare. A dungeon's final boss also drops that dungeon's gear rare, as often as its "
+             "chest gives gear, and the 40 dungeon-only pieces only come rare from their own dungeon. Item level = the monster's "
              "combat level (+5 on your slayer task or a dungeon's last boss); best tier T5 below 15, T4 from 15, T3 from 35, T2 from 60, T1 "
              "from 85. An affix rolls its best tier 50%, one lower 35%, two lower 15%. Hold Alt over one in the game to see its tiers.")
+    # A Unique drops two items: a Rare (1 in 5 with 4 affixes) and one more at the Champion's odds (Magic 60%, Rare 33%, Rare
+    # with 4 affixes 7%). "ch" is the chance of at least one, "exp" how many on average.
     for rid, name, rarity, count, srcs in [
         ("OsRMagic", "Magic item", "Magic", "2 affixes (1 prefix, 1 suffix)",
-         [("Any monster", "kill", 0.01), ("Champion", "Champion kill", 0.60), ("Unique (its second item)", "Unique kill", 0.60)]),
+         [("Any monster", "kill", 0.01, 0.01), ("Champion", "Champion kill", 0.60, 0.60), ("Unique (its second item)", "Unique kill", 0.60, 0.60),
+          ("Dungeon chest", "gear piece in a chest", 0.20, 0.20)]),
         ("OsRRare", "Rare item", "Rare", "3 affixes (at most 2 prefixes and 2 suffixes)",
-         [("Any monster", "kill", 0.01 * 0.8), ("Champion", "Champion kill", 0.33), ("Unique", "Unique kill", 0.8)]),
+         [("Any monster", "kill", 0.01 * 0.8, 0.01 * 0.8), ("Champion", "Champion kill", 0.33, 0.33),
+          ("Unique", "Unique kill", 1 - 0.2 * 0.67, 0.8 + 0.33), ("Dungeon chest", "gear piece in a chest", 0.08, 0.08)]),
         ("OsRRare4", "Rare item (4 affixes)", "Rare4", "4 affixes (2 prefixes, 2 suffixes)",
-         [("Any monster", "kill", 0.01 * 0.2), ("Champion", "Champion kill", 0.07), ("Unique", "Unique kill", 0.2)]),
+         [("Any monster", "kill", 0.01 * 0.2, 0.01 * 0.2), ("Champion", "Champion kill", 0.07, 0.07),
+          ("Unique", "Unique kill", 1 - 0.8 * 0.93, 0.2 + 0.07), ("Dungeon chest", "gear piece in a chest", 0.02, 0.02)]),
     ]:
         db["items"].append({
             "id": rid, "name": name, "desc": f"{count}. {rules}", "mod": "OneStyle", "rarity": rarity, "cat": "One Style rarity",
             "tags": ["Combat"], "sell": 0, "sellCur": "Gold Pieces",
-            "bonuses": [f"Prefix — {l}" for l in lines(pre)] + [f"Suffix — {l}" for l in lines(suf)],
-            "src": [{"t": "kill", "via": via, "per": per, "ch": ch, "q": [1, 1], "exp": ch} for via, per, ch in srcs],
+            "bonuses": [f"Prefix · {l}" for l in lines(pre)] + [f"Suffix · {l}" for l in lines(suf)],
+            "src": [{"t": "open" if via == "Dungeon chest" else "kill", "via": via, "per": per, "ch": ch, "q": [1, 1], "exp": exp}
+                    for via, per, ch, exp in srcs],
             "use": [],
         })
     return added

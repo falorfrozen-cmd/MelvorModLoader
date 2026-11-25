@@ -153,7 +153,8 @@ function prepare(i) {
   i.gdef = avg(s.OffensiveDefenceBonus || 0, s.DefensiveDefenceBonus || 0);
   i.srcKinds = new Set(i.src.map((x) => x.t));
   i.useSkills = new Set(i.use.map((x) => x.skill).filter(Boolean));
-  i.blob = [i.name, i.kind, i.tool, i.style, i.wtype, ...(i.bonuses || []), ...(i.tags || [])].join(' ').toLowerCase();
+  i.blob = [i.name, i.kind, i.tool, i.style, i.wtype, ...(i.bonuses || []), ...(i.tags || []),
+    ...(i.set ? [i.set.name + ' set', ...i.set.bonuses.flatMap((b) => b.lines)] : [])].join(' ').toLowerCase();
 }
 
 function canUse(i) {
@@ -597,6 +598,7 @@ function itemDetail(i, inPanel = false) {
     ${reqs ? `<div class="section"><h3>Requires</h3><div class="reqs">${reqs}</div></div>` : ''}
     ${stats || facts ? `<div class="section"><h3>Stats</h3><div class="statgrid">${stats}${stats ? '<div class="stat-head">Item</div>' : ''}${facts}</div></div>` : ''}
     ${(i.bonuses || []).length ? `<div class="section"><h3>Effects <span class="n">${i.bonuses.length}</span></h3><ul class="bonus">${i.bonuses.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>${i.consumed ? `<p class="note">Used up: ${esc(i.consumed.join(', '))}</p>` : ''}</div>` : ''}
+    ${i.set ? setSection(i) : ''}
     ${i.contents ? contentsSection(i) : ''}
     <div class="section"><h3>How to get it <span class="n">${i.src.length}</span></h3>${sourcesSection(i)}</div>
     <div class="section"><h3>Used for <span class="n">${i.use.length}</span></h3>${usesSection(i)}</div>
@@ -613,6 +615,14 @@ function contentsSection(i) {
     ${rows.map((x) => `<div class="src"><span>${tileFor(x.id)}</span><div class="what">${nameLink(x.id)}</div><div class="rate"><b>${pct(x.ch)}</b><small>${qty(x.q)} per open${x.ch < 1 ? ' · ' + oneIn(x.ch) : ''}</small></div></div>`).join('')}
     ${c.note ? `<p class="note">${esc(c.note)}</p>` : ''}</div>`;
 }
+// An equipment set (game 0.11.7): its pieces, and the bonus for each number of pieces worn.
+function setSection(i) {
+  const s = i.set;
+  const pieces = s.items.map((id) => byId.get(id) ? `<a class="pill" href="#/item/${encodeURIComponent(id)}" data-item="${esc(id)}">${id === i.id ? '<b>' : ''}${esc(byId.get(id).name)}${id === i.id ? '</b>' : ''}</a>` : '').join(' ');
+  const steps = s.bonuses.map((b) => `<li>${b.n} pieces: ${b.lines.map(esc).join(', ')}</li>`).join('');
+  return `<div class="section"><h3>${esc(s.name)} set <span class="n">${s.items.length}</span></h3><div class="reqs">${pieces}</div><ul class="bonus" style="margin-top:8px">${steps}</ul></div>`;
+}
+
 const nameLink = (id) => { const i = byId.get(id); return i ? `<a href="#/item/${encodeURIComponent(id)}" data-item="${esc(id)}"><b>${esc(i.name)}</b></a><small>${esc(i.kind)}</small>` : esc(id); };
 const tileFor = (id) => (byId.get(id) ? tile(byId.get(id)) : '');
 

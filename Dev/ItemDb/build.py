@@ -18,7 +18,7 @@ from collections import defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAME = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
-GAME_VERSION = "0.11.6"  # the game version this data was read from (see the game's title bar)
+GAME_VERSION = "0.11.7"  # the game version this data was read from (see the game's title bar)
 OUT = os.path.normpath(os.path.join(HERE, "..", "..", "docs", "db", "data.json"))
 
 
@@ -200,6 +200,8 @@ class Modifiers:
 
     def __init__(self, data, names):
         self.names = names
+        # a flat combat stat bonus is written the stat's own way (Lifesteal 0.03 is "+3%", not "+0")
+        self.percent_stats = {x["Id"] for x in data["Objects"].get("CombatStat", []) if x.get("IsPercent")}
         self.global_ = {x["StatGroup"]: x["TemplateString"] for x in data["GlobalModifierDescriptions"]}
         self.component = defaultdict(list)
         for x in data["ComponentModifierDescriptions"]:
@@ -231,6 +233,8 @@ class Modifiers:
                 if fmt.startswith("intervaltime") or fmt.startswith("numbertime"):
                     return interval_text(value)
                 if fmt.startswith("combatStatModifier"):
+                    if short((ctx or {}).get("CombatStat")) in self.percent_stats:
+                        return dotnet_number(value, "+0.##%;-0.##%")
                     return dotnet_number(value, "+0;-#")
                 return dotnet_number(value, fmt)
             path = inner.split(".")
@@ -751,6 +755,20 @@ def build(data):
         if x.get("IgnoreCompletion"):
             rec["noCompletion"] = True
         items.append(rec)
+    # Equipment sets (game 0.11.7 moved the set bonus out of the item description into its own list): each piece shows its
+    # set, the other pieces and the bonus for each number of pieces worn.
+    by_id = {i["id"]: i for i in items}
+    for s in objects.get("EquipmentSetBonus", []):
+        pieces = [short(p) for p in s.get("Items") or []]
+        steps = []
+        for b in s.get("Bonuses") or []:
+            mod = b.get("Modifiers") or {}
+            lines = mods.all(mod) + mods.effects(mod.get("CombatEffect"))
+            steps.append({"n": b.get("ItemCount"), "lines": lines})
+        entry = {"name": s.get("DisplayName") or words(s.get("Id")), "items": pieces, "bonuses": steps}
+        for p in pieces:
+            if p in by_id:
+                by_id[p]["set"] = entry
     book = Book()
     recipes(objects, names, book)
     monsters, areas = combat(objects, names, book)
