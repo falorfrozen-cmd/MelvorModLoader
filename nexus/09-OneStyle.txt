@@ -18,6 +18,7 @@ YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
 MAIN FILE:  dist\OneStyle-0.4.0.zip   (name: One Style, version 0.4.0)   -  Dev\package.ps1 -Mod OneStyle ile kurulur ve dogrulanir (oyun 0.11.7 icin). Zip'e girecekler: mods\OneStyle\OneStyle.dll, README.txt, data\ (affixes.json, base-levels.json, dungeon-gear.json, elites.json, uniques.json), art\ (champion 179, unique 179, items 58). GIRMEYECEKLER: elites-progress.json, onestyle.json (oyuncunun kendi ilerlemesi ve ayari), OneStyle.dll.old-* dosyalari
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src\Dev\shots\nexus-onestyle; oyun ici olanlar -Window -Only storeshots ile, 20 ve 21 Dev'deki kolaj betigiyle; sira ve Description kutusu):
+00-header.png (HEADER, 1300x372; Dev\OneStyleTools\header.py; Nexus draws the mod name and counters over its lower half, so text stays on top)
 01-unique-fight.png (main image)  A Unique monster fought in a full set of Magic, Rare and Unique gear
 20-unique-monsters.png            24 of the 179 Unique monsters, each with its own name, story and picture
 02-rare-card-alt.png              Rare item card: rolled affixes with tiers and ranges, the base item's own bonus apart
@@ -69,31 +70,32 @@ DEGISIKLIK LISTESI (Changelogs sekmesi):
 UZUN ACIKLAMA (Description) - asagidaki cizgiden sonrasini kopyala. {{IMG dosya}} satirlari: galeri yuklendikten sonra o resmin adresiyle [img]ADRES[/img] olur (resim yoksa satir silinir)
 ------------------------------------------------------------------------------------------
 [center][size=6][b]ONE STYLE[/b][/size]
-[size=4][i]One combat style for the whole game. 179 elite monsters. Hack-and-slash loot.[/i][/size]
+[size=4]Pick Melee, Ranged or Magic for a character and play the whole game with only that style.[/size]
 [center]{{IMG 01-unique-fight.png}}[/center]
-Pick Melee, Ranged or Magic and never get forced into the other two — or leave Class on Off and play Melvor Idle 2 with Champion and Unique monsters, Magic/Rare/Unique gear, farmable rare dungeon sets, Ember rerolls and six ring slots.[/center]
+One Style also adds Champion and Unique monsters, Magic and Rare gear with random affixes, 58 Unique items, rare dungeon sets, Ember rerolls and six ring slots. All of that works without a class too: leave it on Off.[/center]
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][url=https://discord.gg/q6aexZZSAf]Discord (updates, support and feedback)[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/center]
 
 [size=5][b]Start here[/b][/size]
-This is One Style [b]0.4.0[/b], tested on game version [b]0.11.7[/b] (25 November 2026) with [b]Melvor Mod Loader 0.3.0[/b]. Open a character, press the [b]Mods[/b] button in the top bar and pick [b]One Style[/b]. Pick Melee, Ranged or Magic — or leave it on [b]Off[/b] to keep the game's normal combat rules while still getting elites, rare items and six ring slots. The class is kept per character and can be changed at any time, for free.
+This is One Style 0.4.0. It was tested on game version 0.11.7 (25 November 2026) with Melvor Mod Loader 0.3.0. Open a character, press the [b]Mods[/b] button in the top bar and pick [b]One Style[/b]. Choose Melee, Ranged or Magic, or leave it on [b]Off[/b] to keep the game's normal combat rules and still get the elites, rare items and extra ring slots. The choice is kept per character, and you can change it at any time for free.
 
+What it does, in short:
 [list]
-[*][b]One class, equal footing:[/b] hit immune monsters, pass cross-style quests and level locks, remove combat triangle penalties and bonuses, fight every monster at its lowest evasion, and earn five class tiers up to level 99.
-[*][b]179 Champions and Uniques:[/b] monsters can spawn as tougher blue Champions or orange Uniques with their own art, names, stories, affixes, signature attacks, extra loot, Ember and 179 trophies.
-[*][b]Hack-and-slash loot (new in 0.4.0):[/b] monsters and dungeon chests drop gear as [color=#73A8FF][b]Magic[/b][/color], [color=#FFD94A][b]Rare[/b][/color] and [color=#EA8538][b]Unique[/b][/color] items with 48 random affixes, tiered roll ranges, 58 Unique items with special powers, and Ember rerolling in the bank.
-[*][b]Six ring slots:[/b] Ring Slot 2 unlocked plus four extra ring slots on the equipment grid, for every character.
-[*][b]Built to keep your items safe:[/b] rare items survive game updates through an external copy and backup recovery, and deleting the mod folder hands your normal items and extra rings back automatically.
+[*]Your style can hit monsters that are immune to it and counts for quest steps and level locks that ask for another style. The combat triangle is off, every monster fights you at its lowest evasion, and your class has five tiers up to level 99.
+[*]179 monsters can spawn as a tougher blue Champion or an orange Unique. Each Unique has its own picture, name and story, two affixes and usually a signature attack. Elites drop extra loot and Ember, and each Unique gives a trophy.
+[*]New in 0.4.0: monsters and dungeon chests drop [color=#73A8FF]Magic[/color] and [color=#FFD94A]Rare[/color] gear with random affixes (48 of them) and 58 [color=#EA8538]Unique[/color] items with special powers. You can reroll an item's numbers with Ember in the bank.
+[*]Every character gets six ring slots: Ring Slot 2 is unlocked and four more sit on the equipment grid.
+[*]Your rare items are kept through game updates. If you delete the mod folder, you get the normal items and the extra rings back.
 [/list]
 
 [line]
 
-[size=5][b]Hack-and-slash loot: Magic, Rare and Unique items (new in 0.4.0)[/b][/size]
-In Melvor Idle 2, every Iron Sword or Silver Topaz Ring is identical. With One Style, monsters and dungeon chests can also drop gear with random bonus lines (called [b]affixes[/b]) rolled from 48 possibilities, in three rarities straight into your bank. Works with every class, and with Off.
+[size=5][b]Magic, Rare and Unique items (new in 0.4.0)[/b][/size]
+In the base game every Iron Sword or Silver Topaz Ring is the same. With One Style, monsters and dungeon chests can also drop gear with random bonus lines, called affixes. There are 48 affixes and three rarities, and the items go straight into your bank. This works with every class and with Off.
 [center]{{IMG 02-rare-card-alt.png}}[/center]
 [center]{{IMG 13-drop-toasts.png}}[/center]
 
-Here is what dropped items look like on their item card:
+This is how two of them look on their item card:
 [quote][color=#FFD94A][b]Bone Mark[/b][/color]
 Rare  ·  Scabjaw Beast Gauntlets  ·  item level 88
 [color=#FFD94A][b]AFFIXES[/b][/color]  [i]3 rolled · T1 best / T5 lowest · hold Alt for the ranges[/i]
@@ -111,37 +113,37 @@ Unique  ·  Stone Helmet  ·  level 1
   +4% max hit, +4% max hit points[/quote]
 
 [list]
-[*][b]Easy to read at a glance:[/b] every Magic, Rare and Unique item gets a coloured name and bank/equipment frame. Every effect is written once, in its own box — rolled affixes apart from the base item's fixed bonus — and the game's merged Bonuses list is hidden so nothing repeats. [b]Hold Alt[/b] anywhere to see each affix's tier range.
-[*][b]Tiers never overlap:[/b] stronger monsters drop higher item levels, unlocking higher tiers from T5 up to T1 (best). A T1 roll is always higher than a T2 roll.
-[*][b]48 affixes (19 prefixes, 29 suffixes):[/b] max hit, attack speed, accuracy, critical chance and damage, minimum hit, lifesteal, reflect, poison / bleed / burn / stun / freeze / blind / wither / armour fracture / Rage on hit, damage against elites or low-HP or burning/bleeding/poisoned enemies, armour, ward, hit points, protection, evasion, damage negation, stun and DoT avoidance, food/rune/ammo/prayer preservation, double combat loot and gold, combat XP, faster respawns, more elites and Ember, and global skill XP and speed. Caps keep stacked affixes in check.
-[*][b]58 Unique items with custom art and powers:[/b] weapons, armour, rings, amulets, capes, offhands and two quivers that are never used up. Each belongs to one monster's Unique and drops at 15% per Unique kill (no guarantee — built to be farmed). Examples: [b]Soulstring Quiver[/b] fires a free extra shot at 75% damage every 5th successful ranged attack (every 4th vs elites); [b]Veil-Antler Reprieve[/b] rescues you below 20% HP or from a fatal blow once every 3 minutes of fighting; [b]Dreamtide Orb[/b] puts enemies to sleep every 4th hit and makes your first hit on a sleeping or stunned foe deal +80% and never miss; [b]Abyssal Beacon[/b] doubles elite chance (up to 2.5x) and gives elites +1 affix, +20% HP and +1 extra Rare drop; [b]Wreckshot[/b] grows stronger with every elite you kill while wearing it; [b]Usurper's Circle[/b] copies the bonuses of its paired ring slot.
-[*][b]Farmable rare dungeon gear:[/b] the 40 dungeon-only pieces (Blood and Drowned sets, Starblighted, Black Dragon Boots, Wurm Dagger and more) never drop in the general pool — they come rare only from their own dungeon. Opening a dungeon chest can turn its gear into Magic (20%), Rare (8%) or 4-affix Rare (2%), and the dungeon's final boss draws from that dungeon's gear at the chest's own gear odds. An elite final boss also multiplies the dungeon's reward (3x as a Champion, 6x as a Unique).
-[*][b]Where they come from:[/b] most rare items come from Champions. About 6 kills in 100 are a Champion, and every Champion drops one. Your slayer task and a dungeon's last boss drop them at a higher item level.
-[*][b]Ember reroll:[/b] select any Magic or Rare item in your bank (not worn) and spend 2 to 10 Ember to reroll its numbers within their current tiers. A Before / After gamble window shows every roll green (up) or red (down); the new numbers stay at once.
-[*][b]Built into the game's drop lists:[/b] a monster's drops window, the fight screen's chest tab and View all Stats & Drops show a short [b]Possible rare drops[/b] section with a [b]?[/b] help button and an expandable [b]Show possible items[/b] list, slot by slot. Monster cards in the combat area list also show the Unique's own item among their drops. A one-click [b]Sell unlocked Magic items[/b] button on the Elites page clears spare blue drops from your bank.
+[*]Every Magic, Rare and Unique item has a coloured name and a coloured frame in the bank and on your equipment. The card lists each effect once: the rolled affixes in one part, the base item's fixed bonus in another. The game's own Bonuses list is hidden for these items, because it would list the affixes a second time. Hold [b]Alt[/b] to see the range of each affix's tier.
+[*]Stronger monsters drop items with a higher item level, and a higher item level allows better tiers, from T5 up to T1 (the best). The tier ranges never overlap, so a T1 roll is always better than a T2 roll.
+[*]The 48 affixes (19 prefixes and 29 suffixes) cover max hit, attack speed, accuracy, critical chance and damage, minimum hit, lifesteal, reflect, poison / bleed / burn / stun / freeze / blind / wither / armour fracture / Rage on hit, more damage against elites, low-HP enemies or enemies that are burning, bleeding or poisoned, armour, ward, hit points, protection, evasion, damage negation, stun and DoT avoidance, keeping food, runes, ammo and prayer points, double combat loot and gold, combat XP, faster respawns, more elites and Ember, and XP and speed in every skill. Some of them have a cap, so stacking them only goes so far.
+[*]There are 58 Unique items with their own art and powers: weapons, armour, rings, amulets, capes, offhands and two quivers that never run out. Each one belongs to one monster's Unique and drops on 15% of its kills. There is no guarantee, so you farm for them. A few of them: [color=#EA8538]Soulstring Quiver[/color] fires a free extra shot at 75% damage on every 5th successful ranged attack (every 4th against elites). [color=#EA8538]Veil-Antler Reprieve[/color] saves you when you drop below 20% HP or take a fatal hit, once every 3 minutes of fighting. [color=#EA8538]Dreamtide Orb[/color] puts the enemy to sleep every 4th hit, and your first hit on a sleeping or stunned enemy deals +80% and never misses. [color=#EA8538]Abyssal Beacon[/color] doubles the elite chance (up to 2.5x) and gives elites +1 affix, +20% HP and one extra Rare drop. [color=#EA8538]Wreckshot[/color] gets stronger with every elite you kill while you wear it. [color=#EA8538]Usurper's Circle[/color] copies the bonuses of the ring in its paired slot.
+[*]Dungeon gear can be farmed as rare items too. The 40 dungeon-only pieces (the Blood and Drowned sets, Starblighted, Black Dragon Boots, Wurm Dagger and more) never drop from the general pool. They only come rare from their own dungeon: when you open a dungeon chest, its gear can turn Magic (20%), Rare (8%) or Rare with 4 affixes (2%), and the dungeon's final boss drops that dungeon's gear as rare items as often as the chest gives gear. An elite final boss also multiplies the dungeon's reward: 3x as a Champion, 6x as a Unique.
+[*]Most rare items come from Champions. About 6 kills in 100 are a Champion, and every Champion drops one. Your slayer task and a dungeon's last boss drop them at a higher item level.
+[*]To reroll an item, select a Magic or Rare item in your bank (not a worn one) and spend 2 to 10 Ember. Its numbers are rolled again inside their current tiers. A Before / After window shows each number in green if it went up and in red if it went down. The new numbers replace the old ones straight away, so it is a gamble.
+[*]The game's own drop lists show the rare drops too. A monster's drops window, the chest tab of the fight screen and View all Stats & Drops have a short [b]Possible rare drops[/b] part with a [b]?[/b] button that explains it and a [b]Show possible items[/b] list, slot by slot. Monster cards in the combat area list show the Unique's own item among their drops. On the Elites page, [b]Sell unlocked Magic items[/b] sells the spare blue drops in your bank in one click.
 [/list]
-
 [center]{{IMG 05-reroll.png}}[/center]
 [center]{{IMG 08-dungeon-chest.png}}[/center]
 [center]{{IMG 14-possible-items.png}}[/center]
 
-[spoiler=Exact rare drop rates, tiers, caps, Ember reroll and offline rules]
+[b]Exact rare drop rates, tiers, caps, Ember reroll and offline rules[/b]
+[spoiler]
 [b]Drop chances (online kills only):[/b]
 [list]
-[*][b]Normal monster:[/b] 2% per kill — 1% Magic (2 affixes), 1% Rare (3 affixes; 1 in 5 Rare items rolls 4 affixes).
-[*][b]Champion:[/b] 1 guaranteed item — Magic 60%, Rare 33%, Rare with 4 affixes 7%.
-[*][b]Unique:[/b] 2 guaranteed items (1 Rare with 1-in-5 chance of 4 affixes, plus 1 item with Champion odds), plus a 15% chance of that Unique's own Unique item (for the 58 monsters that have one).
-[*][b]Slayer task or dungeon final boss:[/b] +5 item level, and an elite drops 1 extra item.
-[*][b]Dungeon chests:[/b] when opened in the bank, gear from a dungeon chest rolls Magic 20%, Rare 8%, Rare with 4 affixes 2% (in place of the normal piece), at item level = final boss combat level + 5 (or the item's own level if higher). Unique item powers that raise rare drops do not apply to chest opening, and Bulk Sell auto-sell never sells chest drops.
-[*][b]Dungeon final boss pool:[/b] its rare drops roll from that dungeon's chest gear at the chest's own gear chance (e.g. Kraken's Domain 30%, Blood Sanctum 23%, Black Dragon's Lair 1%), with the chest's own weights.
+[*]Normal monster: 2% per kill (1% Magic with 2 affixes, 1% Rare with 3 affixes; 1 in 5 Rare items rolls 4 affixes).
+[*]Champion: 1 guaranteed item (Magic 60%, Rare 33%, Rare with 4 affixes 7%).
+[*]Unique: 2 guaranteed items (1 Rare with 1-in-5 chance of 4 affixes, plus 1 item with Champion odds), plus a 15% chance of that Unique's own Unique item (for the 58 monsters that have one).
+[*]Slayer task or dungeon final boss: +5 item level, and an elite drops 1 extra item.
+[*]Dungeon chests: when opened in the bank, gear from a dungeon chest rolls Magic 20%, Rare 8%, Rare with 4 affixes 2% (in place of the normal piece), at item level = final boss combat level + 5 (or the item's own level if higher). Unique item powers that raise rare drops do not apply to chest opening, and Bulk Sell auto-sell never sells chest drops.
+[*]Dungeon final boss pool: its rare drops roll from that dungeon's chest gear at the chest's own gear chance (e.g. Kraken's Domain 30%, Blood Sanctum 23%, Black Dragon's Lair 1%), with the chest's own weights.
 [/list]
 
 [b]Base items, item level and tiers:[/b]
 [list]
-[*][b]Base item pool:[/b] not limited to the monster's own drops — picks any non-dungeon-only gear with level in [i][item level - 20, item level + 5][/i] (every slot equally likely; weapons match your class's style, or any style on Off). Every item counts as the higher of its level requirement and the level of its easiest source (e.g. Hypnotic Amulet counts as 75). Ammo, gear without game artwork, collectables, Belra rings and items selling for over 25,000 never roll in the general pool.
-[*][b]Item level to best tier:[/b] 1-14 = T5, 15-34 = T4, 35-59 = T3, 60-84 = T2, 85+ = T1. Each affix rolls the best tier 50% of the time, one tier lower 35%, two tiers lower 15%. Tier ranges never overlap.
-[*][b]Affix rules:[/b] at most 2 prefixes and 2 suffixes, never the same affix twice, at most one on-hit DoT (Poison / Bleed / Burn) and one on-hit stun (Stun / Freeze) per item.
-[*][b]Requirements, prices and bank behaviour:[/b] rare items require their base item's skills at no less than 80% of item level (capped at 99); rings, amulets and capes use Hitpoints instead of a combat style so every class can wear them. Unique items require their own level. Rare items count for set bonuses, cannot be upgraded, are excluded from the item log, show [b]Found in: Combat[/b], and sell for 1.5x (Magic), 2.5x (Rare) or 4x (4-affix Rare) base price (Uniques: 5x base, minimum 500 GP). Automatic placeholders do not leave empty ghosts behind when a rare item is sold. If your bank is full, drops wait and enter as soon as you free space.
+[*]Base item pool: not limited to the monster's own drops. It picks any non-dungeon-only gear with level in [i][item level - 20, item level + 5][/i] (every slot equally likely; weapons match your class's style, or any style on Off). Every item counts as the higher of its level requirement and the level of its easiest source (e.g. Hypnotic Amulet counts as 75). Ammo, gear without game artwork, collectables, Belra rings and items selling for over 25,000 never roll in the general pool.
+[*]Item level to best tier: 1-14 = T5, 15-34 = T4, 35-59 = T3, 60-84 = T2, 85+ = T1. Each affix rolls the best tier 50% of the time, one tier lower 35%, two tiers lower 15%. Tier ranges never overlap.
+[*]Affix rules: at most 2 prefixes and 2 suffixes, never the same affix twice, at most one on-hit DoT (Poison / Bleed / Burn) and one on-hit stun (Stun / Freeze) per item.
+[*]Requirements, prices and bank behaviour: rare items require their base item's skills at no less than 80% of item level (capped at 99); rings, amulets and capes use Hitpoints instead of a combat style so every class can wear them. Unique items require their own level. Rare items count for set bonuses, cannot be upgraded, are excluded from the item log, show [b]Found in: Combat[/b], and sell for 1.5x (Magic), 2.5x (Rare) or 4x (4-affix Rare) base price (Uniques: 5x base, minimum 500 GP). Automatic placeholders do not leave empty ghosts behind when a rare item is sold. If your bank is full, drops wait and enter as soon as you free space.
 [/list]
 
 [b]Caps on worn rare item affixes (excess above a cap does nothing):[/b]
@@ -150,23 +152,24 @@ Unique  ·  Stone Helmet  ·  level 1
 [*]Double combat loot: 25%  |  Monster respawn time: -50%  |  Elite chance (of Calling): +50%
 [*]Action time in every skill (of Diligence): -40%  |  XP in every skill (of Learning): +50%
 [*]Usurper's Circle's copied ring counts toward these caps too.
-[*][b]Attack interval floor:[/b] while playing, nothing lowers your attack interval below [b]0.6 s[/b] (affixes, Momentum, class, Uniques and Rage together). Cheat Menu's Attack speed option steps past this floor cleanly.
-[*][b]Duplicate rare rings:[/b] multiple rare copies of the same base ring add all of their rolled affixes, while that base ring's own stats and bonuses count once.
+[*]Attack interval floor: while playing, nothing lowers your attack interval below 0.6 s (affixes, Momentum, class, Uniques and Rage together). Cheat Menu's Attack speed option steps past this floor cleanly.
+[*]Duplicate rare rings: multiple rare copies of the same base ring add all of their rolled affixes, while that base ring's own stats and bonuses count once.
 [/list]
 
 [b]Ember reroll:[/b]
 [list]
-[*]Costs [b]2 x min(5, 1 + item level / 20, rounded down)[/b] Ember (2 to 10 Ember). Banked Magic and Rare items only (not worn, not Unique). Affixes and tiers stay; every number rerolls inside its tier range with at least one number guaranteed to change (items whose tiers are all fixed cannot be rerolled).
+[*]Costs 2 x min(5, 1 + item level / 20, rounded down) Ember (2 to 10 Ember). Banked Magic and Rare items only (not worn, not Unique). Affixes and tiers stay; every number rerolls inside its tier range with at least one number guaranteed to change (items whose tiers are all fixed cannot be rerolled).
 [/list]
 
 [b]Offline rules for Unique items:[/b]
 [list]
 [*]Unique powers work while you play, not during offline progress. Offline, a Unique keeps its plain stats (such as unconsumed quivers, lifesteal, accuracy, and earned Wreckshot damage), and scripted penalties are paused (Twin Volley's -40% damage, Deep Wound's -20%, Thorn Dance's -10% and Hollow Harvest's -35% hit points).
-[*]Defensive powers also rest offline ([b]Oathlocked Plate[/b], [b]Veil-Antler Reprieve[/b], [b]Cavern Bastion[/b], [b]Tollkeeper Greaves[/b]): do not leave a fight running offline that you only survive because of one of them.
+[*]Defensive powers also rest offline (Oathlocked Plate, Veil-Antler Reprieve, Cavern Bastion, Tollkeeper Greaves): do not leave a fight running offline that you only survive because of one of them.
 [/list]
 [/spoiler]
 
-[spoiler=All 48 affixes: what each does, its best range (T1) and where it can roll]
+[b]All 48 affixes: what each does, its best range (T1) and where it can roll[/b]
+[spoiler]
 X is the rolled number. Every tier has its own range and the ranges never overlap.
 [b]Prefixes (19)[/b]
 [list]
@@ -227,7 +230,8 @@ X is the rolled number. Every tier has its own range and the ranges never overla
 [center]{{IMG 21-unique-items.png}}[/center]
 [center]{{IMG 12-unique-collection.png}}[/center]
 
-[spoiler=All 58 Unique items: slot, level and the Unique that drops it]
+[b]All 58 Unique items: slot, level and the Unique that drops it[/b]
+[spoiler]
 Each drops 15% of the times you kill that monster's Unique (about 0.12% of the monster's kills in a combat area). Open the monster's Elites window, or look at the item in your bank, to read its stats and power.
 [list]
 [*][color=#EA8538][b]Copper Oath[/b][/color]: helmet, level 1, from Grik, the Copper-Crowned
@@ -294,15 +298,15 @@ Each drops 15% of the times you kill that monster's Unique (about 0.12% of the m
 [line]
 
 [size=5][b]Champions and Uniques (179 monsters)[/b][/size]
-Any of 179 monsters can spawn as a [color=#38E8FF][b]Champion[/b][/color] (blue outline, random affixes) or, rarely, as a [color=#FF8C24][b]Unique[/b][/color] (orange outline, custom art, its own name, story, two fixed affixes, a signature attack and sometimes a passive). Works with every class and with Off; can be switched off on the Elites page. Elites only appear while you play, never during offline progress.
+Any of 179 monsters can spawn as a [color=#38E8FF]Champion[/color] (blue outline, random affixes) or, more rarely, as a [color=#FF8C24]Unique[/color] (orange outline, its own picture, name and story, two fixed affixes, a signature attack and sometimes a passive). They appear with every class and with Off, and you can switch them off on the Elites page. Elites only appear while you play, not during offline progress.
 
-Under an elite's health bar you see [b]CHAMPION[/b] or [b]UNIQUE[/b] and a badge for each affix. Its bar gets a coloured frame, turns red when enraged, flashes green when Vampiric heals and tracks Warded hits left. A Unique uses its signature attack for about 1 attack in 5. Click the [b]Elites[/b] button next to View Stats in any monster list to inspect Normal, Champion and Unique side by side with their art, stats and drops.
-
+Under an elite's health bar you see CHAMPION or UNIQUE and a badge for each affix. Its bar gets a coloured frame, turns red when it is enraged, flashes green when a Vampiric elite heals and shows how many Warded hits are left. A Unique uses its signature attack on about 1 attack in 5. In any monster list, the [b]Elites[/b] button next to View Stats shows the Normal, Champion and Unique version side by side with their art, stats and drops.
 [center]{{IMG 20-unique-monsters.png}}[/center]
 [center]{{IMG 06-elites-window.png}}[/center]
 [center]{{IMG 07-champion-drops.png}}[/center]
 
-[spoiler=Exact elite spawn rates, affixes, safety caps, rewards and 179 trophies]
+[b]Exact elite spawn rates, affixes, safety caps, rewards and 179 trophies[/b]
+[spoiler]
 [b]Spawn rates and pity:[/b]
 [list]
 [*]Combat areas: 6% Champion / 0.8% Unique  |  Your Slayer task: 10% / 1.5%
@@ -312,132 +316,132 @@ Under an elite's health bar you see [b]CHAMPION[/b] or [b]UNIQUE[/b] and a badge
 
 [b]Strength and affixes:[/b]
 [list]
-[*][b]Champion:[/b] 1.35x to 3x HP, +12% damage (+8% from 3,000 HP), 5% faster, +8% accuracy, +10% protection, 1 random affix (2 from 1,200 HP).
-[*][b]Unique:[/b] 1.7x to 6x HP, +22% damage (+14% from 3,000 HP), 8% faster, +15% accuracy, +18% protection, 2 fixed affixes, a signature attack (174 of the 179) and sometimes a passive.
-[*][b]The 6 monster affixes:[/b] [b]Hasted[/b] (12% faster, 18% for monsters slower than 2 s), [b]Colossal[/b] (+25% HP on top, so up to 3.75x / 7.5x, +10% damage, 10% slower), [b]Warded[/b] (2 to 6 hits of ward), [b]Armoured[/b] (-18% damage taken), [b]Vampiric[/b] (heals 10% of damage dealt, max 2.5% HP per hit, fading to 0 between 25 s and 45 s), [b]Enraging[/b] (below 40% HP: +20% damage, 10% faster).
-[*][b]Safety limits:[/b] a single hit never exceeds 1.3x the normal monster's max hit; DPS is capped at 1.35x (Champion) / 1.55x (Unique), or 1.30x for monsters with 3,000+ HP; monsters with 5,000+ HP cap at 2.2x HP; elite speed bonuses never push an attack interval below 1.2 s (a monster that is already faster keeps its own speed); after 60 s the elite tires (+5% damage taken every 5 s); and while an elite lives you have [b]no death penalty[/b] (on by default, toggleable on the Elites page).
+[*]Champion: 1.35x to 3x HP, +12% damage (+8% from 3,000 HP), 5% faster, +8% accuracy, +10% protection, 1 random affix (2 from 1,200 HP).
+[*]Unique: 1.7x to 6x HP, +22% damage (+14% from 3,000 HP), 8% faster, +15% accuracy, +18% protection, 2 fixed affixes, a signature attack (174 of the 179) and sometimes a passive.
+[*]The 6 monster affixes: [b]Hasted[/b] (12% faster, 18% for monsters slower than 2 s), [b]Colossal[/b] (+25% HP on top, so up to 3.75x / 7.5x, +10% damage, 10% slower), [b]Warded[/b] (2 to 6 hits of ward), [b]Armoured[/b] (-18% damage taken), [b]Vampiric[/b] (heals 10% of damage dealt, max 2.5% HP per hit, fading to 0 between 25 s and 45 s), [b]Enraging[/b] (below 40% HP: +20% damage, 10% faster).
+[*]Safety limits: a single hit never exceeds 1.3x the normal monster's max hit; DPS is capped at 1.35x (Champion) / 1.55x (Unique), or 1.30x for monsters with 3,000+ HP; monsters with 5,000+ HP cap at 2.2x HP; elite speed bonuses never push an attack interval below 1.2 s (a monster that is already faster keeps its own speed); after 60 s the elite tires (+5% damage taken every 5 s); and while an elite lives you have no death penalty (on by default, toggleable on the Elites page).
 [/list]
 
 [b]Rewards and trophies:[/b]
 [list]
-[*][b]Champion:[/b] +2 extra rolls of the monster's loot (gold too; doubling works; openables excluded), +25% combat XP, 3 to 11 Ember. First kill: +1 roll and +10 Ember.
-[*][b]Unique:[/b] +5 extra rolls (+6 at 50 trophies), +50% combat XP, 16 to 48 Ember. First kill: +3 rolls, +40 Ember and its trophy. Monsters without their own loot pay gold from HP and 1.5x Ember. An elite dungeon final boss multiplies the dungeon's own reward (3x Champion, 6x Unique, 7x at 50 trophies, plus +1 / +3 on first kill of that tier).
-[*][b]179 Trophies:[/b] each trophy gives +0.15% elite chance and +0.1% Ember. Milestones: [b]10[/b] (+2% elite gold), [b]25[/b] (+1% max HP), [b]50[/b] (+1 Unique loot roll), [b]100[/b] (mark one monster for +25% Unique chance), [b]179[/b] ("Master of the 179", +25% Ember).
+[*]Champion: +2 extra rolls of the monster's loot (gold too; doubling works; openables excluded), +25% combat XP, 3 to 11 Ember. First kill: +1 roll and +10 Ember.
+[*]Unique: +5 extra rolls (+6 at 50 trophies), +50% combat XP, 16 to 48 Ember. First kill: +3 rolls, +40 Ember and its trophy. Monsters without their own loot pay gold from HP and 1.5x Ember. An elite dungeon final boss multiplies the dungeon's own reward (3x Champion, 6x Unique, 7x at 50 trophies, plus +1 / +3 on first kill of that tier).
+[*]179 Trophies: each trophy gives +0.15% elite chance and +0.1% Ember. Milestones: 10 (+2% elite gold), 25 (+1% max HP), 50 (+1 Unique loot roll), 100 (mark one monster for +25% Unique chance), 179 ("Master of the 179", +25% Ember).
 [/list]
 [/spoiler]
 
 [line]
 
-[size=5][b]One combat style, on an equal footing[/b][/size]
-Pick Melee, Ranged or Magic and play the entire game with it — no more levelling two other styles just to clear one immune boss, quest step or shop unlock, and no class left weaker than the others.
+[size=5][b]One combat style for the whole game[/b][/size]
+Pick Melee, Ranged or Magic and play the whole game with it. You don't have to train the other two styles to beat an immune boss, finish a quest step or unlock a shop item.
 
 [list]
-[*][b]No style roadblocks:[/b] monsters immune to your style (Wind Drifter, Sunken Tower Amalgamations, Blood Sanctum) can be hit with it; quest goals and targets asking for another style accept yours (including the archery targets of the first main quest); cross-style level locks read your class level.
-[*][b]Fair combat math:[/b] the combat triangle is switched off (no penalties and no bonuses), every monster's evasion against your stances drops to its lowest evasion of all styles (Weak Spot), Melee and Ranged dodge spells with full Defence (instead of 70% Magic) and get +15% max hit against the 135 elemental monsters.
-[*][b]Equal progression:[/b] Melee shares Attack and Strength XP both ways so every class trains one skill; Ranged and Magic get equivalents for Melee's extra guild ranks, constellations and the pets Fen and Bruno, plus +30 light to make up for two-handed weapons.
-[*][b]Class identity and tiers:[/b] each class gets its own passive identity and five tier upgrades with titles at class levels 20, 40, 60, 80 and 99.
+[*]Your style works where the game asks for another one. Monsters that are immune to it (Wind Drifter, the Sunken Tower Amalgamations, Blood Sanctum) can be hit, quest goals and targets that ask for another style accept yours (also the archery targets of the first main quest), and level locks for other styles read your class level.
+[*]The combat triangle is off, with no penalties and no bonuses. Against your stances every monster uses its lowest evasion of all styles (the weak spot). Melee and Ranged dodge spells with their full Defence instead of 70% Magic, and get +15% max hit against the 135 elemental monsters.
+[*]Melee shares Attack and Strength XP both ways, so every class trains one skill. Ranged and Magic get their own versions of Melee's extra guild ranks, constellations and the pets Fen and Bruno, plus +30 light because their weapons are two-handed.
+[*]Each class has its own passive bonus and five tiers, with a title at class levels 20, 40, 60, 80 and 99.
 [/list]
-
 [center]{{IMG 09-class-window.png}}[/center]
 
-[spoiler=Exact class tiers, level locks, guild/astrology equivalents and identity bonuses]
+[b]Exact class tiers, level locks, guild/astrology equivalents and identity bonuses[/b]
+[spoiler]
 [list]
-[*][b]Level locks that follow your class level:[/b] Battle Loadout, thieving distractions, the four combat constellations, item upgrades, Hunting by hand, rings and amulets — plus, for Ranged, crossbows and throwing hammers that ask for Strength.
-[*][b]Weak spot:[/b] every monster has a weakest style (Wind Elemental dodges magic 7x better than ranged; Talm dodges ranged 10x better than melee). Your stances meet the monster's lowest evasion across all nine stances. Area and darkness effects still count.
-[*][b]Melee XP sharing:[/b] whatever Attack gains, Strength gains too, and the other way round — including XP from quests, lamps and other mods.
-[*][b]Class tiers (at levels 20, 40, 60, 80 and 99 — per tier):[/b]
+[*]Level locks that follow your class level: Battle Loadout, thieving distractions, the four combat constellations, item upgrades, Hunting by hand, rings and amulets, and for Ranged also crossbows and throwing hammers that ask for Strength.
+[*]Weak spot: every monster has a weakest style (Wind Elemental dodges magic 7x better than ranged; Talm dodges ranged 10x better than melee). Your stances meet the monster's lowest evasion across all nine stances. Area and darkness effects still count.
+[*]Melee XP sharing: whatever Attack gains, Strength gains too, and the other way round, including XP from quests, lamps and other mods.
+[*]Class tiers (per tier, at levels 20, 40, 60, 80 and 99):
   Melee: +3% max hit, +4% minimum hit, -5% monster respawn time.
   Ranged: +8% chance to keep ammo, +4% accuracy, -2% attack time.
   Magic: +8% chance to keep runes, +4% accuracy, +3% max hit.
-[*][b]Class identity:[/b]
+[*]Class identity:
   Melee: 3% lifesteal.
   Ranged: +5% critical chance, +25% critical damage, +30 light.
   Magic: +3 ward, 25% chance of double ward damage, +30 light.
-[*][b]Guild and Astrology equivalents (Ranged and Magic):[/b]
+[*]Guild and Astrology equivalents (Ranged and Magic):
   Guild rank 3: +6% ranged strength / +6% magic damage.
   Guild rank 4: -10% monster evasion and -10% monster armour.
   Guild rank 5: +5% minimum hit and +15% power.
   Ranged, Syllia major 3: +4 Ranged levels.
   Syllia major 4 (Ranged) or Arachi major 4 (Magic): +15% accuracy.
-[*][b]Pets:[/b] Fen (+1% accuracy) and Bruno (+1% max hit) drop from Attack and Strength XP; with Ranged or Magic they drop from your class's XP.
-[*][b]Tier titles:[/b] Melee: Recruit, Squire, Vanguard, Champion, Warlord, Juggernaut. Ranged: Novice, Scout, Hunter, Sharpshooter, Deadeye, Horizon Walker. Magic: Initiate, Apprentice, Adept, Arcanist, Archmage, Archon.
+[*]Pets: Fen (+1% accuracy) and Bruno (+1% max hit) drop from Attack and Strength XP; with Ranged or Magic they drop from your class's XP.
+[*]Tier titles: Melee: Recruit, Squire, Vanguard, Champion, Warlord, Juggernaut. Ranged: Novice, Scout, Hunter, Sharpshooter, Deadeye, Horizon Walker. Magic: Initiate, Apprentice, Adept, Arcanist, Archmage, Archon.
 [/list]
 [/spoiler]
 
 [line]
 
 [size=5][b]The One Style window[/b][/size]
-Open it from the [b]Mods[/b] button in the top bar. Two pages:
+Open it from the [b]Mods[/b] button in the top bar. It has two pages.
 [list]
-[*][b]Class:[/b] the four cards (Off, Melee, Ranged, Magic), your class level, tier and title with a bar to the next tier, what your class opens, the equal-footing rules, and the six ring slots with "Put rings 2-6 in the bank".
-[*][b]Elites:[/b] switch Champions and Uniques on or off, the no-death-penalty setting, your Ember, your trophies and their milestones, your last drops, the Unique items you wear and what their powers have counted (Wreckshot's elite kills, Veil-Antler's wait...), "How rare drops work", "Sell unlocked Magic items" and "Make all rare items normal".
+[*]The Class page has the four cards (Off, Melee, Ranged, Magic), your class level, tier and title with a bar to the next tier, what your class opens, the combat rules and the six ring slots with [b]Put rings 2-6 in the bank[/b].
+[*]The Elites page switches Champions and Uniques on or off and has the no-death-penalty setting, your Ember, your trophies and their milestones, your last drops, the Unique items you wear and what their powers have counted (Wreckshot's elite kills, Veil-Antler's wait...), [b]How rare drops work[/b], [b]Sell unlocked Magic items[/b] and [b]Make all rare items normal[/b].
 [/list]
 [center]{{IMG 11-elites-page.png}}[/center]
 [center]{{IMG 11b-elites-page-drops.png}}[/center]
 
 [size=5][b]Six ring slots[/b][/size]
-Every character gets six ring slots instead of one, whatever the class (including Off). Ring Slot 2 is unlocked (normally behind Crafting 150) and four more sit on the equipment grid. Rings stay on across loadouts and restarts. Normal game rings count once (wear different rings); rare copies of the same ring can be worn together — all of their affixes count, while the base ring's own stats and bonuses count once.
+Every character gets six ring slots instead of one, whatever the class (Off too). Ring Slot 2 is unlocked (normally it needs Crafting 150) and four more sit on the equipment grid. Rings stay on across loadouts and restarts. A normal game ring counts once, so wear different rings. Rare copies of the same ring can be worn together: all of their affixes count, while the base ring's own stats and bonuses count once.
 
 [line]
 
 [size=5][b]Works with[/b][/size]
 [list]
-[*][b]Requires:[/b] Melvor Mod Loader [b]0.3.0[/b] or newer.
-[*][b][url=https://www.nexusmods.com/melvoridle2/mods/4]Bulk Sell[/url] 0.3.0:[/b] filters rare items by rarity, slot, affix and level, and adds Auto-sell rules for new Magic and Rare drops (Keep affixes win; locked, worn, Unique and chest-opened gear are never auto-sold).
+[*]Requires Melvor Mod Loader 0.3.0 or newer.
+[*][url=https://www.nexusmods.com/melvoridle2/mods/4]Bulk Sell[/url] 0.3.0 filters rare items by rarity, slot, affix and level, and its Auto-sell rules can sell new Magic and Rare drops (a Keep affix wins; locked, worn, Unique and chest-opened gear is never auto-sold).
 [/list]
 [center]{{IMG 17-bulksell-rare.png}}[/center]
 [list]
-[*][b][url=https://www.nexusmods.com/melvoridle2/mods/5]Action Queue[/url] 0.10.1:[/b] Equip, Sell and item goals support Magic, Rare and Unique gear in their rarity colour.
-[*][b]Phone Screen 0.1.1:[/b] displays and equips rare items in Gear and Bank in their rarity colour with item level and affixes.
-[*][b][url=https://www.nexusmods.com/melvoridle2/mods/3]Cheat Menu[/url] 0.8.1:[/b] keeps One Style's rare and unique items out of Give item and auto-sell; its Attack speed option works cleanly past the 0.6 s interval floor.
-[*][b]Better Tooltips:[/b] detected automatically; its hover and pinned tooltips show rarity colours and affix lines (and tiers/ranges with Alt).
+[*][url=https://www.nexusmods.com/melvoridle2/mods/5]Action Queue[/url] 0.11.0: Equip, Sell and item goals work with Magic, Rare and Unique gear and show it in its rarity colour.
+[*]Phone Screen 0.1.1 shows and equips rare items in Gear and Bank, in their rarity colour with item level and affixes.
+[*][url=https://www.nexusmods.com/melvoridle2/mods/3]Cheat Menu[/url] 0.8.1 keeps One Style's rare and Unique items out of Give item and auto-sell, and its Attack speed option goes past the 0.6 s attack interval floor without problems.
+[*]Better Tooltips is found automatically: its hover and pinned tooltips show the rarity colour and the affix lines (with tiers and ranges when you hold Alt).
 [/list]
 
 [line]
 
-[size=5][b]Built to survive game updates[/b][/size]
-Melvor Idle 2 is in alpha and updates often. One Style is engineered so a game update does not eat your rare gear:
+[size=5][b]When the game updates[/b][/size]
+Melvor Idle 2 is in alpha and updates often. This is what keeps your rare items safe when that happens:
 [list]
-[*][b]Safe in your save:[/b] rare items stay in the same bank tab and slot (locked if you locked them), worn and in every loadout. Save copies and cloud saves carry them.
-[*][b]Second copy outside the save:[/b] with every save (written only after the game confirms the save hit disk), One Style keeps a backup of your character's rare items — what they are, where each sits, how many — in [i]%AppData%\Games By Malcs\Melvor Idle 2\onestyle-items[/i]. If the game runs without the mod after an update and saves, the next working One Style restores them to their places. Without that file, it searches the game's own 15 rolling backups. It also keeps a copy of your save before the first play after any game update.
-[*][b]A broken mod is not a removed mod:[/b] if [b]OneStyle.dll[/b] is still in the mods folder and fails to start after an update, Melvor Mod Loader 0.3.0 leaves your rare items rare and warns you on screen. Inside One Style, one failing subsystem (such as tooltips) rests on its own without stopping the rest of the mod, and a save from a newer One Style enters safe mode and writes its data back byte for byte.
-[*][b]Tested inside the real game:[/b] One Style is checked by an automated in-game test harness with hundreds of checks in the running game — classes, equal footing, six ring slots, elites, rare drops, dungeon chests, Ember rerolls, all 58 Unique powers, item cards, offline transitions, save/vault recovery and full-bank uninstall rescue.
+[*]Rare items are stored in your save: in the same bank tab and slot (locked if you locked them), worn, and in every loadout. Save copies and cloud saves carry them.
+[*]One Style also keeps a second copy outside the save. With every save (written only after the game confirms the save is on disk) it notes your character's rare items, what they are, where each one is and how many, in [i]%AppData%\Games By Malcs\Melvor Idle 2\onestyle-items[/i]. If the game runs without the mod after an update and saves, the next working One Style puts them back where they were. Without that file, it searches the game's own 15 rolling backups. It also keeps a copy of your save before the first play after a game update.
+[*]A mod that fails to start is not treated as removed. If [b]OneStyle.dll[/b] is still in the mods folder and does not start after an update, Melvor Mod Loader 0.3.0 leaves your rare items rare and tells you on the screen. Inside One Style, a part that fails (the tooltips, for example) stops on its own and the rest keeps working. A save from a newer One Style puts the mod in safe mode, and it writes its data back unchanged.
+[*]Every version is tested in the running game by an automated test mod: classes, the combat rules, six ring slots, elites, rare drops, dungeon chests, Ember rerolls, all 58 Unique powers, item cards, offline time, recovery from backups and the uninstall with a full bank.
 [/list]
 
 [line]
 
 [size=5][b]Good to know[/b][/size]
 [list]
-[*]Weapons and armour of other styles keep their own requirements: a class stays a class.
+[*]Weapons and armour of other styles keep their own requirements. A class stays a class.
 [*]The class is not written into your save. It lives in [b]onestyle.json[/b] next to the mod. Ember, trophies and kill counts live in [b]elites-progress.json[/b] next to the mod.
 [*]Mastery Guild tasks that ask for another style are not changed yet.
-[*]Closing the game during an elite fight ends it: the monster goes on as a normal one.
+[*]If you close the game during an elite fight, the fight ends and the monster goes on as a normal one.
 [*]Changing your class (or switching to Off) takes every bonus of the old class away at once.
 [*]The monster portraits and Unique item icons were made with AI image generation.
 [/list]
 
 [size=5][b]Install[/b][/size]
-[list]
-[*][b]1.[/b] Install [b]Melvor Mod Loader 0.3.0[/b] or newer first (see Requirements).
-[*][b]2.[/b] Open the game folder: Steam > right-click Melvor Idle 2 > Manage > Browse local files.
-[*][b]3.[/b] Extract [b]OneStyle-0.4.0.zip[/b] there. The mod ends up in [b]mods\OneStyle[/b].
-[*][b]4.[/b] Start the game from Steam as usual.
+[list=1]
+[*]Install Melvor Mod Loader 0.3.0 or newer first (see Requirements).
+[*]Open the game folder: in Steam, right-click Melvor Idle 2 > Manage > Browse local files.
+[*]Extract [b]OneStyle-0.4.0.zip[/b] there. The mod ends up in [b]mods\OneStyle[/b].
+[*]Start the game from Steam as usual.
 [/list]
 
 [size=5][b]Uninstall[/b][/size]
-Just delete the folder [b]mods\OneStyle[/b]. Melvor Mod Loader 0.3.0 gives your rare items back as normal items (a Rare Bronze Sword comes back as a Bronze Sword) and puts the rings of Ring Slot 3 to 6 back into your bank, the next time you open each character. Ring Slot 2 is the game's own and keeps its ring. Nothing is lost, nothing is doubled: if your bank is full, remaining items wait and enter as you free slots.
+Delete the folder [b]mods\OneStyle[/b]. The next time you open each character, Melvor Mod Loader 0.3.0 gives your rare items back as normal items (a Rare Bronze Sword comes back as a Bronze Sword) and puts the rings of Ring Slot 3 to 6 back into your bank. Ring Slot 2 is the game's own and keeps its ring. Each item comes back exactly once. If your bank is full, the rest waits and goes in as you free slots.
 
-[b]Removing the mod loader too?[/b] First open the One Style window on every character and press [b]"Make all rare items normal"[/b] (Elites page) and [b]"Put rings 2-6 in the bank"[/b] (Class page). If the window says any items are waiting for bank space, free some slots until they are in before removing anything.
+[b]Removing the mod loader too?[/b] First open the One Style window on every character and press [b]Make all rare items normal[/b] (Elites page) and [b]Put rings 2-6 in the bank[/b] (Class page). If the window says some items are waiting for bank space, free some slots until they are in before you remove anything.
 
 [size=5][b]Safe to download[/b][/size]
 [list]
-[*]Contains [b]OneStyle.dll[/b], [b]README.txt[/b], JSON data files and [b].webp[/b] art only. No [b].exe[/b], no [b].bat[/b], no installer.
-[*]Open source: read or build the code yourself on [url=https://github.com/falorfrozen-cmd/MelvorModLoader]GitHub[/url].
-[*]Every file in the zip except the pictures was checked on VirusTotal one by one: 0 detections on each. [url=https://www.virustotal.com/gui/file/fca989af98da4e8d553f23e8c6a290fa84b9d869d80603e9ce211f13a3533c77]OneStyle.dll on VirusTotal[/url].
+[*]The zip only holds OneStyle.dll, README.txt, JSON data files and .webp pictures. There is no installer and no .exe or .bat file.
+[*]It is open source: you can read or build the code yourself on [url=https://github.com/falorfrozen-cmd/MelvorModLoader]GitHub[/url].
+[*]Every file in the zip except the pictures was checked on VirusTotal one by one, with 0 detections each. [url=https://www.virustotal.com/gui/file/fca989af98da4e8d553f23e8c6a290fa84b9d869d80603e9ce211f13a3533c77]OneStyle.dll on VirusTotal[/url].
 [*]None of the game's own files are changed or included.
 [/list]
 
 [size=5][b]Help[/b][/size]
-When something does not work, look at [b]MelvorModLoader.log[/b] in the game folder (rewritten on every start) and bring it to [url=https://discord.gg/q6aexZZSAf]Discord[/url] or the Posts tab.
+If something does not work, look at [b]MelvorModLoader.log[/b] in the game folder (it is written again on every start) and bring it to [url=https://discord.gg/q6aexZZSAf]Discord[/url] or the Posts tab.
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][url=https://discord.gg/q6aexZZSAf]Discord (updates, support and feedback)[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/center]
