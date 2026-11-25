@@ -15,12 +15,15 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (file requirement, min 0.1.3)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\Multitask-0.7.0.zip   (name: Multitask, version 0.7.0)  -  0.6.1 dosyasini Archived yap
+MAIN FILE:  dist\Multitask-0.7.1.zip   (name: Multitask, version 0.7.1)  -  0.7.0 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\coklu-1-pencere.png (main image)
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.7.1
+- Fixed: an Agility course went back to its first obstacle when you started another action, and Multitask's start took the course's entry fee (Arena Entry Tickets) a second time. The run now goes on from the obstacle it had reached, with its time so far, and the fee is not taken again (a run started with your last tickets goes on too)
+
 0.7.0
 - Fixed: a heist's stage (Thieving), a hunt's tracking (Hunting) and a potion's stirring (Herblore) were lost when you started another action. The game resets them whenever it stops an action; Multitask now puts them back when it starts the action again (reported on Nexus, thank you!)
 - New: lock an action in its slot with the Lock button in the F5 window. Starting something new never pushes it out, so you can switch quickly without stopping it by mistake. One slot always stays free (asked for on Nexus, thank you!)
@@ -98,7 +101,7 @@ Fish, then start cooking: both run. Go mining, then start a fight: both run. Eac
 [size=5][b]It looks after itself[/b][/size]
 [list]
 [*][b]It waits for materials.[/b] Cooking or smithing pauses when it runs out and goes on when there is more. It works in small piles (about ten at a time) so the game does not report "action stopped" for every single fish. Untick "Keep an action on the list when its materials run out" and it leaves the list instead.
-[*][b]It keeps work done in steps.[/b] A heist's stage, a hunt's tracking and a potion's stirring go on from where they were when you start something else (the game itself resets them whenever it stops an action).
+[*][b]It keeps work done in steps.[/b] A heist's stage, a hunt's tracking, a potion's stirring and an Agility run's obstacle go on from where they were when you start something else (the game itself resets them whenever it stops an action). An Agility course with an entry fee is not paid twice.
 [*][b]It keeps your "stop when".[/b] A crafting action's goal (make N, reach level N...) comes back with its progress when Multitask starts it again; once it is reached, the action stops for good.
 [*][b]It does not walk back into a fight.[/b] A fight is dropped if your character dies.
 [*][b]It works while you are away.[/b] Everything that was running when you closed the game goes on in the game's own offline progress.

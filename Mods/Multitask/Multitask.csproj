@@ -3,7 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>Multitask</AssemblyName>
     <RootNamespace>Multitask</RootNamespace>
-    <Version>0.7.0</Version>
+    <Version>0.7.1</Version>
     <Product>Melvor Idle 2 Multitask</Product>
     <AssemblyTitle>Multitask</AssemblyTitle>
     <Description>Keeps your recent actions running together (up to all of them) in Melvor Idle 2 (requires Melvor Mod Loader). Opens with F5.</Description>

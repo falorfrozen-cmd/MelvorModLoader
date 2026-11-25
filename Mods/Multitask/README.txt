@@ -1,4 +1,4 @@
-Multitask 0.7.0  -  a mod for Melvor Idle 2
+Multitask 0.7.1  -  a mod for Melvor Idle 2
 ===========================================
 
 Do more than one thing at a time. Nothing to set up: pick how many extra slots and play as usual.
@@ -60,10 +60,16 @@ GOOD TO KNOW
   Untick "Keep an action on the list when its materials run out" in the F5 window and
   such an action leaves the list instead, making room for the next one.
 - Work done in steps is kept: a heist's stage (Thieving), a hunt's survey, tracks and
-  tracking steps (Hunting) and how far a potion has got (Herblore: preparing, heating,
-  stirring, bottling). The game throws those steps away whenever it stops an action, and it
-  stops every action when you start another; Multitask puts them back when it starts the
-  action again. Starting the same heist, hunt or potion yourself still begins it afresh.
+  tracking steps (Hunting), how far a potion has got (Herblore: preparing, heating,
+  stirring, bottling) and the obstacle an Agility course has reached. The game throws those
+  steps away whenever it stops an action, and it stops every action when you start another;
+  Multitask puts them back when it starts the action again. Starting the same heist, hunt,
+  potion or course yourself still begins it afresh.
+- An Agility course with an entry fee (the Arena courses take Arena Entry Tickets) is not
+  paid twice: the game takes the fee on every start, so when Multitask starts a run that
+  was already paid for, the fee is not taken again. A run you started with your last
+  tickets goes on too. The run also keeps its time so far, which counts for the course's
+  timed rewards.
 - A crafting action's "stop when" (the game's box for "make N", "reach level N"...) is kept:
   when you start something else and Multitask starts the crafting again, the goal is put
   back with the progress it had. Once the goal is reached the action stops for good.

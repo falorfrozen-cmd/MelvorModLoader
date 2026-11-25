@@ -657,10 +657,15 @@ public static class Slots
         if (batches == 0) { kept.State = "waiting: the materials have run out"; return; }
         if (batches < PileSize && now - kept.GrewAt < SettleSeconds) { kept.State = $"waiting: collecting materials ({batches}/{PileSize})"; return; }
 
-        if (!Beside(game, () => Targets.Start(game, action, target, out problem))) { kept.State = "waiting: " + problem; return; }
+        // an Agility course takes its entry fee on every start: for a run that was paid for, the fee is set aside meanwhile
+        bool started;
+        Progress.Hold? before = Progress.Before(action);
+        try { started = Beside(game, () => Targets.Start(game, action, target, out problem)); }
+        finally { before?.Dispose(); }
+        if (!started) { kept.State = "waiting: " + problem; return; }
         PutStopBack(kept, action);
-        // a heist, a hunt or a potion goes on from the step it had reached (the game reset it when it stopped)
-        string back = Progress.PutBack(action);
+        // a heist, a hunt, a potion or an Agility run goes on from the step it had reached (the game reset it when it stopped)
+        string back = Progress.PutBack(action, before);
         if (back != "") Log($"Multitask: {kept.Title} goes on from where it was ({back}).");
         Starts++;
         s_startedNow = true;
