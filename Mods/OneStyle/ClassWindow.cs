@@ -175,6 +175,7 @@ public sealed class ClassWindow
     {
         _close.Text = OneStyleMod.Instance?.Key.With("Close") ?? "Close";
         _layer.Visible = true;
+        RareItems.HideNote();   // the note covers the top of this window, and the window says the same
         FitHeight();
         Repaint();
     }
@@ -191,7 +192,7 @@ public sealed class ClassWindow
         if (Signature() != _signature) Repaint();
     }
 
-    static string Signature() => $"{Patches.Current}|{Patches.ClassLevel}|{Patches.Tier}|{Patches.MappedLevels}|{Patches.Problems.Count}|{Rings.Problems.Count}|{Patches.EquivalentsActive.Count}|{Elites.Progress.Ember}|{Elites.Progress.Trophies}|{Elites.Progress.Recent.Count}|{Elites.Tier}|{Elites.Progress.Marked}|{string.Join(";", UniquePowers.StatusLines())}";
+    static string Signature() => $"{Patches.Current}|{Patches.ClassLevel}|{Patches.Tier}|{Patches.MappedLevels}|{Patches.Problems.Count}|{Rings.Problems.Count}|{RareItems.Problems.Count}|{RareItems.Data.NormalPending.Count}|{Patches.EquivalentsActive.Count}|{Elites.Progress.Ember}|{Elites.Progress.Trophies}|{Elites.Progress.Recent.Count}|{Elites.Tier}|{Elites.Progress.Marked}|{string.Join(";", UniquePowers.StatusLines())}";
 
     void Repaint()
     {
@@ -205,6 +206,20 @@ public sealed class ClassWindow
             card.AddThemeStyleboxOverride("hover", Style.Box(cls == c ? Style.AccentDim : Style.ControlHover, 6, Style.Accent, 1, 8, 8));
         }
         foreach (Node n in _body.GetChildren()) { _body.RemoveChild(n); n.QueueFree(); }
+        if (RareItems.SafeMode)
+        {
+            // first on both pages: the note on the screen sends the player here
+            var warn = new PanelContainer();
+            warn.AddThemeStyleboxOverride("panel", Style.Box(new Color(0.16f, 0.05f, 0.05f), 6, Style.Bad, 2, 14, 10));
+            var wv = new VBoxContainer();
+            wv.AddThemeConstantOverride("separation", 4);
+            wv.AddChild(Text("Rare items rest for this character", Style.Bad, 16));
+            wv.AddChild(Text(RareItems.SafeNote, Style.Text, 13));
+            wv.AddChild(Text("What to do: update One Style (and the game's other mods), then open this character again. Until then nothing of "
+                             + "yours is changed or sold, and no rare items drop for this character.", Style.Muted, 12));
+            warn.AddChild(wv);
+            _body.AddChild(warn);
+        }
         if (_elitesPage)
         {
             ElitesPage();
@@ -319,7 +334,7 @@ public sealed class ClassWindow
                            + "After 100 kills of a monster without its Unique the chance climbs until it is certain at 200 (60 and 120 before its first Unique)."));
         rv.AddChild(Bullet("Champion: 1.35 to 3 times the hit points, +8 to 12% damage, 5% faster, one random affix (two from 1200 hit points). "
                            + "Unique: 1.7 to 6 times the hit points, +14 to 22% damage, 8% faster, its own two affixes, its own attack and sometimes a passive."));
-        rv.AddChild(Bullet("Affixes: Hasted (faster), Colossal (bigger, slower), Warded (2 to 6 hits of ward), Armoured (-18% damage taken), "
+        rv.AddChild(Bullet("Affixes: Hasted (faster), Colossal (a quarter more hit points on top, +10% damage, slower), Warded (2 to 6 hits of ward), Armoured (-18% damage taken), "
                            + "Vampiric (heals from its hits, fades after 25 s), Enraging (stronger below 40% hit points)."));
         rv.AddChild(Bullet("Safety: an elite's hit is never more than 1.3 times the monster's own, and after 60 s it tires (+5% damage taken every 5 s)."));
         rv.AddChild(Bullet("Rewards: Champion 2 and Unique 5 more rolls of the monster's own loot (gold too), +25% / +50% combat XP, and Ember "
@@ -352,12 +367,14 @@ public sealed class ClassWindow
             pv.AddThemeConstantOverride("separation", 3);
             pv.AddChild(Text("Your unique items", Style.Text, 15));
             foreach (string line in powers) pv.AddChild(Text(line, RareItems.Colors[Rarity.Unique], 12));
-            pv.AddChild(Text("Powers work while you play; the numbers here are their counters.", Style.Muted, 11));
+            pv.AddChild(Text("Powers work while you play; the numbers here are their counters. Offline a Unique keeps its plain stats, "
+                             + "and a power's price (such as Twin Volley's -40% damage) is not taken.", Style.Muted, 11));
             box.AddChild(pv);
             _body.AddChild(box);
         }
-        _body.AddChild(Text("Your Ember, trophies and counts are kept in elites-progress.json next to the mod. Your rare items are kept in your save.",
-            Style.Muted, 12));
+        _body.AddChild(Text("Your Ember, trophies and counts are kept in elites-progress.json next to the mod. Your rare items are kept in your save, "
+            + "and with every save a second copy goes to \"onestyle-items\" next to the game's saves: if a game update stops the mod and the game "
+            + "saves without your rare items, they come back from there when One Style works again.", Style.Muted, 12));
     }
 
     string _rareNote = "";
@@ -368,6 +385,13 @@ public sealed class ClassWindow
         var box = Section();
         var v = new VBoxContainer();
         v.AddThemeConstantOverride("separation", 4);
+        // anything that went wrong with this character's rare items is said here, in red, before everything else
+        foreach (string problem in RareItems.Problems.Where(p => p != RareItems.SafeNote)) v.AddChild(Text(problem, Style.Bad, 13));
+        if (RareItems.Recovered > 0)
+            v.AddChild(Text($"This save had lost its rare items (the game had saved without the mod). {RareItems.Recovered} came back from the copy "
+                            + "One Style keeps when this character was opened; what did not fit where it was is in your bank.", Style.Good, 13));
+        if (RareItems.Data.NormalPending.Count > 0)
+            v.AddChild(Text($"{RareItems.Data.NormalPending.Values.Sum()} normal item(s) wait for room in your bank (free some slots; do not remove the mod yet).", Style.Bad, 13));
         v.AddChild(Text("How rare drops work", Style.Text, 15));
         v.AddChild(Bullet("Magic (blue) has 2 affixes, Rare (yellow) 3, one in five 4, Unique (orange) is a fixed item of one monster's Unique. "
                           + "They go straight into your bank with a coloured frame."));
@@ -380,7 +404,8 @@ public sealed class ClassWindow
         v.AddChild(Bullet("The gear is any piece near the monster's level, not only its own drops (a Golbin can drop a rare Stone Sword, never "
                           + "a level 50 item); every slot is as likely, weapons only of your class's style. A monster's drop list shows them all "
                           + "(\"Show possible items\"); the percentage there is the share of its rare drops, not a chance per kill."));
-        v.AddChild(Bullet("Hold Alt over a rare item to see each affix's tier and range. Ember rerolls a Magic or Rare item's numbers in the bank."));
+        v.AddChild(Bullet("Hold Alt over a rare item to see each affix's tier and range. Ember rerolls a Magic or Rare item's numbers in the bank. "
+                          + "Too many? Bulk Sell's \"Auto-sell\" sells the ones you do not want as they drop."));
         foreach (RolledItem r in RareItems.LastDrops.GetRange(0, System.Math.Min(8, RareItems.LastDrops.Count)))
         {
             Label l = Text($"{RareItems.RarityName(r.Rarity)}: {r.Name}", RareItems.Colors[r.Rarity], 12);
@@ -396,7 +421,9 @@ public sealed class ClassWindow
         normal.Pressed += () =>
         {
             if (MelvorModLoader.GameAccess.CurrentGame is not { IsSaveLoaded: true } game) return;
-            _rareNote = $"{RareItems.MakeAllNormal(game)} item(s) are normal items again.";
+            var (made, waiting) = RareItems.MakeAllNormal(game);
+            _rareNote = RareItems.SafeMode ? "Rare items rest for this character (see the note above): nothing was changed."
+                : $"{made} item(s) are normal items again." + (waiting > 0 ? $" {waiting} of them wait for room in your bank: free some slots, they go in by themselves. Do not remove the mod before they are in." : "");
             Repaint();
         };
         row.AddChild(normal);
@@ -436,8 +463,10 @@ public sealed class ClassWindow
         bank.Pressed += () =>
         {
             if (MelvorModLoader.GameAccess.CurrentGame is not { IsSaveLoaded: true } game) return;
-            int before = Rings.InAdded(game), moved = Rings.ToBank(game);
-            _ringNote = moved == before ? $"{moved} ring(s) put in the bank." : $"{moved} of {before} ring(s) put in the bank: make room in the bank for the rest.";
+            var (moved, worn, waiting) = Rings.ToBankCounted(game);
+            _ringNote = $"{moved} ring(s) put in the bank."
+                + (worn > 0 ? $" {worn} still worn: make room in the bank and press again." : "")
+                + (waiting > 0 ? $" {waiting} from your other loadouts wait for room and go in by themselves." : "");
             Repaint();
         };
         row.AddChild(bank);

@@ -57,8 +57,8 @@ add("Venomous", "P", "Venomous", "{v}% chance on hit to Poison", [5, 6, 8, 10, 1
 add("Searing", "P", "Searing", "{v}% chance on hit to Burn", [5, 6, 8, 10, 12], [W, GL], 0.01,
     combat_effect=[effect("DamageOverTime", "Burn", {"StacksToAdd": None}, "OnAttack", ON_HIT)], group="OnHitDot")
 add("Stalwart", "P", "Stalwart", "-{v}% damage taken", [1, 2, 3, 4, 5], [TO, OH, HE], 0.01, [comp("Character", "PercentDamageTaken")], sign=-1)
-add("Vicious", "P", "Vicious", "+{v}% max hit against a poisoned, bleeding or burning enemy", [5, 9, 14, 20, 28], [GL, LE, CA, W], 0.01,
-    [comp("Character", "PercentMaxHit", Effect="MelvorBase:" + e) for e in ("Bleed", "Poison", "Burn")])
+# the game has no "enemy has an effect" condition (an effect context means the effect itself): done in code (Elites.Vicious)
+add("Vicious", "P", "Vicious", "+{v}% max hit against a poisoned, bleeding or burning enemy", [5, 9, 14, 20, 28], [GL, LE, CA, W], 0.01, custom="Vicious")
 add("Executing", "P", "Executing", "+{v}% max hit against an enemy below 35% hit points", [6, 11, 16, 22, 30], [W, BO, CA, RI], 0.01, custom="Execute")
 add("Shattering", "P", "Shattering", "{v}% chance on hit to Fracture the enemy's armour", [5, 8, 11, 14, 18], [W, GL, AMMO], 0.01,
     combat_effect=[effect("TurnCounting", "Fracture", {"Turns": None}, "OnAttack", ON_HIT)])

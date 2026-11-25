@@ -77,6 +77,9 @@ public static class GameAccess
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Game")]
     static extern GamesByMalcs.Melvor2.Game? GetGame(GameView view);
 
+    /// <summary>The game a view shows (for the loader itself, which keeps the view it found).</summary>
+    internal static GamesByMalcs.Melvor2.Game? GameOf(GameView view) => GetGame(view);
+
     /// <summary>The loaded game (bank, skills, entities...), or null on the main menu.</summary>
     public static GamesByMalcs.Melvor2.Game? CurrentGame
     {

@@ -41,23 +41,37 @@ public static partial class UniquePowers
     static void AlwaysOn2()
     {
         // Sealed Oath: above half hit points -15% damage taken, at half or below +15% damage
+        // Offline: off. It follows your hit points, tick by tick
         Oath_Update();
-        // Hollow Harvest: -35% max hit points, +6 ward
-        SetIf("Hollow", HollowHarvestCrown, true, () => V(P("PercentMaxHitpoints", -0.35),
+        // Hollow Harvest: -35% max hit points, +6 ward. Two bonuses, for offline time:
+        // the ward is a plain stat. Offline: kept
+        SetIf("Hollow", HollowHarvestCrown, true, () => V(
             Patches.Bonus("Character", "FlatCombatStatValue", 6, "Player", ("CombatStat", "MelvorBase:MaximumWard"))));
+        // Offline: OFF. What pays for the hit points (ward full every fight, 1 back every 4 s and with a meal) is scripted
+        SetIf("Hollow:cost", HollowHarvestCrown, true, () => V(P("PercentMaxHitpoints", -0.35)));
         // Blood Rite: spells keep their runes
+        // Offline: kept, though its price (hit points a cast) is not taken there: without it a mage's runes run out (see KeptOffline)
         SetIf("Sanguine", SanguineLiturgy, true, () => A(("Runes", 100)));
         // Sealed Prayers: prayers cost half (at least 1)
+        // Offline: kept. A plain stat
         SetIf("Dune", DuneVizierWrappings, true, () => V(On("Prayer", "Prayer", "PercentPrayerCost", -0.50)));
         // Twin Volley: each arrow deals 60%
+        // Offline: OFF. The second arrow that pays for -40% is scripted
         SetIf("Sunken", SunkenVolley, true, () => A(("Damage", -40)));
-        // Caravan Road, Slash: 20% chance on hit to Bleed
+        // Caravan Road, Slash: 20% chance on hit to Bleed; Stab: +30% accuracy (the tick keeps both up to date)
+        // Offline: kept. Your stance cannot change there. (Stab is set here too, so that a character opened into
+        // offline time has it like one that was playing.)
         SetIf("Caravan:slash", CaravanWarcloak, Stance() == "Slash", () => A(("Serrated", 20)));
+        SetIf("Caravan:stab", CaravanWarcloak, Stance() == "Stab", () => A(("True", 30)));
+        // Offline: kept. By gear alone
         Usurper_Update();
         Sets_Update();
+        // Offline: kept with a One Style class (the same against every monster), off without one (worked out a monster)
         Triangle_Update();
+        // Offline: off. They follow the prayers that are on, and the imbuement and its runes
         Prayers_Update();
         Imbuement_Update();
+        // Offline: kept. The potion in the toolbelt cannot change there
         Amber_Update();
     }
 
@@ -131,6 +145,8 @@ public static partial class UniquePowers
     static void Triangle_Update()
     {
         B("Triangle:plus").Off();
+        // both off first: a cancelled penalty left on from the last monster doubled the bonus on a favoured one
+        B("Triangle:cancel").Off();
         if (!Wears(ThreefoldDecree) || s_combat == null || s_game == null) return;
         string style = PlayerStyle();
         var all = s_game.Data.GetDataRegistryOutput<CombatTriangleBonus>().GetAllObjects().ToList();
@@ -182,10 +198,16 @@ public static partial class UniquePowers
 
     // ---- False Horizon: the imbuement 80% stronger (x2.7 on every 6th spell)
 
+    [System.Runtime.CompilerServices.UnsafeAccessor(System.Runtime.CompilerServices.UnsafeAccessorKind.Field, Name = "_activatedImbuement")]
+    static extern ref GamesByMalcs.Melvor2.Components.MagicSpells.ActiveImbuement? ActivatedImbuement(GamesByMalcs.Melvor2.Components.MagicSpells.MagicSpellsComponent spells);
+
     static void Imbuement_Update(bool burst = false)
     {
         B("Mirage").Off();
         if (!Wears(MirageAstrolabe) || s_combat?.MagicSpells.SelectedImbuement is not { } imbue) return;
+        // the game takes an imbuement's bonuses off while you cannot pay its runes: no copy of them then
+        try { if (!ReferenceEquals(ActivatedImbuement(s_combat.MagicSpells), imbue)) return; }
+        catch (Exception) { }
         B("Mirage", MirageAstrolabe).Set(imbue.Data.Bonuses, -1, burst ? 1.7 : 0.8);
         if (burst) Fire("MirageBurst");
     }
@@ -209,14 +231,12 @@ public static partial class UniquePowers
         // Four Seals: every 6th spell keeps its runes and prayer points and opens the next seal
         if (Wears(FourfoldWrit))
         {
-            B("Fourfold:free").Off();
             B("Fourfold:seal1").Off();
             if (casts % 4 == 0)   // every 4th spell (was 6th: a full cycle took 24 spells; denge-2 9)
             {
                 Fire("Fourfold");
                 double seal = Up(s_keep, "Fourfold:seal") % 4;   // 1, 2, 3, 0 = 4th
                 s_fight["Fourfold:open"] = seal == 0 ? 4 : seal;
-                B("Fourfold:free", FourfoldWrit).Set(A(("Runes", 100), ("Devotion", 100)));
                 if (seal == 1) B("Fourfold:seal1", FourfoldWrit).Set(A(("Damage", 40)));
             }
         }
@@ -229,6 +249,10 @@ public static partial class UniquePowers
         // Seven Seals: every 5th spell is followed by an echo of it (a normal roll of your hit, free)
         if (Wears(HemalPalimpsest) && casts % 5 == 0 && Enemy is { Health.Current: > 0 } && Fire("Hemal"))
             After(200, HemalPalimpsest, () => { if (RollToHit()) StrikeAsAttack(RollHit(1, canCrit: true)); });
+        // Four Seals: the game takes a spell's runes before its turn starts, so the seal spell (every 4th) is made free
+        // at the end of the spell before it, and paid for again once it has been cast
+        if (Wears(FourfoldWrit) && casts % 4 == 3) B("Fourfold:free", FourfoldWrit).Set(A(("Runes", 100), ("Devotion", 100)));
+        else B("Fourfold:free").Off();
         // Four Seals: what the open seal does after the spell
         if (Wears(FourfoldWrit) && F("Fourfold:open") is > 0 and var open)
         {

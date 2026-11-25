@@ -11,11 +11,16 @@ public static class Loader
 {
     public static string Version => Bootstrap.Version;
     public static IReadOnlyList<string> LoadedMods => s_loaded;
+    /// <summary>Mods whose DLL is in the mods folder and that did not start (by the DLL's name, without ".dll").</summary>
+    public static IReadOnlyList<string> FailedMods => s_failed;
+    static readonly List<string> s_failed = new();
+    /// <summary>Mods whose frame handler threw an error and was switched off in this session.</summary>
+    public static IReadOnlyList<string> StoppedMods => s_stopped;
+    static readonly List<string> s_stopped = new();
 
     static readonly List<string> s_loaded = new();
     static readonly List<(ModContext Owner, Action Handler)> s_frame = new();
     static SceneTree s_tree = null!;
-    static int s_frames;
 
     // Deferred: runs on the first main-loop iteration, when the SceneTree exists.
     internal static void ScheduleStart() => Callable.From(Start).CallDeferred();
@@ -70,9 +75,14 @@ public static class Loader
             {
                 Exception shown = e is ReflectionTypeLoadException { LoaderExceptions.Length: > 0 } r ? r.LoaderExceptions[0]! : e;
                 Log.Write($"Mod FAILED to load: {file} -> {shown}");
+                s_failed.Add(Path.GetFileNameWithoutExtension(file));
             }
         }
         Log.Write($"{s_loaded.Count} mod(s) loaded");
+        // the player must see this, not only the log: a mod that did not start is nearly always a game update
+        if (s_failed.Count > 0)
+            Rescue.Note($"{(s_failed.Count == 1 ? "This mod" : "These mods")} did not start: {string.Join(", ", s_failed)}. "
+                + "The game may have been updated: look for a newer version of the mod. Details: MelvorModLoader.log.", 45);
     }
 
     internal static void AddFrameHandler(ModContext owner, Action handler) => s_frame.Add((owner, handler));
@@ -85,7 +95,9 @@ public static class Loader
         if (s_tree.Paused) return;
         try { Hotkeys.OnFrame(s_tree); }
         catch (Exception e) { Log.Write("Hotkeys: " + e.Message); }
-        if (++s_frames % 30 == 0) Rescue.Check();
+        // every frame: the game's own save timer runs free (every 10 s), so a save can come in the very frame after a
+        // character opened, and a save written without the mod no longer holds the mod's give-back list
+        Rescue.Check();
         for (int i = 0; i < s_frame.Count; i++)
         {
             var (owner, handler) = s_frame[i];
@@ -102,6 +114,12 @@ public static class Loader
                 // One broken mod must not spam the log or break the others.
                 owner.Log("The frame handler threw an error and was switched off: " + e);
                 s_frame.RemoveAt(i--);
+                if (!s_stopped.Contains(owner.Name))
+                {
+                    s_stopped.Add(owner.Name);
+                    Rescue.Note($"The mod {owner.Name} ran into an error and part of it was switched off until the game is started again. "
+                        + "The game may have been updated: look for a newer version of the mod. Details: MelvorModLoader.log.", 45);
+                }
             }
         }
     }

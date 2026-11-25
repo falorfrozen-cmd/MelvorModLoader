@@ -44,29 +44,34 @@ public static partial class RareItems
 
     // ================================================================ tooltips
 
-    /// <summary>Wraps the game's item tooltip service: the game draws its tooltip, then the rare item's lines go in.</summary>
-    sealed class Wrapped(IItemTooltipService inner) : IItemTooltipService
+    /// <summary>
+    /// Wraps the game's item tooltip service: the game draws its tooltip, then the rare item's lines go in.
+    /// A proxy made while the game runs, and not a class that implements the game's interface: the game update of
+    /// 2026-11-25 gave one method of that interface another parameter, and a class written against the old interface
+    /// could not even be loaded (which took the whole mod's frame handler with it). The proxy passes every call on as
+    /// it comes, whatever its parameters are, and looks among them for the item.
+    /// </summary>
+    public class TooltipProxy : System.Reflection.DispatchProxy
     {
-        public readonly IItemTooltipService Inner = inner;
-        public void ShowForItem(Control target, Item item, ITooltipConfig config, bool showIcon, bool isInteractive, string? customHeader = null)
+        public IItemTooltipService Inner = null!;
+
+        protected override object? Invoke(System.Reflection.MethodInfo? method, object?[]? args)
         {
-            Inner.ShowForItem(target, item, config, showIcon, isInteractive, customHeader);
-            Decorate(item);
-        }
-        public void ShowForItem(Control target, Item item, IInventory inventory, ITooltipConfig config, bool showIcon, bool isInteractive, string? customHeader = null)
-        {
-            Inner.ShowForItem(target, item, inventory, config, showIcon, isInteractive, customHeader);
-            Decorate(item);
-        }
-        public void ShowForItemStack(Control target, IReadonlyItemStack itemStack, ITooltipConfig config, bool showIcon, bool isInteractive, string? customHeader = null)
-        {
-            Inner.ShowForItemStack(target, itemStack, config, showIcon, isInteractive, customHeader);
-            Decorate(itemStack.Item);
-        }
-        public void Hide()
-        {
-            s_tooltipItem = null;
-            Inner.Hide();
+            if (method == null) return null;
+            if (method.Name == "Hide") s_tooltipItem = null;
+            object? result;
+            try { result = method.Invoke(Inner, args); }
+            catch (System.Reflection.TargetInvocationException e) when (e.InnerException != null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerException).Throw();
+                throw;
+            }
+            if (method.Name != "Hide" && args != null)
+            {
+                Item? item = args.OfType<Item>().FirstOrDefault() ?? args.OfType<IReadonlyItemStack>().FirstOrDefault()?.Item;
+                if (item != null) Decorate(item);
+            }
+            return result;
         }
     }
 
@@ -78,13 +83,16 @@ public static partial class RareItems
     {
         try
         {
-            if (UIServiceLocator.ItemTooltipService is { } current and not Wrapped) UIServiceLocator.Provide(new Wrapped(current));
+            if (UIServiceLocator.ItemTooltipService is not { } current || current is TooltipProxy) return;
+            IItemTooltipService wrapped = System.Reflection.DispatchProxy.Create<IItemTooltipService, TooltipProxy>();
+            ((TooltipProxy)wrapped).Inner = current;
+            UIServiceLocator.Provide(wrapped);
         }
         catch (Exception e) { Log("One Style: the item tooltip could not be wrapped: " + e.Message); }
     }
 
     static ItemInfoTooltip? GameTooltip() =>
-        UIServiceLocator.ItemTooltipService is Wrapped { Inner: ItemTooltipService s } ? InfoTooltipOf(s) : null;
+        UIServiceLocator.ItemTooltipService is TooltipProxy { Inner: ItemTooltipService s } ? InfoTooltipOf(s) : null;
 
     static void Decorate(Item item)
     {
@@ -113,14 +121,17 @@ public static partial class RareItems
         {
             name.Modulate = Godot.Colors.White;
             description.Modulate = Godot.Colors.White;
+            PlaceBlock(description, null);
             return;
         }
         name.Modulate = Colors[record.Rarity];
         if (!type.Text.StartsWith(RarityName(record.Rarity))) type.Text = $"{RarityName(record.Rarity)} {type.Text}";
+        // the text stays in the (hidden) label for anything that reads it; the player sees the block
         string text = Lines(record, s_alt);
         if (description.Text != text) description.Text = text;
-        description.Modulate = record.Rarity == Rarity.Unique ? new Color(1f, 0.78f, 0.55f) : new Color(0.72f, 0.82f, 1f);
-        description.Visible = true;
+        description.Modulate = Godot.Colors.White;
+        // every effect once, in its own part of the card: the game's merged list would repeat them
+        if (PlaceBlock(description, record)) HideGameBonuses(info);
     }
 
     /// <summary>The text under a rare item's name: its affixes (tiers with Alt), or a unique's power and story.</summary>
@@ -130,20 +141,43 @@ public static partial class RareItems
         {
             // its stats are in the game's own "Bonuses" list just below: not written twice
             string baseName = s_game != null && s_game.Data.TryGetObject(u.BaseId, out Item? ub) ? ub.DisplayName.Singular : "";
-            var lines = new List<string> { $"Unique {baseName}, level {u.Level}" };
+            var lines = new List<string> { $"Unique  ·  {baseName}  ·  level {u.Level}" };
             if (u.MechanicName != "") lines.Add($"{u.MechanicName}: {u.Mechanic}");
+            if (u.Stats.Count > 0) lines.Add("UNIQUE BONUSES: " + string.Join(", ", u.Stats.Select(x => x.Text)));
+            if (BaseItem(u.BaseId) is { } ubase) lines.Add(BaseLine(ubase));
             if (u.Flavour != "") lines.Add($"\"{u.Flavour}\"");
             lines.Add($"Drops from {u.SourceName} ({Uniques.Chance:0%} each time you kill it).");
             lines.Add("Its power works while you play, not while the game works out the time it was closed.");
             return string.Join("\n", lines);
         }
         string what = s_game != null && s_game.Data.TryGetObject(record.BaseId, out Item? b) ? b.DisplayName.Singular : "";
-        string head = $"{RarityName(record.Rarity)} {what}, item level {record.ILvl}, {record.Affixes.Count} affixes";
-        if (tiers) return $"{head}\n{Describe(record, true)}";
-        // one line per affix, always: the game's own "Bonuses" list below splits some into many lines ("+2% combat XP" is
-        // six skills, "avoid Poison, Bleed and Burn" three) and cannot show others at all (Ember, chances on hit...)
-        return $"{head}\n{Describe(record)}\nHold Alt for tiers and ranges.";
+        // the same order as the block (RareItemsBlock.cs), as plain text: for Better Tooltips and anything that reads the label.
+        // One line per affix, always: the game's own "Bonuses" list splits some into many lines ("+2% combat XP" is six
+        // skills) and cannot show others at all (Ember, chances on hit...)
+        var rows = new List<string> { $"{RarityName(record.Rarity)}  ·  {what}  ·  item level {record.ILvl}", "AFFIXES" };
+        foreach (RolledAffix r in record.Affixes)
+            if (Affixes.TryGetValue(r.Id, out AffixDef? a)) rows.Add("◆ " + (tiers ? AffixLine(a, r, true) : $"{AffixLine(a, r, false)}   T{r.Tier}"));
+        if (BaseItem(record.BaseId) is { } baseItem) rows.Add(BaseLine(baseItem));
+        if (!tiers) rows.Add("Alt: affix ranges");
+        return string.Join("\n", rows);
     }
+
+    /// <summary>The base item's bonus as one line of text ("BASE ITEM BONUS (every X): ..." or "X has no bonus of its own.").</summary>
+    static string BaseLine(Item baseItem)
+    {
+        List<string> lines = BaseBonusLines(baseItem);
+        return lines.Count == 0 ? $"{baseItem.DisplayName.Singular} has no bonus of its own."
+            : $"BASE ITEM BONUS (every {baseItem.DisplayName.Singular}): {string.Join("; ", lines)}";
+    }
+
+    /// <summary>For our other mods: the ids of a Magic or Rare item's affixes (null for other items).</summary>
+    public static string[]? AffixIdsOf(Item item) =>
+        RecordOf(item) is { UniqueId: "" } record ? record.Affixes.Select(a => a.Id).ToArray() : null;
+
+    /// <summary>For our other mods: every affix as "id\tname\ttext" ("Leeching\tLeeching\t# lifesteal"), sorted by text.</summary>
+    public static string[] AffixCatalog() =>
+        Affixes.Values.Select(a => $"{a.Id}\t{a.Name}\t{a.Text.Replace("{v}", "#").Replace("{style}", "style").Replace("+#%", "#%").Replace("-#%", "#%")}")
+            .OrderBy(s => s.Split('\t')[2].TrimStart('#', '%', ' '), StringComparer.OrdinalIgnoreCase).ToArray();
 
     /// <summary>
     /// For our other mods (Bulk Sell, Phone Screen...), found by reflection so they work without One Style: what a rare or
@@ -284,12 +318,13 @@ public static partial class RareItems
         if (slot is not { IsEmpty: false } || RecordOf(slot.Equipped!.Item) is not { } record)
         {
             name.Modulate = Colors[Rarity.Normal];
+            PlaceBlock(description, null);
             return;
         }
         name.Modulate = Colors[record.Rarity];
         string text = Lines(record, s_alt);
         if (description.Text != text) description.Text = text;
-        description.Visible = true;
+        if (PlaceBlock(description, record)) HideGameBonuses(tip);
     }
 
     // ================================================================ a drop
@@ -341,6 +376,49 @@ public static partial class RareItems
             tree.CreateTimer(4.0).Timeout += () => { if (GodotObject.IsInstanceValid(plate)) plate.QueueFree(); };
         }
         catch (Exception e) { Log("One Style: drop note: " + e.Message); }
+    }
+
+    /// <summary>
+    /// A plain note in the middle of the top of the screen for a while: for the things a player must not miss (their
+    /// rare items could not be read from the save). Main thread only; silent anywhere else.
+    /// </summary>
+    public static void ShowNote(string text, double seconds = 30)
+    {
+        try
+        {
+            if (Engine.GetMainLoop() is not SceneTree tree || System.Threading.Thread.CurrentThread.ManagedThreadId != MainThread) return;
+            var layer = new CanvasLayer { Layer = 120, Name = "OneStyleNote" };
+            var plate = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+            plate.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.CenterTop);
+            plate.GrowHorizontal = Control.GrowDirection.Both;
+            plate.OffsetTop = 70;
+            var box = new StyleBoxFlat { BgColor = new Color(0.10f, 0.03f, 0.03f, 0.95f), BorderColor = new Color(0.95f, 0.45f, 0.4f) };
+            box.SetBorderWidthAll(2);
+            box.SetCornerRadiusAll(6);
+            box.SetContentMarginAll(14);
+            plate.AddThemeStyleboxOverride("panel", box);
+            var label = new Label { Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(720, 0),
+                HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore };
+            label.AddThemeFontSizeOverride("font_size", 17);
+            label.AddThemeColorOverride("font_color", new Color(1f, 0.9f, 0.88f));
+            plate.AddChild(label);
+            layer.AddChild(plate);
+            tree.Root.AddChild(layer);
+            tree.CreateTimer(seconds).Timeout += () => { if (GodotObject.IsInstanceValid(layer)) layer.QueueFree(); };
+        }
+        catch (Exception e) { Log("One Style: a note could not be shown: " + e.Message); }
+    }
+
+    /// <summary>Takes the note off the screen (the One Style window opened: it says the same, and the note covered its top).</summary>
+    public static void HideNote()
+    {
+        try
+        {
+            if (Engine.GetMainLoop() is not SceneTree tree) return;
+            foreach (Node n in tree.Root.GetChildren())
+                if (n is CanvasLayer && n.Name.ToString().StartsWith("OneStyleNote")) n.QueueFree();
+        }
+        catch (Exception e) { Log("One Style: " + e.Message); }
     }
 
     public static int MainThread;

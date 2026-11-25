@@ -130,6 +130,13 @@ public static partial class Elites
         if (s_tree != null) { s_tree.NodeAdded -= OnNodeAdded; s_tree = null; }
         if (s_mods != null) try { s_mods.Remove(s_trophyHp); } catch { }
         SaveNow();
+        // what was switched on for that character is gone with its game (its values belong to that game's data)
+        if (s_momentumOn && s_mods != null) try { s_mods.Remove(s_momentum); } catch { }
+        s_momentumOn = false;
+        s_momentumMs = 0;
+        s_exhaustValues = null;
+        s_viciousFailed = false;
+        s_failed.Clear();
         s_combat = null;
         s_game = null;
         s_mods = null;
@@ -396,6 +403,7 @@ public static partial class Elites
             foreach (Patches.Source source in s_onElite.Concat(new[] { s_enrage, s_exhaust }).Distinct())
                 try { s_mods.Remove(source); } catch { }
         if (s_executeOn && s_mods != null) { try { s_mods.Remove(s_execute); } catch { } s_executeOn = false; }
+        if (s_viciousOn && s_mods != null) { try { s_mods.Remove(s_vicious); } catch { } s_viciousOn = false; }
         s_onElite.Clear();
         bool was = Tier != EliteTier.Normal;
         Tier = EliteTier.Normal;
@@ -412,23 +420,37 @@ public static partial class Elites
     // ================================================================ while it lives
 
     /// <summary>The Warded badge counts the ward hits left.</summary>
-    static void OnWardChanged(object? sender, ValueChangedEventArgs<int> e)
+    static void OnWardChanged(object? sender, ValueChangedEventArgs<int> e) => Safe("OnWardChanged", () => OnWardChangedSafe(sender, e));
+
+    static void OnWardChangedSafe(object? sender, ValueChangedEventArgs<int> e)
     {
         if (Tier != EliteTier.Normal && Affixes.Contains("Warded")) ShowLook();
     }
 
-    static void OnEnemyChanged(object? sender, ValueChangedEventArgs<Enemy?> e)
+    static void OnEnemyChanged(object? sender, ValueChangedEventArgs<Enemy?> e) => Safe("OnEnemyChanged", () => OnEnemyChangedSafe(sender, e));
+
+    static void OnEnemyChangedSafe(object? sender, ValueChangedEventArgs<Enemy?> e)
     {
         if (e.NewValue == null && Tier != EliteTier.Normal) Clear();
     }
 
-    static void OnStopped(object? sender, ActionEventArgs e)
+    static void OnStopped(object? sender, ActionEventArgs e) => Safe("OnStopped", () => OnStoppedSafe(sender, e));
+
+    static void OnStoppedSafe(object? sender, ActionEventArgs e)
     {
         if (Tier != EliteTier.Normal) Clear();
+        // the fight is over for a normal monster too: what was on only against it goes (no ticks come to take it off)
+        if (s_mods != null)
+        {
+            if (s_executeOn) { try { s_mods.Remove(s_execute); } catch { } s_executeOn = false; }
+            if (s_viciousOn) { try { s_mods.Remove(s_vicious); } catch { } s_viciousOn = false; }
+        }
     }
 
     /// <summary>Enraging: below 40% hit points, +20% damage and -10% attack interval (within the safety limits).</summary>
-    static void OnEnemyHealth(object? sender, ValueChangedEventArgs<int> e)
+    static void OnEnemyHealth(object? sender, ValueChangedEventArgs<int> e) => Safe("OnEnemyHealth", () => OnEnemyHealthSafe(sender, e));
+
+    static void OnEnemyHealthSafe(object? sender, ValueChangedEventArgs<int> e)
     {
         Execute();
         if (!s_enraging || s_enraged || s_killed || s_combat == null || s_mods == null) return;
@@ -456,7 +478,9 @@ public static partial class Elites
     }
 
     /// <summary>Vampiric: heals 10% of the damage it deals, at most 2.5% of its max hit points a hit, fading to 0 from 25 to 45 s.</summary>
-    static void OnPlayerDamaged(object? sender, HealthDamagedEventArgs e)
+    static void OnPlayerDamaged(object? sender, HealthDamagedEventArgs e) => Safe("OnPlayerDamaged", () => OnPlayerDamagedSafe(sender, e));
+
+    static void OnPlayerDamagedSafe(object? sender, HealthDamagedEventArgs e)
     {
         if (!s_vampiric || s_killed || s_combat == null || !ReferenceEquals(e.SourceCharacter, s_combat.Enemy) || e.Amount <= 0) return;
         double seconds = s_fightMs / 1000;
@@ -476,7 +500,9 @@ public static partial class Elites
     }
 
     /// <summary>Fight time (game ticks, fighting and not paused): Vampiric fades, and after 60 s the elite tires.</summary>
-    static void OnTicked(object? sender, ActionTickedEventArgs e)
+    static void OnTicked(object? sender, ActionTickedEventArgs e) => Safe("OnTicked", () => OnTickedSafe(sender, e));
+
+    static void OnTickedSafe(object? sender, ActionTickedEventArgs e)
     {
         if (s_momentumOn && s_mods != null && s_combat != null)
         {
@@ -486,6 +512,12 @@ public static partial class Elites
             if (s_momentumMs <= 0) { s_mods.Remove(s_momentum); s_momentumOn = false; }
         }
         if (s_game != null && !e.IsOffline) RareItems.IntervalFloor(s_game);
+        if (!e.IsOffline)
+        {
+            // never into the game's own tick: an error here is written down once and the affix rests
+            try { Vicious(); }
+            catch (Exception ex) { if (!s_viciousFailed) { s_viciousFailed = true; Log("One Style: Vicious stopped: " + ex.Message); } }
+        }
         if (Tier == EliteTier.Normal || s_killed || s_combat == null || s_mods == null || e.IsOffline) return;
         if (s_combat.Action.State != CombatActionState.Fighting || s_combat.Action.IsPaused) return;
         s_fightMs += Constants.TickInterval;
@@ -497,6 +529,57 @@ public static partial class Elites
         else s_mods.Update(s_exhaust, s_exhaustValues, steps);
         s_exhaustSteps = steps;
     }
+
+    static readonly HashSet<string> s_failed = new();
+
+    /// <summary>
+    /// Every handler of a game event runs through this: an error of ours never goes back into the game's own code (its
+    /// tick, its kill, its damage). It is written to the log once per handler.
+    /// </summary>
+    static void Safe(string what, Action act)
+    {
+        try { act(); }
+        catch (Exception ex) { if (s_failed.Add(what)) Log($"One Style: elites ({what}) had an error and went on: {ex.Message}"); }
+    }
+
+    static readonly Patches.Source s_vicious = new("One Style: Vicious");
+    static bool s_viciousOn;
+    static readonly string[] s_dots = { "MelvorBase:Poison", "MelvorBase:Bleed", "MelvorBase:Burn" };
+
+    /// <summary>For tests: Vicious's max hit is on now.</summary>
+    public static bool ViciousOn => s_viciousOn;
+
+    /// <summary>
+    /// "Vicious" on worn rare items: more max hit while the enemy is poisoned, bleeding or burning, once (not per effect).
+    /// The game has no "enemy has an effect" condition (its effect context means the effect's own damage), so it is
+    /// checked here every tick (bug found 2026-11-24: the old data form gave +X% to the effects' own damage only).
+    /// </summary>
+    static void Vicious()
+    {
+        if (s_mods == null || s_game == null || s_combat == null) return;
+        bool want = false;
+        if (s_combat.Enemy.Enemy != null && s_combat.Enemy.Health.Current > 0
+            && s_combat.CombatEffects.GetActiveEffectsForCharacter(s_combat.Enemy).Any(a => s_dots.Contains(a.Data.Id)))
+        {
+            double v = RareItems.WornCustom(s_game, "Vicious");
+            if (v > 0)
+            {
+                // the game keeps a bonus by its source: a changed amount (other gear put on) is taken off and added again
+                if (s_viciousOn && v != s_viciousValue) { try { s_mods.Remove(s_vicious); } catch { } s_viciousOn = false; }
+                if (!s_viciousOn)
+                {
+                    s_mods.Add(s_vicious, Patches.Bonuses(Patches.Bonus("Character", "PercentMaxHit", v / 100, "Player")));
+                    s_viciousValue = v;
+                    s_viciousOn = true;
+                }
+                want = true;
+            }
+        }
+        if (!want && s_viciousOn) { try { s_mods.Remove(s_vicious); } catch { } s_viciousOn = false; }
+    }
+
+    static double s_viciousValue;
+    static bool s_viciousFailed;
 
     /// <summary>"of Momentum" on worn rare items: a kill makes attacks faster for 4 seconds.</summary>
     static void Momentum()

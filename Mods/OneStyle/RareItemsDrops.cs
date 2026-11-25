@@ -63,11 +63,18 @@ public static partial class RareItems
         {
             if (n is ViewEnemyDropsModal modal) { enemy = EnemyOfModal(modal); break; }
             if (n is GamesByMalcs.Melvor2.Entities.Combat.ViewEnemyStatsPanel stats) { enemy = EnemyOfStats(stats); break; }
+            // any other window is not a monster's drop list: a dungeon's "View Rewards" sits inside the fight screen too,
+            // and a monster's rare drops there filled a window that cannot scroll past the screen (2026-11-25)
+            if (n is GamesByMalcs.Melvor2.CustomControls.PanelContainerPopup) break;
             if (n is GamesByMalcs.Melvor2.Entities.Combat.CombatActiveView) { enemy = Combat(game)?.Enemy.Enemy; break; }
         }
-        if (enemy == null) return;
         VBoxContainer tables = TablesOf(drops);
         Node? have = tables.GetNodeOrNull(DropsName);
+        if (enemy == null)
+        {
+            if (have != null) { tables.RemoveChild(have); have.QueueFree(); }
+            return;
+        }
         string key = enemy.Id + "|" + DropStyle() + "|" + PreviewItemLevel(enemy);
         if (have != null && !have.IsQueuedForDeletion() && have.GetMeta("enemy", "").AsString() == key) return;
         if (have != null) { tables.RemoveChild(have); have.QueueFree(); }
@@ -136,9 +143,13 @@ public static partial class RareItems
         if (shares.Count > 0)
         {
             var slots = shares.GroupBy(x => SlotOf(x.Item)).ToList();
-            // the list is long: closed until asked for, one part per slot
-            var list = new VBoxContainer { Visible = false };
+            // the list is long: closed until asked for, one part per slot. Open, it scrolls inside a box of its own, so it
+            // can never make a window taller than the screen (a window that cannot scroll would lose its close button)
+            var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             list.AddThemeConstantOverride("separation", 2);
+            var scroll = new ScrollContainer { Visible = false, CustomMinimumSize = new Vector2(0, 340),
+                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            scroll.AddChild(list);
             string rest = $"possible items ({shares.Count})";
             var toggle = new Button { Text = "▸  Show " + rest, Alignment = HorizontalAlignment.Left };
             toggle.AddThemeColorOverride("font_color", new Color(1f, 0.9f, 0.55f));
@@ -146,11 +157,11 @@ public static partial class RareItems
             toggle.AddThemeFontSizeOverride("font_size", 14);
             toggle.Pressed += () =>
             {
-                list.Visible = !list.Visible;
-                toggle.Text = (list.Visible ? "▾  Hide " : "▸  Show ") + rest;
+                scroll.Visible = !scroll.Visible;
+                toggle.Text = (scroll.Visible ? "▾  Hide " : "▸  Show ") + rest;
             };
             box.AddChild(toggle);
-            box.AddChild(list);
+            box.AddChild(scroll);
             foreach (var group in slots)
             {
                 int n = group.Count();

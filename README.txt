@@ -1,4 +1,4 @@
-Melvor Mod Loader 0.2.0  -  for Melvor Idle 2 (tested on game version 0.11.6-alpha.1)
+Melvor Mod Loader 0.3.0  -  for Melvor Idle 2 (tested on game version 0.11.7, 25 November 2026)
 ====================================================================================
 
 Loads C# mods into Melvor Idle 2 without changing any of the game's own files.
@@ -39,11 +39,50 @@ Only the mods you installed are listed. Their usual keys stay as they were
 (for example F5 Multitask, F6 Action Queue, F8 Cheat Menu).
 
 
+WHEN YOU REMOVE A MOD (new in 0.3.0)
+------------------------------------
+To remove a mod, delete its folder under "mods".
+Some mods keep items of their own in your save (One Style: its rare items and
+the rings in its extra ring slots). The game cannot keep those without the mod,
+so the mod leaves a list in the save, and the loader gives you the normal items
+back: the next time you open that character, they are put in your bank, once
+(a Rare Bronze Sword comes back as a Bronze Sword).
+- Nothing is lost when your bank is full. What does not fit waits: an orange
+  note under the game's top bar and the log say how many items wait. Free some
+  bank slots and they go in by themselves within ten seconds, or the next time
+  you open the character.
+- What waits is kept in "mods\rescue-pending.json". Do not delete that file
+  while it exists; the loader removes it when everything is in your bank and
+  the game has saved.
+- Nothing is given twice, also when you close the game without saving or load a
+  backup of the save.
+- Put the mod back before the items were given, and the mod has its own items
+  again.
+- A mod that is still in the mods folder and did not start is not a removed
+  mod. Its items are left alone (they are not turned into normal items), a note
+  on the screen says that the mod did not start, and a copy of your save as it
+  is then is kept in "mods\rescue-kept". Look for a newer version of the mod.
+
+
+AFTER A GAME UPDATE
+-------------------
+Melvor Idle 2 is in alpha and is updated often; an update can stop a mod from
+working until the mod is updated too. The loader tells you on the screen (an
+orange note under the top bar, and in the log) when
+- a mod did not start, or
+- a mod ran into an error while you play and part of it was switched off.
+The other mods go on. Look for a newer version of the mod that is named.
+
+
 UNINSTALL
 ---------
 Delete "override.cfg" and the folder "data_MelvorModLoader_windows_x86_64".
 The game then starts exactly as before. The "mods" folder and the log file
 "MelvorModLoader.log" can stay or go.
+Do you use a mod that keeps items of its own (see above)? Then remove that mod
+first, open every character once while the loader is still installed, and wait
+until nothing waits for room in your bank. Without the loader nobody gives
+those items back.
 
 
 TROUBLESHOOTING

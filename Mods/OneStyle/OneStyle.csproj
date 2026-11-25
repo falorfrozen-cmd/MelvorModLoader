@@ -20,6 +20,8 @@
     <!-- The same window look as the Cheat Menu. -->
     <Compile Include="..\CheatMenu\Style.cs" Link="Style.cs" />
     <Compile Include="..\Shared\WindowKey.cs" Link="WindowKey.cs" />
+    <!-- The item card's colours and sizes: the one design of every item card (Mods/Shared/ITEM-CARD-DESIGN.md). -->
+    <Compile Include="..\Shared\ItemCardStyle.cs" Link="ItemCardStyle.cs" />
     <Reference Include="MelvorModLoader"><HintPath>$(LoaderDir)\MelvorModLoader.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="GodotSharp"><HintPath>$(GameData)\GodotSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="GamesByMalcs.Melvor2"><HintPath>$(GameData)\GamesByMalcs.Melvor2.dll</HintPath><Private>false</Private></Reference>

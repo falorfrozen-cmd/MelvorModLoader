@@ -4,7 +4,7 @@ One Style 0.4.0  -  a mod for Melvor Idle 2
 Play the whole game with one combat style: melee, ranged or magic. Pick your class once
 and the game stops asking you to train the other two.
 
-Tested with game version 0.11.6-alpha.1 and Melvor Mod Loader 0.3.0.
+Tested with game version 0.11.7 (the update of 25 November 2026) and Melvor Mod Loader 0.3.0.
 
 
 REQUIRES
@@ -110,6 +110,7 @@ How strong (the smaller the monster, the bigger the change):
               +15% accuracy, +18% protection, its own two affixes, its own signature
               attack (usually 18% of its attacks; 10 points more when it is
               an attack it already has) and sometimes a passive of its own.
+    A Colossal one has a quarter more hit points on top of that (so up to 3.75 and 7.5 times).
   Affixes: Hasted (faster), Colossal (+25% hit points, +10% damage, slower), Warded (2 to 6
   hits of ward), Armoured (-18% damage taken), Vampiric (heals 10% of the damage it deals,
   at most 2.5% of its hit points a hit, fading away between 25 and 45 seconds), Enraging
@@ -118,7 +119,8 @@ How strong (the smaller the monster, the bigger the change):
   hit, its damage per second at most 1.35 (Champion) / 1.55 (Unique) times, and after 60
   seconds it tires: +5% damage taken every 5 seconds. While an elite lives you have no
   death penalty (a setting on the Elites page, on by default). A very small monster's elite
-  is never more than 3 times (Champion) / 6 times (Unique) its hit points.
+  has at most 3 times (Champion) / 6 times (Unique) its hit points; Colossal's quarter comes
+  on top of that (3.75 / 7.5 times), and so does what Abyssal Beacon adds when you wear it.
 
 Rewards:
     Champion: 2 more rolls of the monster's own loot (gold too), +25% combat XP while it
@@ -188,13 +190,24 @@ Item level and tiers: the item level is the monster's combat level (+5, see abov
 the best tier an affix can roll:
     item level  1-14: T5    15-34: T4    35-59: T3    60-84: T2    85+: T1
   An affix rolls its best tier half the time, one lower 35%, two lower 15%. T1 is the highest.
-  Every tier has its own range and the ranges never overlap. Under a rare item's name you see
-  one line per affix (the game's own "Bonuses" list below it splits some into several lines:
-  "+2% combat XP" is six skills, so a 3-affix amulet can show 10 bonus lines). Hold Alt over an
-  item (in the bank or worn) to see, for each affix, its tier, prefix or suffix, name and range:
-  +16% max hit   [T1 prefix "Keen": 14-18]
-  With the Better Tooltips mod, its tooltips show the same: the name in the rarity's colour
-  and the affix lines under it (tiers with Alt).
+  Every tier has its own range and the ranges never overlap.
+  The item card. Every effect of a rare item is written once, in the part it comes from:
+    Rare  ·  Scabjaw Beast Gauntlets  ·  item level 88
+    AFFIXES  3 rolled · T1 best / T5 lowest
+    ◆ 8% chance on hit to Burn                     T3
+    ◆ +16% max hit                                 T1
+    ◆ 5% chance on hit to Stun for a turn          T2
+    BASE ITEM BONUS  (a box: what every Scabjaw Beast Gauntlets has)
+      If First Attack of a Turn is a Hit: 5% chance to inflict Stun for 1 turn
+  The AFFIXES are what makes the item rare. The BASE ITEM BONUS is the base item's own bonus:
+  every item of that kind has it (most have none, and then one short line says so). The
+  game's own green "Bonuses" list, which mixed both, is not shown for these items. A Unique
+  shows its power, its fixed UNIQUE BONUSES and the base item's bonus the same way. Hold Alt
+  (in the bank, a tooltip, or over a worn item) to see each affix's range next to its tier:
+  +16% max hit   T1   [14-18]
+  The same card in the item tooltip, the bank's Selected Item panel and a worn item's tooltip.
+  With the Better Tooltips mod, its tooltips show the name in the rarity's colour and the same
+  parts as text.
   Our other mods know rare items too: Bulk Sell filters them by rarity, slot, affix and level,
   Action Queue and Phone Screen can equip and sell them, Cheat Menu does not list them.
 
@@ -255,9 +268,11 @@ The 48 affixes (X = the rolled value; the best tier's range; where it can roll):
   elite chance +50%, action time in every skill -40% (of Diligence), XP in every skill +50%
   (of Learning). What goes over a cap does nothing. Usurper's Circle's copy of a ring counts
   for these caps too.
-  Attack interval floor: nothing makes you attack faster than once every 0.6 s (affixes,
-  Momentum, your class, unique powers and Rage together). Cheat Menu's "Attack speed" is not
-  held back: when you turn it on, the floor steps aside.
+  Attack interval floor: while you play, nothing makes you attack faster than once every
+  0.6 s (affixes, Momentum, your class, unique powers and Rage together). Cheat Menu's "Attack
+  speed" is not held back: when you turn it on, the floor steps aside. The floor is worked out
+  while you play; the time the game was closed is worked out by the game with what the floor
+  was when you last played.
   The same ring more than once: each game ring counts once, as in the game. Rare copies of one
   ring are each their own item and all their affixes count, but that ring's own stats and
   bonuses count once (six rare Silver Topaz Rings give their +3 attack bonuses once).
@@ -272,7 +287,14 @@ that Unique (no guarantee, also not on the first kill: they are worth farming). 
 area that is about 0.12% a kill of the monster (its Unique comes 0.8% of the time).
 A Unique item has fixed stats and a special power, both written on it (hover it; the monster's
 Elites window shows them too). The powers work while you play, like the elites: not while the
-game works out the time it was closed. A few examples: Copper Oath's first hit of each fight
+game works out the time it was closed. For that time a Unique still gives what is a plain stat
+(a quiver that is never used up, lifesteal, accuracy, the damage Wreckshot has earned), and the
+price a power takes is not taken either: Twin Volley's -40% damage, Deep Wound's -20%, Thorn
+Dance's -10% and Hollow Harvest's -35% hit points are off for that time and back the moment
+you play. The powers that protect you rest for that time as well (Oathlocked Plate's damage
+cut, Veil-Antler Reprieve's rescue, Cavern Bastion's block, Tollkeeper Greaves' delay): a fight
+you only survive because of one of them is not safe to leave running while the game is closed.
+A few examples: Copper Oath's first hit of each fight
 hits harder, Soulstring Quiver fires a free extra shot every 5th attack, Veil-Antler Reprieve saves
 you from a fatal blow once in 3 minutes, Abyssal Beacon doubles the elites and gives them one more
 affix and one more drop. The Elites page of the One Style window lists the uniques you wear and
@@ -391,12 +413,60 @@ Delete the folder "mods\OneStyle". That is all.
 One Style keeps a list in your save of what the game cannot keep without it: your rare items
 and the rings in Ring Slot 3 to 6. The next time you open each character without One Style,
 Melvor Mod Loader 0.3.0 or newer puts their normal items in your bank (a Rare "Grim Fang"
-Bronze Sword comes back as a Bronze Sword), once. Nothing is lost, nothing is doubled.
+Bronze Sword comes back as a Bronze Sword), once. Nothing is lost, nothing is doubled: when
+your bank has no room for one of them, the loader keeps it and puts it in as soon as there is
+room (a note on the screen and its log say how many wait). One Style's own copy of those items
+(see GAME UPDATES AND YOUR RARE ITEMS) is not used after that: installing One Style again does
+not bring them back a second time.
+The loader does this only when the folder is gone. A One Style that is still in the mods
+folder and did not start (after a game update) keeps its rare items rare.
 (Ring Slot 2 is the game's own: its ring stays where it is.)
 
 Removing Melvor Mod Loader too? Then nobody is left to give them back: first open the One
 Style window on every character and press "Make all rare items normal" (Elites page) and
-"Put rings 2-6 in the bank" (Class page).
+"Put rings 2-6 in the bank" (Class page). If the window says that some items wait for room in
+your bank, free some bank slots and wait until they are in before you remove anything.
+
+GAME UPDATES AND YOUR RARE ITEMS
+--------------------------------
+Melvor Idle 2 is in alpha and is updated often. An update can stop One Style, or the mod
+loader, from working until they are updated too. The game cannot keep an item it does not
+know: when it runs without One Style and saves, the rare items are no longer in that save.
+They are not lost. This is what keeps them:
+
+- A second copy outside the save. With every save One Style writes all rare items of the
+  character (what they are, where each one is, how many) to a file of its own in
+  "%AppData%\Games By Malcs\Melvor Idle 2\onestyle-items", next to the game's saves and
+  not in the mod's folder. The next time One Style works and finds a save that has lost its
+  rare items, it puts them back from that file: where they were, or into your bank when that
+  place is taken (what finds no room waits and goes in later). A note on the screen says so.
+- The game's own backups. The game copies a save every time you open the character (15 per
+  character). Without a file of its own (another computer, a save from before this version)
+  One Style looks there for the last save that still had the rare items.
+- A copy of the save before the first play after a game update, in the same folder
+  ("...before-game-update-....sav", the five newest per character stay).
+- A mod that did not start is not a mod you removed. When OneStyle.dll is in the mods folder
+  and did not start, the mod loader does not turn the rare items into normal ones (it does that
+  only when the folder is gone, see UNINSTALL), and it says on the screen that the mod did not
+  start.
+- One part failing does not take the rest along: if a part of One Style runs into an error
+  (as the item tooltips did with the game update of 25 November 2026), that part rests until
+  the game is started again and everything else goes on.
+- Nothing is thrown away on a guess: while a character's rare items could not all be put back
+  after loading, a save drops none of their records.
+
+After a game update: start the game as usual. If a note says that a mod did not start or was
+switched off, look for a newer version of that mod. You can go on playing; the rare items come
+back with the mod. Do not delete the "onestyle-items" folder.
+
+If One Style cannot understand its own part of a save (a save written by a newer One Style), it
+says so on the screen and in its window, and for that character its rare items rest (none drop,
+none are changed), their data stays in the save exactly as it was (written back byte for byte),
+and a copy of the save is kept in "mods\OneStyle\kept-saves". Update One Style and open the
+character again.
+
+What this cannot do: on a computer that never had One Style's file for a character, after the
+game has made 15 backups of that character without the mod, there is nowhere left to look.
 
 
 HELP AND UPDATES
@@ -411,6 +481,9 @@ and include it when you ask for help.
 CHANGES
 -------
 0.4.0
+- The item card (25 November 2026): affixes once with their tiers (Alt: ranges), the base
+  item's own bonus in a box of its own, a Unique's power and fixed bonuses apart; the game's
+  merged "Bonuses" list, which showed the affixes a second time, is hidden for these items
 - Rare items: monsters drop gear as Magic (blue), Rare (yellow) and Unique (orange) items
   with random affixes from 48, tiers by item level (T1 the best, ranges never overlap),
   Alt shows the tiers, coloured names and bank frames (see RARE ITEMS)

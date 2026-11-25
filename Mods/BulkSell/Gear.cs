@@ -17,7 +17,7 @@ namespace BulkSell;
 /// </summary>
 public static class Gear
 {
-    static MethodInfo? s_facts;
+    static MethodInfo? s_facts, s_ids, s_catalog, s_newDrops;
 
     /// <summary>True when One Style (with its rare items) is loaded.</summary>
     public static bool RaresLoaded => Facts() != null;
@@ -28,10 +28,41 @@ public static class Gear
         foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
         {
             if (a.GetName().Name != "OneStyle") continue;
-            s_facts = a.GetType("OneStyle.RareItems")?.GetMethod("Facts", BindingFlags.Public | BindingFlags.Static, new[] { typeof(Item) });
+            Type? t = a.GetType("OneStyle.RareItems");
+            s_facts = t?.GetMethod("Facts", BindingFlags.Public | BindingFlags.Static, new[] { typeof(Item) });
+            s_ids = t?.GetMethod("AffixIdsOf", BindingFlags.Public | BindingFlags.Static, new[] { typeof(Item) });
+            s_catalog = t?.GetMethod("AffixCatalog", BindingFlags.Public | BindingFlags.Static, Type.EmptyTypes);
+            s_newDrops = t?.GetMethod("TakeNewDrops", BindingFlags.Public | BindingFlags.Static, Type.EmptyTypes);
             if (s_facts != null) break;
         }
         return s_facts;
+    }
+
+    /// <summary>True when the loaded One Style can tell its new drops (auto-sell needs it; older versions cannot).</summary>
+    public static bool CanAutoSell { get { Facts(); return s_newDrops != null && s_ids != null; } }
+
+    /// <summary>The local ids of the rare items that dropped into the bank since the last call (One Style tells them once).</summary>
+    public static string[] TakeNewDrops()
+    {
+        Facts();
+        try { return s_newDrops?.Invoke(null, null) as string[] ?? Array.Empty<string>(); }
+        catch (Exception) { return Array.Empty<string>(); }
+    }
+
+    /// <summary>One affix of One Style: its id, its name ("Leeching") and what it does ("Lifesteal").</summary>
+    public sealed record Affix(string Id, string Name, string Text);
+
+    /// <summary>Every affix One Style has (empty without it).</summary>
+    public static System.Collections.Generic.List<Affix> Catalog()
+    {
+        Facts();
+        try
+        {
+            if (s_catalog?.Invoke(null, null) is string[] lines)
+                return lines.Select(l => l.Split('\t')).Where(p => p.Length >= 3).Select(p => new Affix(p[0], p[1], AffixName(p[2]))).ToList();
+        }
+        catch (Exception) { }
+        return new();
     }
 
     /// <summary>Fills the gear part of an entry.</summary>
@@ -56,6 +87,8 @@ public static class Gear
         e.BaseName = facts[2];
         e.Color = Color.FromHtml(facts[3]);
         e.Affixes = facts.Skip(4).ToArray();
+        try { e.AffixIds = s_ids?.Invoke(null, new object[] { item }) as string[] ?? Array.Empty<string>(); }
+        catch (Exception) { }
     }
 
     /// <summary>An affix line with its numbers taken out ("+12% max hit" -> "+#% max hit"): the same affix on every item.</summary>

@@ -29,6 +29,7 @@ public sealed class Entry
     public string BaseName = "";    // One Style: the game item it is made from
     public Godot.Color? Color;      // One Style: the rarity's colour
     public string[] Affixes = Array.Empty<string>();
+    public string[] AffixIds = Array.Empty<string>();   // One Style: the affixes' ids (Magic and Rare items)
 }
 
 /// <summary>Reading the bank and selling from it, always through the game's own sale code.</summary>
@@ -189,7 +190,10 @@ public static class Bank
 }
 
 /// <summary>
-/// The per-character junk list (item ids) in bulksell.json next to the mod DLL.
+/// The per-character junk list (item ids) in bulksell.json next to the mod DLL, kept under the save's id ("save:" and
+/// 32 hex digits, as the auto-sell rules are): two characters with the same name never share a list, and renaming a
+/// character keeps it. A save that has no list yet takes over the one an earlier build kept under its character's
+/// name, once ("taken:" + name remembers by which save).
 /// A write replaces only the open character's entry in what is on disk at that moment.
 /// </summary>
 public static class Junk
@@ -203,17 +207,29 @@ public static class Junk
     public static int Count => s_ids.Count;
     public static bool Contains(Item item) => s_ids.Contains(item.Id);
 
-    static Dictionary<string, List<string>> Read()
-    {
-        try { return JsonSerializer.Deserialize<Dictionary<string, List<string>>>(File.ReadAllText(FilePath)) ?? new(); }
-        catch { return new(); }
-    }
+    // (a file that is busy throws: the callers keep what is on disk, they never write "nothing" over it)
+    static Dictionary<string, List<string>> Read() => Files.Read<Dictionary<string, List<string>>>(FilePath, Log);
 
     public static void Bind(string character)
     {
-        if (character == s_character) return;
-        s_character = character;
-        s_ids = Read().TryGetValue(character, out List<string>? ids) ? ids.ToHashSet() : new HashSet<string>();
+        string save = AutoSell.SaveKey();
+        string key = save != "" ? save : character;
+        if (key == s_character) return;
+        s_character = key;
+        s_ids = new HashSet<string>();
+        try
+        {
+            Dictionary<string, List<string>> all = Read();
+            if (all.TryGetValue(key, out List<string>? ids)) s_ids = ids.ToHashSet();
+            else if (key != character && all.TryGetValue(character, out List<string>? byName) && !all.ContainsKey("taken:" + character))
+            {
+                s_ids = byName.ToHashSet();
+                all[key] = byName.ToList();
+                all["taken:" + character] = new List<string> { key };
+                Files.Write(FilePath, all);
+            }
+        }
+        catch (Exception e) { Log("The junk list could not be read: " + e.Message); }
     }
 
     public static void Set(IEnumerable<Item> items) => Save(items.Select(i => i.Id).ToHashSet());
@@ -244,7 +260,7 @@ public static class Junk
         {
             Dictionary<string, List<string>> all = Read();
             all[s_character] = s_ids.OrderBy(i => i).ToList();
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
+            Files.Write(FilePath, all);
         }
         catch (Exception e) { Log("The junk list could not be saved: " + e.Message); }
     }

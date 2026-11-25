@@ -1546,7 +1546,7 @@
    }
   ],
   "MechanicName": "Deep Wound",
-  "Mechanic": "25% chance on hit to Bleed for 30% of the hit's damage over 4 s (max 5 stacks); each bleed tick can crit. Hitting a bleeding enemy refreshes your bleeds, but direct hit damage is -20%.",
+  "Mechanic": "25% chance on hit to Bleed for 30% of the hit's damage over 4 s (max 5 stacks); each bleed tick can crit. Hitting a bleeding enemy refreshes your bleeds. While worn, your damage is 20% lower: your hits, the damage you reflect and the game's own poison, bleed and burn (not this bleed).",
   "Flavour": "It cut the roots first, so nothing could hold on.",
   "Icon": "art/items/RootShearClaws.webp"
  },
@@ -1600,7 +1600,7 @@
    }
   ],
   "MechanicName": "Thorn Dance",
-  "Mechanic": "The damage you reflect hits 2.5 times (it can crit) and has a 25% chance to Bleed for 30% of it over 4 s (3 stacks at most); these hits trigger no other items. Your own attacks deal 10% less damage.",
+  "Mechanic": "The damage you reflect hits 2.5 times (it can crit) and has a 25% chance to Bleed for 30% of it over 4 s (3 stacks at most); these hits trigger no other items. While worn, your damage is 10% lower: your attacks, the game's own poison, bleed and burn, and the reflected hit before it is multiplied.",
   "Flavour": "Tavio never stopped dancing; the thorns kept time.",
   "Icon": "art/items/ThornstepSpinecoat.webp"
  },
@@ -1708,7 +1708,7 @@
    }
   ],
   "MechanicName": "Twin Volley",
-  "Mechanic": "Each attack fires a second arrow: both deal 60% damage. The second uses one more ammo and rolls its own hit and crit.",
+  "Mechanic": "Each attack fires a second arrow: both deal 60% damage. The second uses one more ammo and rolls its own hit and crit. While worn, the damage you reflect and the game's own poison, bleed and burn are 40% lower too.",
   "Flavour": "Two arrows to a string, drowned and still drawn.",
   "Icon": "art/items/SunkenVolley.webp"
  },

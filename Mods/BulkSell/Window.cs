@@ -14,7 +14,7 @@ namespace BulkSell;
 /// The bulk sell window: every sellable stack of the bank in one table. Click a row to mark it,
 /// narrow the table with the filters, then sell everything marked in one go.
 /// </summary>
-public sealed class Window
+public sealed partial class Window
 {
     const int ColMark = 0, ColItem = 1, ColLevel = 2, ColQuantity = 3, ColEach = 4, ColTotal = 5;
 
@@ -94,11 +94,13 @@ public sealed class Window
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 12);
         header.AddChild(Style.Label("BULK SELL", Style.Accent, 20));
-        Label hint = Style.Label("Click a row to mark it. \"junk\" = on your junk list. Locked items never appear here.", Style.Muted);
+        Label hint = Style.Label("Click a row to mark it, Shift+click to mark a range. Locked items never appear here.", Style.Muted);
         hint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hint.VerticalAlignment = VerticalAlignment.Center;
         hint.SizeFlagsVertical = Control.SizeFlags.Fill;
         header.AddChild(hint);
+        _autoButton.Pressed += () => ShowAutoPage(!_autoPage.Visible);
+        header.AddChild(_autoButton);
         header.AddChild(MakeButton("Close", Hide));
         head.AddChild(header);
         root.AddChild(head);
@@ -111,6 +113,14 @@ public sealed class Window
         body.AddThemeConstantOverride("separation", 8);
         margin.AddChild(body);
         root.AddChild(margin);
+        // two pages: the table (filters, marks, selling) and the auto-sell rules
+        var list = new VBoxContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        list.AddThemeConstantOverride("separation", 8);
+        body.AddChild(list);
+        _listPage = list;
+        _autoPage = BuildAutoPage();
+        _autoPage.Visible = false;
+        body.AddChild(_autoPage);
 
         var filters = new HBoxContainer();
         filters.AddThemeConstantOverride("separation", 10);
@@ -120,7 +130,7 @@ public sealed class Window
         filters.AddChild(_search);
         filters.AddChild(_tabPick);
         filters.AddChild(_kindPick);
-        body.AddChild(filters);
+        list.AddChild(filters);
 
         var gear = new HBoxContainer();
         gear.AddThemeConstantOverride("separation", 8);
@@ -145,7 +155,7 @@ public sealed class Window
         gear.AddChild(_levelPick);
         gear.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
         gear.AddChild(MakeButton("Clear filters", ClearFilters));
-        body.AddChild(gear);
+        list.AddChild(gear);
 
         var picks = new HBoxContainer();
         picks.AddThemeConstantOverride("separation", 10);
@@ -166,7 +176,7 @@ public sealed class Window
         picks.AddChild(keepLabel);
         _keep.ValueChanged += _ => Repaint();
         picks.AddChild(_keep);
-        body.AddChild(picks);
+        list.AddChild(picks);
 
         _table = new Tree
         {
@@ -189,7 +199,14 @@ public sealed class Window
         {
             TreeItem? row = _table.GetSelected();
             if (row == null) return;
-            Toggle(_shown[(int)row.GetMetadata(ColItem)].Item);
+            int index = (int)row.GetMetadata(ColItem);
+            // Shift+click: every row from the last clicked one to this one gets the last click's mark, as in Windows
+            if (Input.IsKeyPressed(Key.Shift) && AnchorIndex() is >= 0 and var from) MarkRange(from, index, _marked.Contains(_shown[from].Item));
+            else
+            {
+                Toggle(_shown[index].Item);
+                _anchor = _shown[index].Item;
+            }
             Repaint();
             // The table's own highlight is not used: clear it so the same row can be clicked again.
             Callable.From(_table.DeselectAll).CallDeferred();
@@ -202,7 +219,7 @@ public sealed class Window
             else { _sortColumn = (int)column; _sortDescending = column >= ColLevel; }
             Rebuild();
         };
-        body.AddChild(_table);
+        list.AddChild(_table);
 
         var bottom = new HBoxContainer();
         bottom.AddThemeConstantOverride("separation", 10);
@@ -224,7 +241,7 @@ public sealed class Window
         _sell.AddThemeStyleboxOverride("pressed", go);
         _sell.Pressed += SellPressed;
         bottom.AddChild(_sell);
-        body.AddChild(bottom);
+        list.AddChild(bottom);
 
         // ---- footer
         StyleBoxFlat footBox = Style.Box(Style.Sidebar, 0, null, 0, 18, 8);
@@ -260,6 +277,10 @@ public sealed class Window
         _search.Text = "";
         Disarm();
         Say("");
+        _autoButton.Visible = Gear.CanAutoSell;   // needs a One Style that tells its new drops
+        _autoPage.Visible = false;
+        _listPage.Visible = true;
+        _autoButton.Text = "Auto-sell";
         Reload();
         _layer.Visible = true;
     }
@@ -274,6 +295,7 @@ public sealed class Window
     public void Pulse()
     {
         if (!Visible || _bank == null || _armed) return;
+        if (_autoPage.Visible) { if (!_nowArmed) PaintAuto(); return; }
         Dictionary<Item, int> now = _bank.Inventory.Stacks.Where(s => !s.IsLocked && !s.IsPlaceholder && s.Quantity > 0)
             .GroupBy(s => s.Item).ToDictionary(g => g.Key, g => g.Sum(s => s.Quantity));
         if (now.Count != _entries.Count || _entries.Any(e => !now.ContainsKey(e.Item))) { Reload(); return; }
@@ -364,6 +386,7 @@ public sealed class Window
         };
         _shown = list.ToList();
         if (_sortDescending && _sortColumn >= 0) _shown.Reverse();
+
 
         _table.Clear();
         TreeItem root = _table.CreateItem();
@@ -489,6 +512,22 @@ public sealed class Window
 
     void Toggle(Item item) { if (!_marked.Remove(item)) _marked.Add(item); }
 
+    /// <summary>
+    /// The item of the last row clicked without Shift. The item, not the row number: while you fight in the background
+    /// the table is filled again every second, and a row number would be forgotten between your two clicks.
+    /// </summary>
+    Item? _anchor;
+
+    int AnchorIndex() => _anchor == null ? -1 : _shown.FindIndex(e => e.Item == _anchor);
+
+    void MarkRange(int from, int to, bool on)
+    {
+        for (int i = Math.Min(from, to); i <= Math.Max(from, to) && i < _shown.Count; i++)
+        {
+            if (on) _marked.Add(_shown[i].Item); else _marked.Remove(_shown[i].Item);
+        }
+    }
+
     void MarkShown(bool on)
     {
         foreach (Entry e in _shown) { if (on) _marked.Add(e.Item); else _marked.Remove(e.Item); }
@@ -541,10 +580,11 @@ public sealed class Window
         return Enumerable.Range(0, pick.ItemCount).Select(pick.GetItemText).ToList();
     }
     public void SetKeep(int keep) => _keep.Value = keep;
-    public void ClickRow(int index)
+    public void ClickRow(int index, bool shift = false)
     {
         if (index < 0 || index >= _shown.Count) return;
-        Toggle(_shown[index].Item);
+        if (shift && AnchorIndex() is >= 0 and var from) MarkRange(from, index, _marked.Contains(_shown[from].Item));
+        else { Toggle(_shown[index].Item); _anchor = _shown[index].Item; }
         Repaint();
     }
     public void PressSell() => SellPressed();

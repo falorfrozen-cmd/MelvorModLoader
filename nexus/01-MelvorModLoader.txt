@@ -16,7 +16,7 @@ None.
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
 MAIN FILE:      dist\MelvorModLoader-0.3.0.zip      (name: Melvor Mod Loader, version 0.3.0)
-OPTIONAL FILE:  dist\MelvorModLoader-ModdersKit-0.3.0.zip   (name: Modder's Kit - guide and example mod, version 0.3.0)
+OPTIONAL FILE:  dist\MelvorModLoader-ModdersKit-0.3.0.zip   (name: Modder's Kit - guide and example mod, version 0.3.0)   -  HENUZ KURULMADI: dist klasorunde yalniz 0.2.0 var; yuklemeden once kurulmali
 OPTIONAL FILE:  dist\DebugMenu-1.0.3.zip            (name: Debug Menu (F9), version 1.0.3)
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
@@ -24,7 +24,9 @@ Dev\shots\0-oyun.png, Dev\shots\ornek-mod.png, Dev\shots\menu-5-combat.png, Dev\
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
 0.3.0
-- New: items come back when you remove a mod. A mod that keeps its own items in your save (One Style's rare items and the rings in its extra ring slots) leaves a list in the save; open that character without the mod and the loader puts the normal items in your bank, once
+- New: the loader tells you on the screen when a mod did not start or was switched off after an error (nearly always a game update), not only in the log
+- New: a mod that is still in the mods folder and did not start is not treated as removed: its items in your save are left alone (not turned into normal items), and a copy of the save is kept in mods\rescue-kept
+- New: items come back when you remove a mod. A mod that keeps its own items in your save (One Style's rare items and the rings in its extra ring slots) leaves a list in the save; open that character without the mod and the loader puts the normal items in your bank, once. With a full bank nothing is lost: what does not fit waits (mods\rescue-pending.json) and goes in as soon as you free a bank slot
 - A mod that also works with another mod (when that one is installed) now loads without it too
 - A mod that holds the game up for more than a quarter second in a frame is named in MelvorModLoader.log ("Slow frame"), so a freeze can be traced
 
@@ -57,7 +59,7 @@ For players it is a one-time install. For mod authors it is a small, typed C# AP
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Melvor Mod Loader [b]0.3.0[/b] for Windows / Steam, tested on game version [b]0.11.6-alpha.1[/b]. Melvor Idle 2 is in alpha: a game update can break the loader or a mod until they are updated. If the game ever fails to start, delete [b]override.cfg[/b] and it runs without mods again.
+This is Melvor Mod Loader [b]0.3.0[/b] for Windows / Steam, tested on game version [b]0.11.7[/b] (the update of 25 November 2026). Melvor Idle 2 is in alpha: a game update can break the loader or a mod until they are updated. If the game ever fails to start, delete [b]override.cfg[/b] and it runs without mods again.
 
 [size=5][b]What it does[/b][/size]
 [list]
@@ -66,7 +68,7 @@ This is Melvor Mod Loader [b]0.3.0[/b] for Windows / Steam, tested on game versi
 [*][b]Keeps mods apart.[/b] A mod that fails is reported in the log and skipped. The game and the other mods keep running.
 [*][b]Stays out of the way.[/b] A green line in the top-left corner shows the loader version and the number of mods for 15 seconds at start. That is all you see of it.
 [*][b]Protects offline progress.[/b] While the game computes offline progress, mods are held back so nothing interferes with it.
-[*][b]Gives items back (new in 0.3.0).[/b] Remove a mod that keeps its own items in your save, such as One Style's rare items, and the next time you open that character the loader puts their normal versions in your bank. Nothing is lost, nothing is doubled.
+[*][b]Gives items back (new in 0.3.0).[/b] Remove a mod that keeps its own items in your save, such as One Style's rare items, and the next time you open that character the loader puts their normal versions in your bank. Nothing is lost, nothing is doubled. Is your bank full? The items that do not fit wait (an orange note under the game's top bar and MelvorModLoader.log say how many) and go in as soon as you free a bank slot.
 [*][b]One menu for all mods (new in 0.2.0).[/b] A [b]Mods[/b] button in the top bar (or F1) lists every mod window. Click a name to open it, click its key to give it another one, or press Off to free the key. Two mods on one key? Both rows turn orange.
 [/list]
 

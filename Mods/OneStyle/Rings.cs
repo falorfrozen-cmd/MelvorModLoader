@@ -44,6 +44,8 @@ public static class Rings
         ("OneStyleRingSlot6", "Ring Slot 6", 0, 3),
     };
     public static int Total => 2 + Added.Length;
+    /// <summary>The full ids of the ring slots One Style adds (the game does not know them without the mod).</summary>
+    public static HashSet<string> AddedSlotIds { get; } = Added.Select(a => "MelvorBase:" + a.Id).ToHashSet();
 
     public static Action<string>? Log;
     /// <summary>What went wrong the last time, for the window and the tests.</summary>
@@ -236,9 +238,14 @@ public static class Rings
         ref Dictionary<Item, ActiveEquipmentSlot> equipped = ref EquippedItems(equipment);
         if (!equipped.TryAdd(worn.Item, active))
         {
-            // The same ring is worn elsewhere already: the game allows one of each. Leave the slot empty.
-            Problems.Add(worn.Item.Id + " is worn twice; the extra one was not put back");
+            // The same ring is worn elsewhere already: the game allows one of each. The extra one goes to the bank
+            // (it waits when there is no room); it is never thrown away.
+            Item extra = worn.Item;
+            int quantity = Math.Max(1, active.Quantity);
             active.SetEmpty();
+            if (s_game != null)
+                try { RareItems.BankOrWait(s_game, extra, quantity); Problems.Add(extra.Id + " was worn twice; the extra one is in your bank"); }
+                catch (Exception e) { Problems.Add(extra.Id + " was worn twice and could not be put in the bank: " + e.Message); }
             return;
         }
         active.OnSaveLoaded();
@@ -294,6 +301,18 @@ public static class Rings
 
     // ---- before removing the mod ----------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Takes the rings off Ring Slot 2 to 6 and puts them in the bank. Returns how many are in the bank now, how many are
+    /// still worn (the bank had no room) and how many wait for room (rings of the loadouts that are not worn now).
+    /// </summary>
+    public static (int Moved, int Worn, int Waiting) ToBankCounted(Game game)
+    {
+        int before = RareItems.Data.NormalPending.Values.Sum() + RareItems.Data.Pending.Count;
+        int moved = ToBank(game);
+        int waiting = Math.Max(0, RareItems.Data.NormalPending.Values.Sum() + RareItems.Data.Pending.Count - before);
+        return (moved - waiting, InAdded(game), waiting);
+    }
+
     /// <summary>Takes the rings off Ring Slot 2 to 6 and puts them in the bank. Returns how many came off.</summary>
     public static int ToBank(Game game)
     {
@@ -305,6 +324,28 @@ public static class Rings
             combat.ItemEquipping.UnequipSlot(active.Slot);
             if (active.IsEmpty) moved++;
         }
+        // the rings kept in Ring Slot 3 to 6 of the loadouts that are not worn now: without the mod the game drops those
+        // slots, so they go to the bank as well (one that finds no room waits, as every item of One Style does)
+        try
+        {
+            var ids = Added.Select(a => "MelvorBase:" + a.Id).ToHashSet();
+            var current = combat.Loadouts.CurrentLoadout?.Data;
+            foreach (var (key, loadout) in Loadouts(combat.Equipment))
+            {
+                if (ReferenceEquals(key, current)) continue;
+                foreach (var (slot, saved) in loadout.Slots.ToList())
+                {
+                    if (!ids.Contains(slot.Id) || saved.IsOccupied || saved.Equipped is not { } e) continue;
+                    // while rare items rest nothing can wait (One Style's part of the save is not written anew): the ring
+                    // leaves its loadout only when the bank takes it
+                    if (RareItems.SafeMode && !RareItems.BankHasRoomFor(game, e.Item)) continue;
+                    RareItems.BankOrWait(game, e.Item, Math.Max(1, saved.Quantity));
+                    RareItems.ClearLoadoutSlot(saved);
+                    moved++;
+                }
+            }
+        }
+        catch (Exception e) { Problems.Add("rings of other loadouts: " + e.Message); }
         return moved;
     }
 

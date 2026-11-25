@@ -39,6 +39,7 @@ public static partial class UniquePowers
 
     static void AlwaysOn3()
     {
+        // (Offline, all three: kept. The game's own effects and a plain stat; what the scripts add to them is off.)
         // Pack Howl: 25% on hit to gain a stack of the game's Rage
         SetIf("Howler:rage", DivideFangHowler, true, () => Effects(OnHit("Stacking", "Rage", "{\"StacksToAdd\":null}", 0.25)));
         // Overflow: +5% lifesteal
@@ -87,7 +88,8 @@ public static partial class UniquePowers
             }
             else if (hit && Random.Shared.NextDouble() < c.Player.Stats.CriticalHitChance.Value)
             {
-                double edges = Math.Min(3, s_keep.GetValueOrDefault("Edge") + 1);
+                // Edges that ran out (15 s without a new one) are gone: the count starts again
+                double edges = Math.Min(3, (BuffOn("Edge") ? s_keep.GetValueOrDefault("Edge") : 0) + 1);
                 s_keep["Edge"] = edges;
                 Fire("Edge");
                 B("Edge", TalonOfTheDivide).Set(A(("Brutal", 10 * edges)), 15000);
@@ -99,6 +101,8 @@ public static partial class UniquePowers
         if (Wears(DivideFangHowler))
         {
             int rage = RageStacks();
+            // (the game adds a hit's Rage after this handler: the hit that brings the 5th stack sees 4 here, so the howl
+            // is on the next hit, as the text says)
             if (rage != (int)s_keep.GetValueOrDefault("Howler:rage"))
             {
                 s_keep["Howler:rage"] = rage;
@@ -152,7 +156,8 @@ public static partial class UniquePowers
     /// <summary>Sentinel's Answer: every 3rd monster attack that hit you readies an answer (1 at most, once in 8 s).</summary>
     static void EnemyLanded3()
     {
-        if (!Wears(SentinelAegis)) return;
+        // melee only: with a bow or a staff no answer is readied (it could never be spent: +40% for ever)
+        if (!Wears(SentinelAegis) || !MeleeWeapon()) return;
         double landed = Up(s_keep, "Aegis:landed");
         if (landed % 3 != 0 || BuffOn("Aegis:answer") || s_nowMs < s_keep.GetValueOrDefault("Aegis:next")) return;
         s_keep["Aegis:next"] = s_nowMs + 8000;
@@ -185,6 +190,25 @@ public static partial class UniquePowers
     /// <summary>Every tick: Hush's +15% against a Blinded or Withered monster (from any source).</summary>
     static void Tick3()
     {
+        // Sentinel's Answer: a readied answer is dropped when the weapon is no longer a melee one
+        if (BuffOn("Aegis:answer") && !MeleeWeapon()) B("Aegis:answer").Off();
+        // Pack Howl: +2% damage a Rage stack, as the stacks are now (the game adds a hit's Rage after the hit's own
+        // event, so counting only at your hits left the bonus one hit behind)
+        if (Wears(DivideFangHowler))
+        {
+            int rage = RageStacks();
+            if (rage != (int)s_keep.GetValueOrDefault("Howler:rage"))
+            {
+                s_keep["Howler:rage"] = rage;
+                SetIf("Howler:fury", DivideFangHowler, rage > 0, () => A(("Damage", 2 * Math.Min(5, rage))));
+            }
+        }
+        // False Horizon: the game takes an imbuement's bonuses off when its runes run out; the copy goes with them
+        if (BuffOn("Mirage") && s_combat is { } cm)
+        {
+            try { if (!ReferenceEquals(ActivatedImbuement(cm.MagicSpells), cm.MagicSpells.SelectedImbuement)) B("Mirage").Off(); }
+            catch (Exception) { }
+        }
         if (!Wears(BarrensHush)) return;
         bool on = EnemyHas("MelvorBase:Blind", "MelvorBase:Wither");
         if (on != BuffOn("Hush:dmg")) SetIf("Hush:dmg", BarrensHush, on, () => A(("Damage", 15)));

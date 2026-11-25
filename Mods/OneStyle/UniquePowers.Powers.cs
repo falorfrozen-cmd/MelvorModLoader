@@ -49,17 +49,31 @@ public static partial class UniquePowers
 
     // ================================================================ always on while worn
 
+    /// <summary>
+    /// The bonuses that are on whenever the item is worn. "Offline:" on each says what happens to it while the game
+    /// works out offline time (the rule is at the top of UniquePowers.cs, the list is KeptOffline there): the lines
+    /// here are written as if you were playing, and Buff.Set leaves out what is off for that time.
+    /// </summary>
     static void AlwaysOn()
     {
+        // Offline: kept. The price (food heals less) and what it pays for (lifesteal) are both the game's own stats
         SetIf("MireThroat", MireThroat, true, () => A(("Leeching", 8), ("Mending", -40)));
+        // Offline: kept. A plain stat
         SetIf("CombKnuckles:thrift", CombKnuckles, true, () => A(("Thrift", 15)));
+        // Offline: OFF. The bleed that pays for -20% is scripted
         SetIf("RootShear", RootShearClaws, true, () => A(("Damage", -20)));
+        // Offline: OFF. The 2.5 times reflect that pays for -10% is scripted
         SetIf("Thornstep", ThornstepSpinecoat, true, () => A(("Damage", -10)));
+        // Offline: kept. The slower attack is paid for by accuracy and the least hit, plain stats in the same bonus
         SetIf("TwinEye", TwinEyeLongwatch, true, () => A(("Swift", -60), ("Steady", 80), ("True", 1000)));
         // a unique quiver is one item: it is never used up when you shoot
+        // Offline: kept. It costs nothing
         SetIf("UniqueAmmo", "", Wears(SoulstringQuiver) || Wears(OssuaryMagazine), () => A(("Quiver", 100)));
+        // Offline: kept. Steps earned for good, saved with the character
         Wreck();
+        // Offline: off. Eating clears the Hunger, and nothing counts the meals offline
         Goremantle_Update();
+        // Offline: the stacks' damage kept (saved; the task's end clears them offline too), the faster task monsters off
         Scrap_Update();
         AlwaysOn2();
         AlwaysOn3();
@@ -83,7 +97,11 @@ public static partial class UniquePowers
             s_keep["Skytoll"] = 0;
             After(50, Skytoll, () =>
             {
-                if (Enemy is { } enemy && Fire("Skytoll")) StrikeAsAttack((int)Math.Min(toll, enemy.Health.Max * 0.40));
+                if (Enemy is { } enemy && Fire("Skytoll"))
+                {
+                    int cap = (int)(enemy.Health.Max * 0.40);
+                    StrikeAsAttack((int)Math.Min(toll, cap), cap: cap);
+                }
             });
         }
         FightReady();
@@ -115,7 +133,8 @@ public static partial class UniquePowers
         CharacterComponent enemy = s_combat!.Enemy;
         bool hit = e.WasHit;
         bool firstOfAttack = e.HitIndex == 0;
-        int hpBefore = s_lastEnemyHp > 0 ? s_lastEnemyHp : enemy.Health.Current + e.HealthDamage;
+        // the hit points before THIS hit (not the last hit of yours: damage over time and strikes come in between)
+        int hpBefore = enemy.Health.Current + e.HealthDamage;
         int hpAfter = enemy.Health.Current;
         double maxHp = Math.Max(1, enemy.Health.Max);
 
@@ -192,8 +211,9 @@ public static partial class UniquePowers
             int gen = s_generation;
             After(2000, ThunderTraces, () =>
             {
+                // "that amount strikes again": as it is, not through your damage bonuses and the monster's armour a second time
                 if (gen == s_generation && Enemy is { Health.Current: > 0 } && Fire("Thunder"))
-                    StrikeAsAttack(amount, s_combat!.DamageTypes.GetObjectById("MelvorBase:Normal"));
+                    Strike(amount, HealthChangeCause.Attack);
             });
         }
         // Ice Shatter: every 5th successful hit freezes (count kept between monsters)
@@ -235,7 +255,8 @@ public static partial class UniquePowers
     static void EnemyAttacked(AttackEventArgs e)
     {
         if (e.WasHit) s_enemyLanded = true;
-        else s_enemyMissed = true;
+        // a miss is a miss you avoided: an attack that could not hurt you at all (immunity) is not one
+        else if (!(s_combat is { } c && c.Enemy.HasTarget && c.Enemy.TargetStats.ImmunityFrom.Total.Value > 0)) s_enemyMissed = true;
     }
 
     // ================================================================ damage
@@ -295,6 +316,9 @@ public static partial class UniquePowers
         if (e.Cause == HealthChangeCause.Attack) s_lastHitMs = s_nowMs;
     }
 
+    [System.Runtime.CompilerServices.UnsafeAccessor(System.Runtime.CompilerServices.UnsafeAccessorKind.Method, Name = "set_IsDying")]
+    static extern void SetIsDying(CharacterComponent character, bool value);
+
     /// <summary>Back From the Veil: below 20% hit points (or a blow that would kill), once in 3 minutes of fighting.</summary>
     static void VeilAntler()
     {
@@ -302,7 +326,13 @@ public static partial class UniquePowers
         if (!Wears(VeilAntlerReprieve) || Kept("VeilAntler:left") > 0 || player.Health.Current >= player.Health.Max * 0.20) return;
         Fire("VeilAntler");
         Keep("VeilAntler:left", 180_000);
-        if (player.Health.Current <= 0) player.Health.Set(1);
+        if (player.Health.Current <= 0)
+        {
+            // the game has already marked you as dying at 0 hit points (its death step would kill you on the next
+            // tick whatever your hit points are by then): the mark comes off with the save
+            player.Health.Set(1);
+            if (player.IsDying) SetIsDying(player, false);
+        }
         HealPlayer((int)(player.Health.Max * 0.40));
         B("VeilAntler:guard", VeilAntlerReprieve).Set(A(("Warding2", 100)), 3000);
         B("VeilAntler:fury", VeilAntlerReprieve).Set(A(("Damage", 30), ("Swift", 15)), 15000);
@@ -536,15 +566,20 @@ public static partial class UniquePowers
     static void Scrap_Kill(EnemyKilledEventArgs e, bool elite)
     {
         if (!Wears(ScrapwindTreads) || s_combat?.SlayerTasks is not { } tasks) return;
-        bool onTask = tasks.HasTaskForEnemy(e.Enemy);
-        if (onTask) Keep("Scrap:stacks", Math.Min(30, Kept("Scrap:stacks") + 1));
-        if (Kept("Scrap:stacks") > 0 && !tasks.HasTaskForEnemy(e.Enemy) && Kept("Scrap:hadTask") > 0)
-        {
-            // the task is over: the stacks go, one token for the next elite
-            Keep("Scrap:stacks", 0);
-            Keep("Scrap:token", 1);
-        }
-        Keep("Scrap:hadTask", onTask ? 1 : 0);
+        // (the game counts the kill and may complete the task before this: a completed task's last kill gives no stack)
+        if (tasks.HasTaskForEnemy(e.Enemy)) Keep("Scrap:stacks", Math.Min(30, Kept("Scrap:stacks") + 1));
+        Scrap_Update();
+    }
+
+    /// <summary>
+    /// The slayer task really ended (the game's own event, not a guess from the next kill): the stacks go; a completed
+    /// task leaves one token for the next elite, a rerolled one does not.
+    /// </summary>
+    static void Scrap_TaskOver(bool completed)
+    {
+        if (!Wears(ScrapwindTreads) || Kept("Scrap:stacks") <= 0) return;
+        Keep("Scrap:stacks", 0);
+        if (completed) Keep("Scrap:token", 1);
         Scrap_Update();
     }
 

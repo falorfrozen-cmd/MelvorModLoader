@@ -45,6 +45,7 @@ public class BulkSellMod : IMod
         _ctx = ctx;
         Junk.Dir = ctx.Directory;
         Junk.Log = ctx.Log;
+        AutoSell.Log = ctx.Log;
         // The bank page is built when it is first opened; remember it as soon as it enters the scene.
         ctx.Tree.NodeAdded += node => { if (node is BankInventoryComponentView view) _bankView = view; };
         Key = new WindowKey(ctx, "Bulk Sell", ToggleWindow, Godot.Key.F7);
@@ -63,6 +64,12 @@ public class BulkSellMod : IMod
         }
         if (_frame % 60 == 0)
         {
+            // auto-sell first: the window then shows the bank as it is after it
+            if (GameAccess.CurrentGame is { IsSaveLoaded: true } game && Gear.CanAutoSell)
+            {
+                try { AutoSell.Pulse(game); }
+                catch (Exception e) { _ctx.Log("Auto-sell stopped for this frame: " + e.Message); }
+            }
             _window?.Pulse();
             UpdateButtons();
         }

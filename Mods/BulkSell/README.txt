@@ -4,7 +4,7 @@ Bulk Sell 0.3.0  -  a mod for Melvor Idle 2
 Quality-of-life buttons for the bank. Not a cheat: everything goes through the game's own
 selling, burying and opening, at the game's own prices.
 
-Tested with game version 0.11.6-alpha.1 and Melvor Mod Loader 0.1.3.
+Tested with game version 0.11.7 (the update of 25 November 2026) and Melvor Mod Loader 0.3.0.
 
 
 REQUIRES
@@ -39,6 +39,14 @@ The Bulk sell window has two rows of filters:
   "Clear filters" puts them all back. The Level column shows a rare item's item level, or the
   level a piece of gear asks for; rare items have their rarity's colour, and their affixes
   show when you point at the name. Example: Rarity "Magic", "Mark: All shown", "Sell marked".
+Shift+click marks every row between the last row you clicked and this one (as in Windows).
+AUTO-SELL (with the One Style mod 0.4.0 or newer): the window's "Auto-sell" button opens rules for new Magic
+and Rare items: sell every Magic, every Rare, Magic or Rare below an item level, and items with
+an affix you marked "Sell". An affix marked "Keep" wins over every rule. Locked, worn and Unique
+items are never sold. Only an item that has just dropped counts as new: one you take off, or
+one that was already in the bank, is never sold on its own. "Sell matching items now" shows
+what the rules match in the bank and sells it with a second click. All rules start off; they
+are kept per save in "bulksell-auto.json": two characters with the same name never share them.
 F7 opens the Bulk sell window from anywhere (so does the Mods button in the top bar, where the key can be changed).
 
 
@@ -46,7 +54,11 @@ GOOD TO KNOW
 ------------
 - Every one-click button asks once before it acts (the button text turns into a question).
 - Stacks you have locked in the bank are never sold, buried or opened.
-- The junk list is remembered per character in "bulksell.json" next to the mod.
+- The junk list is remembered per save in "bulksell.json" next to the mod (under the save's
+  id: two characters with the same name do not share it, and renaming a character keeps it; a
+  list an older version kept under the character's name is taken over once).
+- A list file that cannot be read is never written over: it is set aside under another name
+  ("....unreadable-...") and a new one is started.
 - One Style's rare items never go on the junk list (each is one of a kind): sell them with the
   Rarity filter and "Sell marked".
 

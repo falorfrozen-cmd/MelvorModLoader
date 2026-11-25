@@ -606,62 +606,10 @@
   "Scale": 0.01,
   "Bonuses": {
    "Global": [],
-   "Component": [
-    {
-     "Stat": {
-      "StatsType": "MelvorBase:Character",
-      "Name": "PercentMaxHit"
-     },
-     "Value": "{v}",
-     "FromContext": null,
-     "Condition": null,
-     "Scaling": null,
-     "LocalContext": {
-      "Component": {
-       "Entity": "MelvorBase:Combat",
-       "Component": "Player"
-      },
-      "Effect": "MelvorBase:Bleed"
-     }
-    },
-    {
-     "Stat": {
-      "StatsType": "MelvorBase:Character",
-      "Name": "PercentMaxHit"
-     },
-     "Value": "{v}",
-     "FromContext": null,
-     "Condition": null,
-     "Scaling": null,
-     "LocalContext": {
-      "Component": {
-       "Entity": "MelvorBase:Combat",
-       "Component": "Player"
-      },
-      "Effect": "MelvorBase:Poison"
-     }
-    },
-    {
-     "Stat": {
-      "StatsType": "MelvorBase:Character",
-      "Name": "PercentMaxHit"
-     },
-     "Value": "{v}",
-     "FromContext": null,
-     "Condition": null,
-     "Scaling": null,
-     "LocalContext": {
-      "Component": {
-       "Entity": "MelvorBase:Combat",
-       "Component": "Player"
-      },
-      "Effect": "MelvorBase:Burn"
-     }
-    }
-   ],
+   "Component": [],
    "CombatEffect": []
   },
-  "Custom": "",
+  "Custom": "Vicious",
   "Group": ""
  },
  {

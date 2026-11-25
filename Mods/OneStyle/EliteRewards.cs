@@ -22,7 +22,9 @@ public static partial class Elites
     /// (already a bonus while it lived), Ember and its trophy. Hooked on Killed, not on the game's loot event, which
     /// dungeons never send.
     /// </summary>
-    static void OnKilled(object? sender, EnemyKilledEventArgs e)
+    static void OnKilled(object? sender, EnemyKilledEventArgs e) => Safe("OnKilled", () => OnKilledSafe(sender, e));
+
+    static void OnKilledSafe(object? sender, EnemyKilledEventArgs e)
     {
         if (s_combat == null || Offline()) return;
         Momentum();

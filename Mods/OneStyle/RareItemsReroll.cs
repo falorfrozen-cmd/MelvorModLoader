@@ -48,7 +48,7 @@ public static partial class RareItems
     /// </summary>
     public static List<double>? Reroll(Game game, RolledItem record)
     {
-        if (!CanReroll(record) || !HasRange(record)) return null;
+        if (!CanReroll(record) || !HasRange(record) || !InBank(game, record)) return null;
         int cost = RerollCost(record);
         if (!Elites.SpendEmber(cost)) return null;
         var old = record.Affixes.Select(x => x.Value).ToList();
@@ -71,6 +71,12 @@ public static partial class RareItems
         return old;
     }
 
+    /// <summary>The item lies in the bank. A worn item leaves a placeholder there that can be selected too: its numbers
+    /// are in use by the character, so it is never rerolled where it is worn.</summary>
+    static bool InBank(Game game, RolledItem record) =>
+        Bank(game) is { } bank && game.Data.GetDataRegistryOutput<Item>().TryGetObjectById("MelvorBase:" + record.LocalId, out Item? item)
+        && bank.Inventory.GetQuantity(item) > 0;
+
     /// <summary>Changes after every reroll: the bank panel draws itself again.</summary>
     public static int RerollVersion { get; private set; }
 
@@ -89,7 +95,7 @@ public static partial class RareItems
         bool inBank = false;
         for (Node? n = info; n != null && !inBank; n = n.GetParent()) inBank = n is SelectedItemView;
         RolledItem? record = item == null ? null : RecordOf(item);
-        if (!inBank || item == null || record == null || !CanReroll(record) || s_game is not { } game)
+        if (!inBank || item == null || record == null || !CanReroll(record) || s_game is not { } game || !InBank(game, record))
         {
             if (have != null) { holder.RemoveChild(have); have.QueueFree(); }
             return;
@@ -119,7 +125,9 @@ public static partial class RareItems
         have2.AddThemeColorOverride("font_color", new Color(0.62f, 0.62f, 0.62f));
         row.AddChild(have2);
         holder.AddChild(row);
-        holder.MoveChild(row, description.GetIndex() + 1);
+        // under the item's own block (affixes), above the game's lists
+        Node? block = holder.GetNodeOrNull(BlockName);
+        holder.MoveChild(row, (block ?? description).GetIndex() + 1);
     }
 
     /// <summary>The bank's Selected Item panel draws the item again (its "Bonuses" list shows the new values).</summary>

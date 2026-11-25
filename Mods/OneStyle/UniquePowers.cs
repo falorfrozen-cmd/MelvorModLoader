@@ -19,6 +19,18 @@ namespace OneStyle;
 /// its own (so the game's numbers show it), or is done directly: extra damage, healing, ward, a stun.
 /// Like the elites, powers work only while you play, not while the game works out the time it was closed.
 ///
+/// OFFLINE TIME: THE RULE FOR EVERY POWER (2026-11-25). While the game works out the time it was closed, nothing scripted
+/// here runs: no second arrow, no bleed, no ward refill, no counting. So for that time
+///   - a power may still GIVE what is a plain stat of the game that needs no script: nothing to pay, count, follow or
+///     end while you play (a quiver that is never used up, lifesteal, accuracy, a set bonus);
+///   - a power must not TAKE anything whose payoff is scripted: Sunken Volley's -40% damage without its second arrow,
+///     Root-Shear's -20% without its bleed, Hollow Harvest's -35% hit points without its ward refill made a set-up that
+///     is safe while you play die offline. A penalty stays only when what it pays for stays too (both plain stats);
+///   - everything else (stacks, charges, timed and per-fight bonuses, bonuses that follow your hit points, prayers,
+///     the monster) is taken off for that time and put back as it was when play resumes.
+/// The list of what stays is KeptOffline (one line and its reason for each); a bonus not named there is off, so a new
+/// power is offline-safe until someone decides otherwise. The switch is Away(): see there for when and on which thread.
+///
 /// This file: the shared parts. UniquePowers.*.cs: the powers.
 /// </summary>
 public static partial class UniquePowers
@@ -36,9 +48,154 @@ public static partial class UniquePowers
     static bool Offline() =>
         Environment.CurrentManagedThreadId != s_mainThread || MelvorModLoader.GameAccess.IsComputingOffline || s_game?.Flags.IsOffline == true;
 
+    // ================================================================ offline time
+
+    /// <summary>The bonuses are switched for offline time now (what KeptOffline does not name is off).</summary>
+    static volatile bool s_away;
+    static bool s_switching;
+
+    /// <summary>The game is working out offline time and the powers are switched for it (for the window and the tests).</summary>
+    public static bool IsAway => s_away;
+
+    /// <summary>
+    /// True while the game works out offline time; and the one place where the powers are switched for it and back.
+    /// Every handler of the game's events asks here first, so the switch is made by the first event that finds the
+    /// state changed, before that event does anything else:
+    ///   - going offline: the game's first offline tick. Its ticks run on a thread of its own with the scene tree
+    ///     paused (Main.RunOfflineProgress: pause, then Task.Run(RunOfflineTicks)); nothing tells a mod on the main
+    ///     thread beforehand, and from the main thread the game must not be touched while that thread runs. So the
+    ///     switch is made on the game's offline thread, from inside the game's own event (as OnSpawned always did for
+    ///     the timed bonuses). The first event of every game tick is the character statistics' tick (OnGameTick:
+    ///     that entity is registered, and so ticked, before combat), so the penalties are off before the first
+    ///     offline tick of the fight. The combat handlers ask too, should that order ever change.
+    ///   - coming back: the first online game tick (main thread), again before the fight's part of it; and
+    ///     Bind, which One Style calls a few times a second while the tree is not paused, and Refresh (gear changed).
+    /// Asking twice changes nothing: the switch is made only when the answer differs from s_away.
+    /// </summary>
+    static bool Away()
+    {
+        bool away = Offline();
+        if (away != s_away && !s_switching) Switch(away);
+        return away;
+    }
+
+    static void Switch(bool away)
+    {
+        s_switching = true;
+        try
+        {
+            s_away = away;
+            if (away)
+            {
+                // what a script was in the middle of ends here: nothing will run to finish it
+                foreach (Buff b in s_buffs.Values.ToList())
+                {
+                    if (b.LeftMs >= 0 || b.Key.EndsWith(":fight")) b.Off();   // timed, or of this fight: over
+                    else if (!KeptOffline(b.Key)) b.Hold();                    // lasting: back when play resumes
+                }
+                s_timers.Clear();
+                s_dots.RemoveAll(d => !d.OnPlayer);   // (what you still owe yourself, Last Breath, waits)
+                s_spiders.Clear();
+                s_veilDodge = false;
+                s_seal4 = 0;
+                s_enemyLanded = s_enemyMissed = s_wasFrozen = false;
+                FightEnds2();   // Council's Voice: your spell's own element back
+            }
+            else
+            {
+                foreach (Buff b in s_buffs.Values.ToList()) b.Release();
+                // what follows the state of the moment is worked out again rather than trusted
+                s_fight.Remove("Sanguine:bonus");
+                if (s_buffs.TryGetValue("Sanguine:blood", out Buff? blood)) blood.Off();
+                if (Wears(DivideFangHowler)) s_keep["Howler:rage"] = -1;
+                AlwaysOn();
+                if (Wears(ThicketTrophies)) Trophies_Update();
+                Chalice_Update();
+            }
+        }
+        catch (Exception e) { Log("One Style: unique powers (offline switch): " + e.Message); }
+        finally { s_switching = false; }
+    }
+
+    /// <summary>
+    /// What stays on while the game works out offline time: plain stats that need no script. Every other bonus of a
+    /// power is off for that time (a lasting one is held and put back when play resumes).
+    /// </summary>
+    static bool KeptOffline(string key) => key switch
+    {
+        // Bog Gullet: +8% lifesteal and -40% food healing are both the game's own stats; the price and what it pays for stay together
+        "MireThroat" => true,
+        // Honey Frenzy: +15% food preservation is a plain stat (the frenzy after a meal is scripted: off)
+        "CombKnuckles:thrift" => true,
+        // Still Heartbeat: +60% attack interval is paid for by accuracy and the 80% least hit, plain stats that stay with it
+        // (the first shot's sure critical hit is scripted: off)
+        "TwinEye" => true,
+        // Soulstring Quiver, Ossuary Magazine: a quiver that is never used up costs nothing (the free shot and Bone Rain: off)
+        "UniqueAmmo" => true,
+        // Sunken Reckoning: the steps are earned for good and saved with the character (+25% against elites, the loot roll: off)
+        "Wreckshot" => true,
+        // Scrap Hunter: +1% damage a stack, saved; the task's end takes the stacks offline too (the game's own event).
+        // (30% faster task monsters follows the monster: off)
+        "Scrap" => true,
+        // Hollow Harvest: +6 ward is a plain stat. Its price, -35% hit points, is "Hollow:cost": OFF, the refills are scripted
+        "Hollow" => true,
+        // Blood Rite: spells keep their runes. Its price (3% of your hit points a cast) is scripted and not taken offline;
+        // kept all the same, because taking it away would use up the runes of a mage who carries one cast's worth and
+        // leave them unable to attack: a death offline, which is what this rule is there to prevent. (The damage for
+        // missing hit points, "Sanguine:blood", is scripted: off)
+        "Sanguine" => true,
+        // Sealed Prayers: half the prayer cost is a plain stat (30% stronger prayers follow which prayers are on: off)
+        "Dune" => true,
+        // Caravan Road: your stance cannot change offline; accuracy and the game's own Bleed chance (Crush's stun: off)
+        "Caravan:stab" or "Caravan:slash" => true,
+        // Other Hand's Echo: a ring's bonuses, by gear alone
+        "Usurper" => true,
+        // Pack Howl: the game's own Rage on hit (the +2% a stack and the howl are scripted: off)
+        "Howler:rage" => true,
+        // Overflow: +5% lifesteal (the Blood and its +15% are scripted: off)
+        "Chalice" => true,
+        // Hush: the game's own Blind and Wither on hit (the +15% against them follows the monster: off)
+        "Hush:effects" => true,
+        // Three Jaws' Edict: with a One Style class the advantage is the same against every monster and stays; without
+        // one it is worked out for each monster by script: off
+        "Triangle:plus" or "Triangle:cancel" => Patches.Current != Class.None,
+        // Ringmaster's Count and rare items counting for sets ("Set:"): by gear alone.
+        // Amber Vault ("Amber:"): the potion in the toolbelt cannot change offline, never used up and 1.5 times its bonuses
+        _ => key.StartsWith("Set:") || key.StartsWith("Amber:"),
+
+        // OFF for that time, held and put back when play resumes (a penalty whose payoff is scripted):
+        //   "RootShear"    Deep Wound: -20% damage; the bleed is scripted
+        //   "Thornstep"    Thorn Dance: -10% damage; the 2.5 times reflect is scripted
+        //   "Sunken"       Twin Volley: -40% damage; the second arrow is scripted
+        //   "Hollow:cost"  Hollow Harvest: -35% hit points; the ward refills are scripted
+        //   (Last Breath's half hit points is itself scripted: not held offline, like the damage it delays)
+        // OFF for that time, held (a bonus that a script gives, sizes, follows or ends):
+        //   "Gore" (eating clears it), "Oath:high"/"Oath:low" (follow your hit points), "Scrap:haste" (the monster),
+        //   "Sanguine:blood" (hit points), "Prayer:*" (the prayers that are on), "Mirage" (the imbuement, its runes),
+        //   "Howler:fury" (Rage stacks), "Chalice:full" (the Blood), "Hush:dmg" (the monster), "Trophies" (90 s of
+        //   online fighting), "Lantern:light" (the next meal: left on it made every meal free), "Cavern" (the 5th
+        //   attack: left on it halved every attack), "Aegis:answer" (the next hit: left on, +40% on all),
+        //   "Fourfold:seal1"/"Fourfold:free" (that spell)
+        // OFF for good at that moment: everything timed (Hoarder, Edge, Gate:open, Resin, VeilAntler...) and
+        //   everything of the fight (":fight"), with the timers, spiderlings and damage over time that were waiting.
+        // No bonus of their own to switch (scripted through and through, so nothing of theirs runs offline):
+        //   Copper Oath, Thornshot, Stitched Furrows, Ringbark Reprisal, Hoarder's Prism, Snarestep, Thicket Trophies,
+        //   Caravan Seals, Veil's Rebuttal, Oathlocked Plate, Skytoll, Breaker Hooves, Sovereign Diadem, Lantern Veil,
+        //   Gatebreaker, Cavern Bastion, Pinnacle Diadem, Goremantle, Thunder Traces, Starbound Mantle, Fourfold Writ,
+        //   Threevoice Cleaver, Tollkeeper Greaves, Conclave Spire, Plungeheart Tusk, Veil-Antler Reprieve, Dreamtide
+        //   Orb, Brood-Sign Grips, Hemal Palimpsest, Mirage Astrolabe, Oathbound Gauntlets, Abyssal Beacon (no
+        //   elites offline), Twin-Lurker Fangs, Bell-Yoke Wand, Resin-Hoard Ring, Sentinel's Aegis, Talon of the Divide
+    };
+
+    /// <summary>The first event of every game tick, online and offline (on the game's thread): only the switch.</summary>
+    static void OnGameTick(object? sender, GamesByMalcs.Melvor2.Entities.CharacterStatistics.TickedEventArgs e) => Away();
+
     // ================================================================ for tests and the window
 
-    /// <summary>Everything the powers count now: f: this fight, k: kept between fights, d: saved, b: bonuses on, dot: our DoTs.</summary>
+    /// <summary>
+    /// Everything the powers count now: f: this fight, k: kept between fights, d: saved, b: bonuses on, h: bonuses held
+    /// off for offline time, dot: our DoTs, "away": 1 while switched for offline time.
+    /// </summary>
     public static Dictionary<string, double> Snapshot()
     {
         var all = new Dictionary<string, double>();
@@ -46,6 +203,8 @@ public static partial class UniquePowers
         foreach (var (k, v) in s_keep) all["k:" + k] = v;
         foreach (var (k, v) in RareItems.Data.Counters) all["d:" + k] = v;
         foreach (var (k, b) in s_buffs) if (b.On) all["b:" + k] = 1;
+        foreach (var (k, b) in s_buffs) if (b.Held) all["h:" + k] = 1;
+        if (s_away) all["away"] = 1;
         foreach (var g in s_dots.GroupBy(d => d.Key)) all["dot:" + g.Key] = g.Count();
         all["spiders"] = s_spiders.Count;
         all["trophies"] = s_trophies.Count;
@@ -74,7 +233,7 @@ public static partial class UniquePowers
                 "OsUVeilAntlerReprieve" => D("VeilAntler:left") > 0 ? $"ready again after {D("VeilAntler:left") / 1000:0} s of fighting" : "ready",
                 "OsUGoremantle" => $"{K("Gore"):0} Hunger (+{3 * K("Gore"):0}% damage)",
                 "OsUThicketTrophies" => s_trophies.Count == 0 ? "no trophy" : "trophies: " + string.Join(", ", s_trophies.Select(t => $"{t.Affix} {Math.Max(0, (t.Until - s_nowMs) / 1000):0} s")),
-                "OsUFourfoldWrit" => $"next seal {K("Fourfold:seal") % 4 + 1}, in {6 - K("casts") % 6:0} spells",
+                "OsUFourfoldWrit" => $"next seal {K("Fourfold:seal") % 4 + 1}, in {4 - K("casts") % 4:0} spells",
                 "OsUScrapwindTreads" => $"{D("Scrap:stacks"):0} stacks{(D("Scrap:token") > 0 ? ", a token for the next elite" : "")}",
                 "OsUCaravanSeals" => K("CaravanSeals:seal") > 0 ? "a seal is ready" : $"{K("CaravanSeals:kills"):0} of 3 kills",
                 "OsUPlungeheartTusk" => $"freeze in {5 - K("Plunge") % 5:0} hits",
@@ -109,12 +268,17 @@ public static partial class UniquePowers
 
     public static void Bind(Game game)
     {
-        if (ReferenceEquals(s_game, game)) return;
+        // (One Style calls this a few times a second while the tree is not paused: play that resumed is noticed here
+        // too, should no game tick have told us yet)
+        if (ReferenceEquals(s_game, game)) { Away(); return; }
+        // a character starts clean: nothing of the one before it
         Unbind();
         if (!game.Entities.TryGetObjectById("MelvorBase:Combat", out var e) || e is not CombatEntity combat) return;
         s_game = game;
         s_combat = combat;
         s_mainThread = RareItems.MainThread;
+        s_stats = game.CharacterStatistics.Statistics;
+        s_stats.Ticked += OnGameTick;
         combat.Player.Attacked += OnPlayerAttack;
         combat.Enemy.Attacked += OnEnemyAttack;
         combat.Enemy.Health.Damaged += OnEnemyDamaged;
@@ -133,11 +297,26 @@ public static partial class UniquePowers
         combat.Action.Ticked += OnTicked;
         combat.Action.Stopped += OnStopped;
         combat.Food.FoodEaten += OnEaten;
+        if (combat.SlayerTasks is { } tasks)
+        {
+            tasks.TaskCompleted += OnTaskCompleted;
+            tasks.TaskRerolled += OnTaskRerolled;
+        }
         Refresh(game);
     }
 
+    static GamesByMalcs.Melvor2.Entities.CharacterStatistics.CharacterStatisticsComponent? s_stats;
+
+    /// <summary>
+    /// The character is closed (or another one opened). Everything here that belongs to one character goes: the next
+    /// one starts with no Hunger, Edge, Blood, trophy, charge or debt of this one. What is meant to last (Sunken
+    /// Reckoning's kills, Scrap Hunter's stacks and token, Back From the Veil's wait) is not kept here at all: it is in
+    /// RareItems.Data.Counters, which is that character's own part of its save, and is read from there (Kept).
+    /// </summary>
     public static void Unbind()
     {
+        if (s_stats != null) s_stats.Ticked -= OnGameTick;
+        s_stats = null;
         if (s_combat is { } c)
         {
             c.Player.Attacked -= OnPlayerAttack;
@@ -158,13 +337,42 @@ public static partial class UniquePowers
             c.Action.Ticked -= OnTicked;
             c.Action.Stopped -= OnStopped;
             c.Food.FoodEaten -= OnEaten;
+            if (c.SlayerTasks is { } tasks)
+            {
+                tasks.TaskCompleted -= OnTaskCompleted;
+                tasks.TaskRerolled -= OnTaskRerolled;
+            }
         }
-        foreach (Buff b in s_buffs.Values) b.Off();
+        foreach (Buff b in s_buffs.Values.ToList())
+            try { b.Off(); } catch (Exception e) { Log("One Style: unique powers (closing): " + e.Message); }
+        // the bonuses, and everything counted, timed or waiting (UniquePowers.cs)
         s_buffs.Clear();
         s_timers.Clear();
         s_dots.Clear();
         s_fight.Clear();
+        s_keep.Clear();
+        s_fired.Clear();
         s_worn.Clear();
+        s_nowMs = 0;
+        s_generation = 0;
+        s_away = false;
+        s_switching = false;
+        // UniquePowers.Powers.cs
+        s_trophies.Clear();
+        s_spiders.Clear();
+        s_lastEnemyHp = 0;
+        s_enemyLanded = s_enemyMissed = false;
+        s_inOwnStrike = false;
+        s_tollDebt = 0;
+        s_slowMs = 0;
+        s_wasFrozen = false;
+        // UniquePowers.Powers2.cs
+        s_veilDodge = false;
+        s_seal4 = 0;
+        s_conclaveBack = null;
+        s_hollowMs = 0;
+        s_lastHitMs = 0;
+        UsurperCopy = null;
         s_game = null;
         s_combat = null;
     }
@@ -178,6 +386,9 @@ public static partial class UniquePowers
             if (s_combat.Equipment.TryGetActiveSlot(slot, out IActiveEquipmentSlot? a) && !a.IsEmpty && !a.IsOccupied
                 && RareItems.RecordOf(a.Equipped!.Item) is { UniqueId: { Length: > 0 } id })
                 s_worn.Add(id);
+        // offline or not is settled before the bonuses are set: what is off for offline time is not put on (Buff.Set).
+        // (The game's equip events come on its offline thread too: a quiver that ran out there.)
+        Away();
         try { AlwaysOn(); } catch (Exception e) { Log("One Style: unique powers: " + e.Message); }
         // powers whose item came off end at once
         foreach (var (key, b) in s_buffs.ToList())
@@ -192,20 +403,64 @@ public static partial class UniquePowers
         public readonly string Key = key, Owner = owner;
         public readonly Patches.Source Source = new("One Style: " + key);
         public bool On;
+        /// <summary>Off for offline time only: what it gave is remembered and put back when play resumes.</summary>
+        public bool Held;
         public double LeftMs = -1;   // -1: until taken off
+        bool _busy;
+        ModifierValues? _values;
+        double _scale = 1;
         public void Set(ModifierValues values, double ms = -1, double scale = 1)
         {
             if (Patches.Modifiers is not { } mods) return;
-            if (On) mods.Remove(Source);
-            mods.Add(Source, values, scale);
-            On = true;
-            LeftMs = ms;
+            // adding a bonus can change your hit points (max hit points up), which calls the powers again from inside
+            // the game: a second Set of the same bonus then added it twice (Headhunter's Boughs with a Colossal trophy
+            // gave double; found by the effect tests, 2026-11-24). The call from inside is left out.
+            if (_busy) return;
+            _busy = true;
+            try
+            {
+                if (On) { On = false; mods.Remove(Source); }
+                if (s_away && !KeptOffline(Key))
+                {
+                    // the game works out offline time: not put on. A lasting bonus waits for play to resume (gear that
+                    // changes offline sets and clears these like any other); a timed one or one of a fight is not kept.
+                    Held = ms < 0 && !Key.EndsWith(":fight");
+                    _values = Held ? values : null;
+                    _scale = scale;
+                    LeftMs = -1;
+                    return;
+                }
+                mods.Add(Source, values, scale);
+                On = true;   // only once it is really added: Off() must never take off what is not there
+                Held = false;
+                _values = values;
+                _scale = scale;
+                LeftMs = ms;
+            }
+            finally { _busy = false; }
         }
         public void Off()
         {
             if (On && Patches.Modifiers is { } mods) mods.Remove(Source);
             On = false;
+            Held = false;
+            _values = null;
             LeftMs = -1;
+        }
+        /// <summary>Offline time starts: off, to come back with Release.</summary>
+        public void Hold()
+        {
+            if (!On) return;
+            if (Patches.Modifiers is { } mods) mods.Remove(Source);
+            On = false;
+            Held = _values != null;
+        }
+        /// <summary>Play resumes: what was held is on again, as it was.</summary>
+        public void Release()
+        {
+            if (!Held) return;
+            Held = false;
+            if (_values is { } values) Set(values, -1, _scale);
         }
     }
 
@@ -277,11 +532,13 @@ public static partial class UniquePowers
     }
 
     /// <summary>Damage to the monster as if from one of your attacks: its damage taken, resistances, ward and armour count.</summary>
-    static int StrikeAsAttack(int amount, DamageType? type = null)
+    static int StrikeAsAttack(int amount, DamageType? type = null, int cap = int.MaxValue)
     {
         if (amount <= 0 || s_combat is not { } c || Enemy is not { } enemy || enemy.Health.Current <= 0) return 0;
         type ??= c.DamageTypes.GetObjectById("MelvorBase:Normal");
         ModifiedDamage d = c.Player.ModifyAttackDamage(amount, type);
+        // a power's cap holds after your damage bonuses too (Rising Toll's 40%)
+        if (d.Modified > cap) return Strike(cap, HealthChangeCause.Attack);
         return enemy.Health.Damage(d, HealthChangeCause.Attack, c.Player, enemy, null);
     }
 
@@ -304,10 +561,18 @@ public static partial class UniquePowers
 
     static bool RollToHit() => s_combat is { } c && c.Player.HasTarget && Random.Shared.NextDouble() < c.Player.TargetStats.HitChance.Value;
 
-    static void StunEnemy(string effectId, int turns)
+    /// <summary>
+    /// Puts the game's own stun effect on the monster (Stun, Freeze or Sleep): its icon, the effect's own damage taken,
+    /// its after-effect, and the game's rules for it (ward, immunity and avoidance can stop it). True when the monster
+    /// has that effect now. (Until 2026-11-24 this only skipped the monster's turn: nothing was on the monster, so
+    /// "frozen" and "asleep" were never true and Ice Shatter and Dream Tide never got their bonus.)
+    /// </summary>
+    static bool StunEnemy(string effectId, int turns)
     {
-        if (s_combat is not { } c || Enemy is not { } enemy || s_game == null) return;
-        if (s_game.Data.TryGetObject(effectId, out StunEffect? effect)) enemy.Stun(effect, turns);
+        if (s_combat is not { } c || Enemy is not { } enemy || s_game == null) return false;
+        if (!s_game.Data.TryGetObject(effectId, out StunEffect? effect)) return false;
+        c.CombatEffects.ApplyEffect(new ConfiguredStunEffect(effect, new TurnCountingEffectConfig(turns)), enemy, c.Player);
+        return c.CombatEffects.GetActiveEffectsForCharacter(enemy).Any(a => a is ActiveStunEffect && a.Data.Id == effectId);
     }
 
     static bool EnemyStunned() =>
@@ -317,46 +582,46 @@ public static partial class UniquePowers
 
     static void OnPlayerAttack(object? sender, AttackEventArgs e)
     {
-        if (s_worn.Count == 0 || Offline() || s_combat == null) return;
+        if (Away() || s_worn.Count == 0 || s_combat == null) return;
         try { PlayerAttacked(e); } catch (Exception ex) { Log("One Style: unique power (your hit): " + ex.Message); }
     }
 
     static void OnEnemyAttack(object? sender, AttackEventArgs e)
     {
-        if (s_worn.Count == 0 || Offline() || s_combat == null) return;
+        if (Away() || s_worn.Count == 0 || s_combat == null) return;
         try { EnemyAttacked(e); } catch (Exception ex) { Log("One Style: unique power (monster's hit): " + ex.Message); }
     }
 
     static void OnEnemyDamaged(object? sender, HealthDamagedEventArgs e)
     {
-        if (s_worn.Count == 0 || Offline() || s_combat == null) return;
+        if (Away() || s_worn.Count == 0 || s_combat == null) return;
         try { EnemyDamaged(e); } catch (Exception ex) { Log("One Style: unique power (monster hurt): " + ex.Message); }
     }
 
     static void OnPlayerDamaged(object? sender, HealthDamagedEventArgs e)
     {
-        if (s_worn.Count == 0 || Offline() || s_combat == null) return;
+        if (Away() || s_worn.Count == 0 || s_combat == null) return;
         try { PlayerDamaged(e); } catch (Exception ex) { Log("One Style: unique power (you hurt): " + ex.Message); }
     }
 
     static void OnPlayerHealth(object? sender, ValueChangedEventArgs<int> e)
     {
-        if (s_worn.Count == 0 || Offline() || s_combat == null) return;
+        if (Away() || s_worn.Count == 0 || s_combat == null) return;
         try { PlayerHealthChanged(); } catch (Exception ex) { Log("One Style: unique power (your hit points): " + ex.Message); }
     }
 
     static void OnSpawned(object? sender, EventArgs e)
     {
+        // (the game works out offline time: the switch takes off everything timed and of the fight, see Away)
+        Away();
         s_generation++;
         s_fight.Clear();
         foreach (Buff b in s_buffs.Values.Where(b => b.Key.EndsWith(":fight"))) b.Off();
-        // the game works out offline time: nothing timed stays on through it
-        if (Offline()) foreach (Buff b in s_buffs.Values.Where(b => b.LeftMs >= 0)) b.Off();
     }
 
     static void Guard(string what, Action act)
     {
-        if (s_worn.Count == 0 || Offline() || s_combat == null) return;
+        if (Away() || s_worn.Count == 0 || s_combat == null) return;
         try { act(); } catch (Exception ex) { Log($"One Style: unique power ({what}): " + ex.Message); }
     }
 
@@ -371,24 +636,38 @@ public static partial class UniquePowers
     /// <summary>The game's own "a fight starts": you have a target and the elite is made (Elites works on Spawned).</summary>
     static void OnFightStarted(object? sender, EventArgs e)
     {
-        if (s_worn.Count == 0 || Offline() || s_combat == null) return;
+        if (Away() || s_worn.Count == 0 || s_combat == null) return;
         try { FightStarts(); } catch (Exception ex) { Log("One Style: unique power (new monster): " + ex.Message); }
+    }
+
+    // (the two task events are followed offline too: a task that ends there takes Scrap Hunter's stacks with it)
+    static void OnTaskCompleted(object? sender, GamesByMalcs.Melvor2.Components.SlayerTasks.TaskCompletedEventArgs e)
+    {
+        Away();
+        try { Scrap_TaskOver(completed: true); } catch (Exception ex) { Log("One Style: unique power (task): " + ex.Message); }
+    }
+
+    static void OnTaskRerolled(object? sender, GamesByMalcs.Melvor2.Components.SlayerTasks.TaskRerolledEventArgs e)
+    {
+        Away();
+        try { Scrap_TaskOver(completed: false); } catch (Exception ex) { Log("One Style: unique power (task): " + ex.Message); }
     }
 
     static void OnKilled(object? sender, EnemyKilledEventArgs e)
     {
-        if (s_worn.Count == 0 || Offline() || s_combat == null) return;
+        if (Away() || s_worn.Count == 0 || s_combat == null) return;
         try { Killed(e); } catch (Exception ex) { Log("One Style: unique power (kill): " + ex.Message); }
     }
 
     static void OnEaten(object? sender, FoodEatenEventArgs e)
     {
-        if (s_worn.Count == 0 || Offline() || s_combat == null) return;
+        if (Away() || s_worn.Count == 0 || s_combat == null) return;
         try { Ate(e); } catch (Exception ex) { Log("One Style: unique power (eating): " + ex.Message); }
     }
 
     static void OnStopped(object? sender, EventArgs e)
     {
+        Away();
         s_fight.Clear();
         s_timers.Clear();
         s_dots.Clear();
@@ -399,7 +678,7 @@ public static partial class UniquePowers
 
     static void OnTicked(object? sender, GamesByMalcs.Melvor2.Components.Actions.ActionTickedEventArgs e)
     {
-        if (e.IsOffline || Offline() || s_combat is not { } c) return;
+        if (Away() || e.IsOffline || s_combat is not { } c) return;
         if (c.Action.State != CombatActionState.Fighting || c.Action.IsPaused) return;
         double dt = Constants.TickInterval;
         s_nowMs += dt;
@@ -421,7 +700,9 @@ public static partial class UniquePowers
                 if (!d.OnPlayer && d.EnemyGeneration != s_generation) { s_dots.Remove(d); continue; }
                 d.LeftMs -= dt;
                 d.NextMs -= dt;
-                if (d.NextMs <= 0)
+                // half a millisecond of slack: the tick length is not a round number, and without it the sums drift so
+                // that a 6 s effect ended a hair before its 6th strike (found by the effect tests, 2026-11-24)
+                if (d.NextMs <= 0.5)
                 {
                     d.NextMs += 1000;
                     double dmg = d.PerSecond;
@@ -434,7 +715,7 @@ public static partial class UniquePowers
                     }
                     else Strike((int)Math.Round(dmg));
                 }
-                if (d.LeftMs <= 0) s_dots.Remove(d);
+                if (d.LeftMs <= 0.5) s_dots.Remove(d);
             }
             Tick(dt);
         }

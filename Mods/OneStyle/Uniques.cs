@@ -101,7 +101,7 @@ public static class Uniques
     /// <summary>A Unique monster died: its unique item drops 15% of the time.</summary>
     public static void OnUniqueKilled(Game game, Enemy enemy)
     {
-        if (ForMonster(enemy.Id) is not { } def) return;
+        if (RareItems.SafeMode || ForMonster(enemy.Id) is not { } def) return;   // safe mode: this character's rare items rest
         SavedData data = RareItems.Data;
         bool forced = ForceNext;
         ForceNext = false;

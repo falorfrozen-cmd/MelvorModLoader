@@ -164,8 +164,15 @@ public static partial class RareItems
     }
 
     static EquipmentComponent? s_watchedEquipment;
-    static readonly EventHandler s_onSwap = (_, _) => { if (s_game != null) UpdateCaps(s_game); };
-    static readonly EventHandler<ItemEquippedEventArgs> s_onGear = (_, _) => { if (s_game != null) UpdateCaps(s_game); };
+    static readonly EventHandler s_onSwap = (_, _) => SafeCaps();
+    static readonly EventHandler<ItemEquippedEventArgs> s_onGear = (_, _) => SafeCaps();
+
+    /// <summary>From the game's equip events: an error of ours never goes back into the game's own equipping.</summary>
+    static void SafeCaps()
+    {
+        try { if (s_game != null) UpdateCaps(s_game); }
+        catch (Exception e) { Log("One Style: rare item caps: " + e.Message); }
+    }
 
     /// <summary>Follows equipping and unequipping (for the caps).</summary>
     static void WatchGear(Game game)
