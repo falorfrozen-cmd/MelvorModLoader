@@ -1,0 +1,282 @@
+[
+ {
+  "Item": "MelvorBase:BlackDragonBoots",
+  "Name": "Black Dragon Boots",
+  "Dungeons": [
+   "MelvorBase:BlackDragonsLair"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BlackstoneGauntlet",
+  "Name": "Blackstone Gauntlet",
+  "Dungeons": [
+   "MelvorBase:BlackstoneGauntlet"
+  ]
+ },
+ {
+  "Item": "MelvorBase:StarblightedGauntlets",
+  "Name": "Starblighted Gauntlets",
+  "Dungeons": [
+   "MelvorBase:BlightedScar"
+  ]
+ },
+ {
+  "Item": "MelvorBase:StarblightedMitts",
+  "Name": "Starblighted Mitts",
+  "Dungeons": [
+   "MelvorBase:BlightedScar"
+  ]
+ },
+ {
+  "Item": "MelvorBase:StarblightedRing",
+  "Name": "Starblighted Ring",
+  "Dungeons": [
+   "MelvorBase:BlightedScar"
+  ]
+ },
+ {
+  "Item": "MelvorBase:StarblightedVambraces",
+  "Name": "Starblighted Vambraces",
+  "Dungeons": [
+   "MelvorBase:BlightedScar"
+  ]
+ },
+ {
+  "Item": "MelvorBase:StarslashKatana",
+  "Name": "Starslash Katana",
+  "Dungeons": [
+   "MelvorBase:BlightedScar"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodBody",
+  "Name": "Blood Body",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodBottoms",
+  "Name": "Blood Bottoms",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodChaps",
+  "Name": "Blood Chaps",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodCowl",
+  "Name": "Blood Cowl",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodHat",
+  "Name": "Blood Hat",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodHeartGloves",
+  "Name": "Blood Heart Gloves",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodHelmet",
+  "Name": "Blood Helmet",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodPlatebody",
+  "Name": "Blood Platebody",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodPlatelegs",
+  "Name": "Blood Platelegs",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BloodRobes",
+  "Name": "Blood Robe",
+  "Dungeons": [
+   "MelvorBase:BloodSanctum"
+  ]
+ },
+ {
+  "Item": "MelvorBase:HypnosisStaff",
+  "Name": "Hypnosis Staff",
+  "Dungeons": [
+   "MelvorBase:GlowsquidCaverns"
+  ]
+ },
+ {
+  "Item": "MelvorBase:HypnoticAmulet",
+  "Name": "Hypnotic Amulet",
+  "Dungeons": [
+   "MelvorBase:GlowsquidCaverns"
+  ]
+ },
+ {
+  "Item": "MelvorBase:BoneScythe",
+  "Name": "Bone Scythe",
+  "Dungeons": [
+   "MelvorBase:HarvestFarm"
+  ]
+ },
+ {
+  "Item": "MelvorBase:NecromancerAcolyteRing",
+  "Name": "Necromancer Acolyte Ring",
+  "Dungeons": [
+   "MelvorBase:HarvestFarm"
+  ]
+ },
+ {
+  "Item": "MelvorBase:HobgolbinChiefCape",
+  "Name": "Hobgolbin Chief Cape",
+  "Dungeons": [
+   "MelvorBase:HobgolbinCamp"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DarkAbyssMallet",
+  "Name": "Dark Abyss Mallet",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DrownedBody",
+  "Name": "Drowned Body",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DrownedBottoms",
+  "Name": "Drowned Bottoms",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DrownedChaps",
+  "Name": "Drowned Chaps",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DrownedCowl",
+  "Name": "Drowned Cowl",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DrownedHat",
+  "Name": "Drowned Hat",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DrownedHelmet",
+  "Name": "Drowned Helmet",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DrownedPlatebody",
+  "Name": "Drowned Platebody",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DrownedPlatelegs",
+  "Name": "Drowned Platelegs",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:DrownedRobes",
+  "Name": "Drowned Robe",
+  "Dungeons": [
+   "MelvorBase:KrakensDomain"
+  ]
+ },
+ {
+  "Item": "MelvorBase:MurkwoodCape",
+  "Name": "Murkwood Cape",
+  "Dungeons": [
+   "MelvorBase:MurkwoodLair"
+  ]
+ },
+ {
+  "Item": "MelvorBase:ViciousStabsDagger",
+  "Name": "Vicious Stabs Dagger",
+  "Dungeons": [
+   "MelvorBase:MurkwoodLair"
+  ]
+ },
+ {
+  "Item": "MelvorBase:SandBurialStaff",
+  "Name": "Sand Burial Staff",
+  "Dungeons": [
+   "MelvorBase:ShiftsandRuins"
+  ]
+ },
+ {
+  "Item": "MelvorBase:ShiftingSandsAmulet",
+  "Name": "Shifting Sands Amulet",
+  "Dungeons": [
+   "MelvorBase:ShiftsandRuins"
+  ]
+ },
+ {
+  "Item": "MelvorBase:PestilenceRing",
+  "Name": "Pestilence Ring",
+  "Dungeons": [
+   "MelvorBase:VenomPit"
+  ]
+ },
+ {
+  "Item": "MelvorBase:ToxicStrikesBow",
+  "Name": "Toxic Strikes Bow",
+  "Dungeons": [
+   "MelvorBase:VenomPit"
+  ]
+ },
+ {
+  "Item": "MelvorBase:VenomQueenBody",
+  "Name": "Venom Queen Body",
+  "Dungeons": [
+   "MelvorBase:VenomPit"
+  ]
+ },
+ {
+  "Item": "MelvorBase:WurmDagger",
+  "Name": "Wurm Dagger",
+  "Dungeons": [
+   "MelvorBase:WurmHunt"
+  ]
+ }
+]

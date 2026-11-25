@@ -38,6 +38,7 @@ public class OneStyleMod : IMod
         Vault.Log = ctx.Log;
         RareItems.MainThread = System.Environment.CurrentManagedThreadId;
         RareItems.LoadAffixes(ctx.Directory);
+        RareItems.LoadDungeonGear(ctx.Directory);
         Uniques.Load(ctx.Directory);
         RareItems.HookWindow();
         // A character is opened: the game adds its screen, then works out the time it was closed on its own thread.

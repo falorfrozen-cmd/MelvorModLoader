@@ -39,6 +39,7 @@ DEGISIKLIK LISTESI (Changelogs sekmesi):
 0.1.1
 - One Style rare items: shown in their rarity's colour with item level and affixes in Gear and the Bank
 - Fixed: a rare item that dropped after the phone opened could not be equipped from the phone ("That is not something to wear")
+- Checked on the game's 0.11.7 update with Melvor Mod Loader 0.3.0
 
 0.1.0
 - First version
@@ -52,7 +53,7 @@ At work, at school, in a café: see what your character is doing and change it f
 
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
-This is Phone Screen [b]0.1.1[/b], tested on game version [b]0.11.6-alpha.1[/b] with Melvor Mod Loader 0.2.0. It is still young: your feedback is very welcome.
+This is Phone Screen [b]0.1.1[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. It is still young: your feedback is very welcome.
 
 [size=5][b]What you need[/b][/size]
 [list]

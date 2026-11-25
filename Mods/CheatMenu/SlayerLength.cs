@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using GamesByMalcs.Melvor2;
@@ -40,6 +41,8 @@ public static class SlayerLength
                 master.TaskLengthChanged += (_, e) => { if (ReferenceEquals(s_bound, game)) Rolled(master, e); };
         }
         foreach (ActiveSlayerMaster master in tasks.ActiveMasters.Values) Shorten(master);
+        foreach (ActiveSlayerMaster master in s_stale.Keys)
+            if (s_stale.TryRemove(master, out _)) Retell(master);
     }
 
     static SlayerTasksComponent? Tasks(Game game) =>
@@ -64,6 +67,22 @@ public static class SlayerLength
         int cap = Cap;
         if (cap <= 0 || master.CurrentTask == null || e.NewValue <= cap) return;
         SetLength(master, cap);
+        // The game is still handing out the long length when this runs: listeners after this one (the game's own
+        // task panel, "8 / 278") get the old value after the short one. The task itself ends at the cap, but its
+        // label is told again on the next check.
+        s_stale[master] = 0;
+    }
+
+    /// <summary>Masters whose shortened task some listener may still show with the game's long length.</summary>
+    static readonly ConcurrentDictionary<ActiveSlayerMaster, byte> s_stale = new();
+
+    /// <summary>Tells every listener the shortened length once more, after the game's own change is over.</summary>
+    static void Retell(ActiveSlayerMaster master)
+    {
+        int length = master.TaskLength;
+        if (master.CurrentTask == null || length <= 0) return;
+        SetLength(master, length + 1);   // the setter is silent unless the value changes
+        SetLength(master, length);
     }
 
     static void Shorten(ActiveSlayerMaster master)

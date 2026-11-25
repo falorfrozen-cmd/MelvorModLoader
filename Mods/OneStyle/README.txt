@@ -99,6 +99,10 @@ How often:
     Your slayer task monster     Champion 10%   Unique 1.5%
     Dungeon waves                Champion 8%    Unique 0.6%
     A dungeon's last boss        Champion 10%   Unique 4%
+  Monsters in a dungeon drop no loot of their own: the dungeon's reward at the end (its
+  chest) is their loot. So when the last boss is an elite, the reward comes more than once,
+  as an elite's loot does elsewhere: a Champion boss gives it 3 times, a Unique boss 6 times
+  (7 with 50 trophies), one or three more the first time you kill that tier.
   After 100 kills of a monster without its Unique, the Unique chance rises by 0.25 points a
   kill and is certain at 200 (60 and 120 until that monster's first Unique, with 1.5 times
   the chance). Two elites of the same monster never come in a row (3 normal ones between).
@@ -169,6 +173,18 @@ Who drops what:
                          plus the Unique's own item (see below)
     On your slayer task or as a dungeon's last boss: +5 item level; an elite there drops one
     more item.
+  Dungeon gear. 40 pieces of gear come only from a dungeon's chest (the Blood and Drowned
+  sets, Starblighted, Black Dragon Boots, Wurm Dagger...). They come rare only from their own
+  dungeon, so you can farm the one you want:
+    - Gear that comes out of a dungeon's chest when you open it can come rare: Magic 20%,
+      Rare 8%, Rare with 4 affixes 2% (in place of the normal one). Its item level is the
+      dungeon's last boss + 5. Unique powers that raise rare loot do not count here, and
+      Bulk Sell's auto-sell never sells what you open.
+    - The last boss's rare drops are that dungeon's gear as often as its chest gives gear
+      (Kraken's Domain 30%, Blood Sanctum 23%, Black Dragon's Lair 1%), with the chest's own
+      odds; the rest come as from any monster.
+  The dungeon's "View Rewards" window, the chest's list in the bank and the last boss's drop
+  list say so.
   The base item is NOT taken from the monster's own drops: it is any piece of gear of a level
   from (item level - 20) to (item level + 5), every slot as likely, then every item of that
   slot (with a class chosen, weapons only of your class's style). So a Golbin can drop a rare

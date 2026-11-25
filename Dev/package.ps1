@@ -81,7 +81,7 @@ if (-not (Test-Path (Join-Path $proj "$Mod.csproj"))) { throw "no such mod: $Mod
 # folders of the mod that ship with it (relative to Mods\<Mod>), and what each must hold
 $extra = @{
     OneStyle = @(
-        @{ Path = 'data'; Filter = '*.json'; Count = 4 },                 # affixes, base-levels, elites, uniques
+        @{ Path = 'data'; Filter = '*.json'; Count = 5 },                 # affixes, base-levels, dungeon-gear, elites, uniques
         @{ Path = 'art\champion'; Filter = '*.webp'; Count = 179 },
         @{ Path = 'art\unique';   Filter = '*.webp'; Count = 179 },
         @{ Path = 'art\items';    Filter = '*.webp'; Count = 58 }

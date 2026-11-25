@@ -182,22 +182,16 @@ public static partial class RareItems
     static List<Item>? s_bases;
 
     /// <summary>
-    /// Items that can come as rare items: every piece of gear the game has, except quest pieces, collectables,
-    /// the Belra rings, very costly items and our own items. Never ammo: it is used up when it is shot.
+    /// Items that can come as rare items anywhere: every piece of gear the game has, except quest pieces, collectables,
+    /// the Belra rings, very costly items, our own items and the gear that only a dungeon gives (that comes rare only
+    /// from its own dungeon: RareItemsDungeons.cs). Never ammo: it is used up when it is shot.
     /// </summary>
     public static List<Item> Bases(Game game)
     {
         if (s_bases != null) return s_bases;
-        static bool HasArt(Item i)
-        {
-            // the game gives gear without a picture its "missing artwork" square
-            try { return i.Icon is { } icon && !icon.ResourcePath.Contains("missing_artwork", StringComparison.OrdinalIgnoreCase); }
-            catch (Exception) { return false; }
-        }
+        // (CanBeRare: no fists, no gear without a picture - the game has none yet for some, an empty square in the bank)
         s_bases = game.Data.GetDataRegistryOutput<Item>().GetAllObjects()
-            .Where(i => !i.LocalId.StartsWith("Os") && SlotOf(i) is not ("" or "Ammo") && !i.Id.Contains("Collectable") && !i.Id.Contains("Belra")
-                        && i.SellsFor.Quantity <= 25_000 && !i.Id.Contains("Placeholder") && i.Id != "MelvorBase:DefaultWeapon"   // not bare fists
-                        && HasArt(i))   // the game has no picture yet for some gear (Beastslayer, Storm Fang...): an empty square in the bank
+            .Where(i => CanBeRare(i) && i.SellsFor.Quantity <= 25_000 && !IsDungeonOnly(i))
             .ToList();
         return s_bases;
     }

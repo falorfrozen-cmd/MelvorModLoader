@@ -15,12 +15,16 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.10.0.zip   (name: Action Queue, version 0.10.0)  -  0.9.1 dosyasini Archived yap (0.9.1 hic yayinlanmadiysa 0.9.0)
+MAIN FILE:  dist\ActionQueue-0.10.1.zip   (name: Action Queue, version 0.10.1)  -  0.10.0 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.10.1
+- New: works with the One Style mod's rare items (Magic, Rare, Unique). Equip, Sell and item goals find them; the lists show the ones you own in their rarity colour, with their affixes when you point at them. A step for one you have since sold is skipped with "this rare item is no longer owned"
+- Checked on the game's 0.11.7 update with Melvor Mod Loader 0.3.0
+
 0.10.0
 - New: a second goal for any step. Tick "or" and a row "or until ..." appears; the step ends when either goal is reached, and its state says which one did (asked for on Nexus, thank you!)
 - New: "Use up N" also counts the food the step's food slot ate (Thieving, Agility, a fight) and, in a fight, the runes and ammo used. Food your preservation chance kept is not counted. So "thieve until a Gold Topaz Ring is in the bank, or until 780 Salmon are used up" works
@@ -30,7 +34,6 @@ DEGISIKLIK LISTESI (Changelogs sekmesi):
 - Safer while the game is closed: the queue never pauses itself with "you started something else" while the game works out the time you were away (right after a restart Multitask has not yet said which running action is its own), and it remembers how many actions Multitask runs at once. Together with 0.9.1's fix this answers "it stopped after the stone" (reported on Nexus, thank you!)
 - The queue diary (queue-log.txt) now says why a queue did not carry on after a restart (another save, or steps changed after the game last saved)
 - Share codes that use the new things start with AQ2: (older versions refuse them with a clear message instead of dropping parts)
-- Works with One Style's rare items: Equip, Sell and item goals find them; the lists show the ones you own in their colour. A step for one you sold says "this rare item is no longer owned"
 
 0.9.1
 - Fixed: out of ammo with "start over at the end" on, the fight step was started again and again, so the character stood in the fight taking hits. A fight you cannot attack in is no longer started ("skipped: out of ammo"); a fight as the idle action is stopped or not started either (reported on Nexus, thank you!)
@@ -113,7 +116,12 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.10.0[/b], tested on game version [b]0.11.6-alpha.1[/b] with Melvor Mod Loader 0.2.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed).
+This is Action Queue [b]0.10.1[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed).
+
+[size=5][b]New in 0.10.1[/b][/size]
+[list]
+[*][b]Works with One Style's rare items:[/b] Magic, Rare and Unique gear in Equip, Sell and item goals, shown in their rarity colour with their affixes. A step for one you have since sold is skipped and says so.
+[/list]
 
 [size=5][b]New in 0.10.0[/b][/size]
 [list]

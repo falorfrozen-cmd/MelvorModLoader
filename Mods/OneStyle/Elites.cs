@@ -102,6 +102,7 @@ public static partial class Elites
         s_progress = EliteStore.Load(key);
         s_combat = (CombatEntity)game.Entities.GetObjectById("MelvorBase:Combat");
         s_combat.Enemy.Killed += OnKilled;
+        s_combat.Loot.DungeonLooted += OnDungeonLooted;
         s_combat.Enemy.EnemyChanged += OnEnemyChanged;
         s_combat.Enemy.Health.CurrentChanged += OnEnemyHealth;
         s_combat.Player.Health.Damaged += OnPlayerDamaged;
@@ -119,6 +120,7 @@ public static partial class Elites
         {
             Clear();
             s_combat.Enemy.Killed -= OnKilled;
+            s_combat.Loot.DungeonLooted -= OnDungeonLooted;
             s_combat.Enemy.EnemyChanged -= OnEnemyChanged;
             s_combat.Enemy.Health.CurrentChanged -= OnEnemyHealth;
             s_combat.Player.Health.Damaged -= OnPlayerDamaged;
@@ -134,6 +136,7 @@ public static partial class Elites
         if (s_momentumOn && s_mods != null) try { s_mods.Remove(s_momentum); } catch { }
         s_momentumOn = false;
         s_momentumMs = 0;
+        s_bossRolls = null;
         s_exhaustValues = null;
         s_viciousFailed = false;
         s_failed.Clear();

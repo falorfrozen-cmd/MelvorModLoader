@@ -241,6 +241,9 @@ public static partial class RareItems
                     case GamesByMalcs.Melvor2.Components.ItemOpening.ItemDropView row:
                         DropRow(row);
                         break;
+                    case GamesByMalcs.Melvor2.Components.ItemOpening.OpenableItemDropsView chest when chest.IsVisibleInTree():
+                        ChestNote(chest);
+                        break;
                     case ItemInfoPanel panel when panel.IsVisibleInTree() && panel.GetParent() is not ItemInfoTooltip:
                         DecoratePanel(panel, PanelStackOf(panel)?.Item ?? PanelItemOf(panel));
                         RerollPanel(panel, PanelStackOf(panel)?.Item ?? PanelItemOf(panel));

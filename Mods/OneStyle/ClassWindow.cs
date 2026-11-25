@@ -404,6 +404,9 @@ public sealed class ClassWindow
         v.AddChild(Bullet("The gear is any piece near the monster's level, not only its own drops (a Golbin can drop a rare Stone Sword, never "
                           + "a level 50 item); every slot is as likely, weapons only of your class's style. A monster's drop list shows them all "
                           + "(\"Show possible items\"); the percentage there is the share of its rare drops, not a chance per kill."));
+        v.AddChild(Bullet("Dungeon gear (the Blood and Drowned sets, Starblighted, Black Dragon Boots...) comes rare only from its own dungeon: "
+                          + "gear out of its chest can come rare (Magic 20%, Rare 8%, Rare with 4 affixes 2%), and its last boss's rare drops are "
+                          + "that dungeon's gear as often as the chest gives gear. A Champion last boss gives the dungeon's reward 3 times, a Unique 6."));
         v.AddChild(Bullet("Hold Alt over a rare item to see each affix's tier and range. Ember rerolls a Magic or Rare item's numbers in the bank. "
                           + "Too many? Bulk Sell's \"Auto-sell\" sells the ones you do not want as they drop."));
         foreach (RolledItem r in RareItems.LastDrops.GetRange(0, System.Math.Min(8, RareItems.LastDrops.Count)))

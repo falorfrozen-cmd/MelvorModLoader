@@ -76,6 +76,9 @@ public static partial class RareItems
         SafeNote = "";
         s_settled = false;
         s_loadedPlaces = new();
+        ChestRares = 0;
+        s_dungeonsOf = null;
+        Guard("dungeon chests", () => WatchChests(game));
         Guid id = Vault.ActiveId();
         // before anything can be written for this character
         Guard("the copy of the save for a new game version", () => KeepForNewGame(game, id));
@@ -512,6 +515,8 @@ public static partial class RareItems
         s_unmade.Clear();
         s_settled = false;
         s_loadedPlaces = new();
+        UnwatchChests();
+        s_dungeonsOf = null;
         // what the last character's gear had switched on is gone with its game
         s_floorMs = 0;
         s_sameRingOn.Clear();
@@ -703,15 +708,22 @@ public static partial class RareItems
             }
             if (tier != EliteTier.Normal && special) drops.Add(ChampionRoll());   // on your slayer task or as a dungeon's last boss: one more
             if (tier != EliteTier.Normal) for (int i = UniquePowers.ExtraEliteRares(); i > 0; i--) drops.Add(Rarity.Rare);   // Deep Signal, Scrap Hunter
+            // a dungeon's final boss: its rare drops are that dungeon's gear as often as its chest gives gear (RareItemsDungeons.cs)
+            DungeonGear? dungeon = drops.Count > 0 ? FinalBossNow(game) : null;
             foreach (Rarity rarity in drops)
-                if (PickBase(game, iLvl, style) is { } baseItem) Give(game, Roll(game, baseItem, rarity, iLvl, style));
+            {
+                Item? own = dungeon != null && s_rng.NextDouble() < dungeon.GearChance ? PickDungeonBase(dungeon, style) : null;
+                if (own != null) Give(game, Roll(game, own, rarity, Math.Max(iLvl, PoolLevelOf(own)), style));
+                else if (PickBase(game, iLvl, style) is { } baseItem) Give(game, Roll(game, baseItem, rarity, iLvl, style));
+            }
             if (tier == EliteTier.Unique) Uniques.OnUniqueKilled(game, enemy);
         }
         catch (Exception e) { Log("One Style: a drop failed: " + e.Message); }
     }
 
-    /// <summary>A new item: kept in the save data, made, and put in the bank (or kept for later when the bank is full).</summary>
-    public static Item? Give(Game game, RolledItem record)
+    /// <summary>A new item: kept in the save data, made, and put in the bank (or kept for later when the bank is full).
+    /// <paramref name="newDrop"/> false: not a drop for Bulk Sell's auto-sell (a chest the player opened for it).</summary>
+    public static Item? Give(Game game, RolledItem record, bool newDrop = true)
     {
         if (SafeMode) return null;   // this character's rare items rest: nothing new is made that could not be saved
         Data.Items.Add(record);
@@ -720,7 +732,7 @@ public static partial class RareItems
         LastDrops.Insert(0, record);
         if (LastDrops.Count > 20) LastDrops.RemoveAt(LastDrops.Count - 1);
         if (Bank(game) is not { } bank || bank.Inventory.AddQuantity(item, 1, AddItemFlags.None) <= 0) Data.Pending.Add(record.LocalId);
-        else lock (s_newDrops) s_newDrops.Add(record.LocalId);
+        else if (newDrop) lock (s_newDrops) s_newDrops.Add(record.LocalId);
         DropToast(record);
         return item;
     }

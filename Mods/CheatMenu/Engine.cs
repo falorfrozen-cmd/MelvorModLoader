@@ -438,7 +438,8 @@ public static class Engine
         foreach (StatRef s in f.Stats)
         {
             string json = "{\"Stat\": {\"StatsType\": \"MelvorBase:" + s.StatsType + "\", \"Name\": \"" + s.Name + "\"}, \"Value\": " + Num(s.Unit)
-                + ", \"LocalContext\": {\"Component\": {\"Entity\": \"MelvorBase:" + s.Entity + "\", \"Component\": \"" + s.Component + "\"}}"
+                + ", \"LocalContext\": {\"Component\": {\"Entity\": \"MelvorBase:" + s.Entity + "\", \"Component\": \"" + s.Component + "\"}"
+                + (s.Context == null ? "" : ", " + s.Context) + "}"
                 + ", \"FromContext\": null, \"Condition\": null, \"Scaling\": null}";
             try { components.Add(new ComponentModifierValue(game.Data, JsonDocument.Parse(json).RootElement)); }
             catch (Exception e) { Problem(f, $"{s.StatsType}.{s.Name} @ {s.Entity}/{s.Component}", e); }
@@ -450,7 +451,8 @@ public static class Engine
     static ComponentModifierValue? One(StatRef s, Game game)
     {
         string json = "{\"Stat\": {\"StatsType\": \"MelvorBase:" + s.StatsType + "\", \"Name\": \"" + s.Name + "\"}, \"Value\": " + Num(s.Unit)
-            + ", \"LocalContext\": {\"Component\": {\"Entity\": \"MelvorBase:" + s.Entity + "\", \"Component\": \"" + s.Component + "\"}}"
+            + ", \"LocalContext\": {\"Component\": {\"Entity\": \"MelvorBase:" + s.Entity + "\", \"Component\": \"" + s.Component + "\"}"
+            + (s.Context == null ? "" : ", " + s.Context) + "}"
             + ", \"FromContext\": null, \"Condition\": null, \"Scaling\": null}";
         try { return new ComponentModifierValue(game.Data, JsonDocument.Parse(json).RootElement); }
         catch { return null; }

@@ -24,9 +24,12 @@ DEGISIKLIK LISTESI (Changelogs sekmesi):
 0.8.1
 - New: "Infinite lanterns" on the Combat page. Lit lanterns are never used up in dark areas, one is enough
 - New: "Ignore immunity" on the Combat page. Any attack style hits monsters that are immune to it (Wind Drifter, the Amalgamations); poison and bleeding stick to them too
+- New: "No slayer area penalties" on the Combat page. Every slayer area loses its bad area effect (burn, less healing from food, quicksand...), as if you had bought each Area Effect Removal in the shop. Nothing is bought and no slayer coins are spent; switched off, the effects come back
 - Fixed: "Slayer task: most kills" did not hold for extended tasks: they kept the master's own kills on top (with 25, up to 150 kills at the last masters). Now no task asks for more than the cap, at every master, extended or not
 - Fixed: a new task could slip past the cap for a moment when its length happened to look like an extension
 - Tasks rolled while the game was closed are capped too
+- Fixed: One Style's rare and unique items showed up in "Give item" and the auto-sell list. A given one was broken (it vanished on reload) or a copy of a unique; they are left out now, they only come from monsters
+- Checked on the game's 0.11.7 update with Melvor Mod Loader 0.3.0
 
 0.8.0
 - New (asked for on Nexus, thank you!): "Ranching: animals never die" on the Skills page. While it is on, your ranch animals stop aging, also while the game is closed; switched off, they age on from where they stood
@@ -82,7 +85,7 @@ Every setting applies the moment you change it and is remembered per character.[
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Cheat Menu [b]0.8.1[/b], tested on game version [b]0.11.6-alpha.1[/b] with Melvor Mod Loader 0.2.0. Open a character and press [b]F8[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed or switched off).
+This is Cheat Menu [b]0.8.1[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F8[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed or switched off).
 
 [b]Languages:[/b] English, 简体中文 (Simplified Chinese), 繁體中文 (Traditional Chinese), Español, Français, العربية (Arabic) and हिन्दी (Hindi). Pick one in the list at the top of the window; "Auto" follows the game's own language. Traditional Chinese was first made by a player of the community.
 
@@ -120,6 +123,7 @@ Your settings are [b]not written into your save file[/b]. They live in a small f
 [*]Infinite ammo: one arrow (or javelin, boomerang...) is enough
 [*]Infinite lanterns: one lit lantern lasts for ever in dark areas
 [*]Ignore immunity: melee, ranged or magic hits monsters immune to it (Wind Drifter, for example)
+[*]No slayer area penalties: slayer areas lose their bad effects, as if every Area Effect Removal was bought
 [*]Slayer coin multiplier, cheap slayer task rerolls
 [*]Shorter slayer tasks: set the most kills any task may ask for (10, for example), extended ones too
 [/list]

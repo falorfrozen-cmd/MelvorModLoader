@@ -44,6 +44,7 @@ GOOD TO KNOW
 - Loot filter and auto-sell never touch a stack you have locked in the bank.
 - "Give item" and "Auto-sell from bank" each have their own item list: click it and type
   to search all items; they are grouped by the bank's own kinds.
+- One Style's rare items are not in the item lists; they only come from monsters.
 - God mode only covers combat. Agility and Thieving have their own settings on the Skills
   page: no damage from a failed obstacle, keep the obstacle's reward, and no damage when
   caught pickpocketing ("never stunned" only stops the stun).
@@ -72,6 +73,10 @@ GOOD TO KNOW
 - "Infinite lanterns" (Combat page): lit lanterns are never used up in dark areas. One is enough.
 - "Ignore immunity" (Combat page): any attack style hits monsters that are immune to it, such as
   Wind Drifter ("Immune to Melee / Immune to Magic"). Poison and bleeding stick to them too.
+- "No slayer area penalties" (Combat page): every slayer area loses its bad area effect (burn,
+  less healing from food, quicksand and the others), as if you had bought each "Area Effect
+  Removal" in the shop. Nothing is bought and no slayer coins are spent: switched off, the
+  effects come back. The area's own page shows the effect gone while it is on.
 - "Ranching: animals never die" (Skills page): your ranch animals stop aging. Their lifetime
   stands still while it is on (also while the game is closed); switched off, they age on from there.
 - "Complete all quests" (Tools page) finishes every quest and gives its rewards, as if you had

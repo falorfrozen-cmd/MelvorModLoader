@@ -1,4 +1,4 @@
-Action Queue 0.10.0  -  a mod for Melvor Idle 2
+Action Queue 0.10.1  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:

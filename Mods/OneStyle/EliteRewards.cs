@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GamesByMalcs.Melvor2.Components.Characters;
+using GamesByMalcs.Melvor2.Components.CombatAreas;
 using GamesByMalcs.Melvor2.Components.CombatLoot;
 using GamesByMalcs.Melvor2.Data.Currencies;
 using GamesByMalcs.Melvor2.Data.Items;
@@ -86,6 +87,14 @@ public static partial class Elites
             if (s_game!.Data.TryGetObject(CurrencyIds.GoldPieces, out Currency? gp) && goldPay > 0) money[gp] = money.GetValueOrDefault(gp) + goldPay;
             emberMult = 1.5;
         }
+        // a dungeon's final boss: its own loot is the dungeon's reward (a chest...), which the game gives once the
+        // dungeon is done; the same extra rolls go to that reward then (OnDungeonLooted; the player, 2026-11-25)
+        string dungeonNote = "";
+        if (s_combat.Areas.CurrentArea?.Area is Dungeon dungeon && s_combat.Areas.CurrentProgress >= s_combat.Areas.MaxProgress)
+        {
+            s_bossRolls = (dungeon, rolls + firstRolls);
+            dungeonNote = $", the dungeon's reward x{1 + rolls + firstRolls}";
+        }
         int given = 0;
         foreach (var (item, n) in items) given += s_combat.Loot.Inventory.AddQuantity(item, n);
         foreach (var (c, n) in money) s_combat.Loot.Wallet.AddQuantity(c, n);
@@ -104,27 +113,54 @@ public static partial class Elites
         string name = unique ? Info?.UniqueName ?? enemy.DisplayName.Text : "Champion " + enemy.DisplayName.Text;
         string trophy = unique && !hadTrophy ? $", trophy {s_progress.Trophies}/179" : unique ? $", trophy kills {kills[2]}" : "";
         string gold = money.Count > 0 ? ", " + string.Join(", ", money.Select(m => $"{m.Value:N0} {m.Key.DisplayName.Text}")) : "";
-        LastReward = $"{name}: {given} item(s) from {(hasLoot && dropsHere ? LastRolls : 0)} extra roll(s){gold}, {emberGot} Ember{trophy}.";
+        LastReward = $"{name}: {given} item(s) from {(hasLoot && dropsHere ? LastRolls : 0)} extra roll(s){gold}, {emberGot} Ember{trophy}{dungeonNote}.";
         s_progress.Recent.Insert(0, $"{DateTime.Now:HH:mm} {LastReward}");
         if (s_progress.Recent.Count > 12) s_progress.Recent.RemoveRange(12, s_progress.Recent.Count - 12);
         Log(LastReward);
         ApplyTrophyBonus();
     }
 
-    /// <summary>One roll of a monster's own loot, as the game rolls it (no doubling); chests and other openables are left out.</summary>
-    static void RollLoot(CombatDrops drops, Dictionary<Item, int> items, Dictionary<Currency, long> money, bool gold)
+    /// <summary>An elite final boss's extra rolls, waiting for its dungeon's reward (null: none).</summary>
+    static (Dungeon Dungeon, int Rolls)? s_bossRolls;
+
+    /// <summary>For tests and the window: what the last elite final boss added to its dungeon's reward.</summary>
+    public static string LastDungeonBonus { get; private set; } = "";
+
+    /// <summary>The number of rewards a dungeon gives when its final boss is a Champion or a Unique (the first kill of a tier aside).</summary>
+    public static (int Champion, int Unique) DungeonRewardTimes =>
+        (1 + 2 + UniquePowers.ExtraEliteLootRolls, 1 + 5 + (s_progress.Trophies >= 50 ? 1 : 0) + UniquePowers.ExtraEliteLootRolls);
+
+    static void OnDungeonLooted(object? sender, DungeonLootedEventArgs e) => Safe("OnDungeonLooted", () =>
+    {
+        if (s_bossRolls is not { } pending || s_combat == null) return;
+        s_bossRolls = null;
+        if (!ReferenceEquals(pending.Dungeon, e.Dungeon) || Offline()) return;
+        var items = new Dictionary<Item, int>();
+        var money = new Dictionary<Currency, long>();
+        for (int i = 0; i < pending.Rolls; i++) RollLoot(e.Dungeon.Rewards, items, money, gold: true, openables: true);
+        int given = 0;
+        foreach (var (item, n) in items) given += s_combat.Loot.Inventory.AddQuantity(item, n);
+        foreach (var (c, n) in money) s_combat.Loot.Wallet.AddQuantity(c, n);
+        LastDungeonBonus = $"{e.Dungeon.DisplayName.Message}: the elite final boss added {pending.Rolls} more of its reward: "
+            + string.Join(", ", items.Select(x => $"{x.Value} x {x.Key.DisplayName.Singular}")) + (given < items.Values.Sum() ? " (the loot was full: some did not fit)" : "");
+        Log(LastDungeonBonus);
+    });
+
+    /// <summary>One roll of a monster's own loot, as the game rolls it (no doubling); chests and other openables are left out
+    /// (<paramref name="openables"/>: kept, for a dungeon's reward, which is a chest).</summary>
+    static void RollLoot(CombatDrops drops, Dictionary<Item, int> items, Dictionary<Currency, long> money, bool gold, bool openables = false)
     {
         var rng = s_combat!.Loot.RNG;
         // the extra rolls use the player's loot and gold doubling too, as the game's own roll does (denge-2 8)
         int twice = rng.RollChance(s_combat.Loot.Stats.ItemDoublingChance.Total.Value) ? 2 : 1;
         foreach (ItemQuantityRange fixedItem in drops.FixedItems)
-            if (!fixedItem.Item.Capabilities.Contains<OpenableCapability>())
+            if (openables || !fixedItem.Item.Capabilities.Contains<OpenableCapability>())
                 items[fixedItem.Item] = items.GetValueOrDefault(fixedItem.Item) + twice * rng.NextInclusiveInt32(fixedItem.MinQuantity, fixedItem.MaxQuantity);
         foreach (var table in drops.ItemTables)
         {
             if (!rng.RollChance(table.Chance)) continue;
             var drop = table.Table.RollForItem(rng);
-            if (drop.Item.Capabilities.Contains<OpenableCapability>()) continue;
+            if (!openables && drop.Item.Capabilities.Contains<OpenableCapability>()) continue;
             items[drop.Item] = items.GetValueOrDefault(drop.Item) + twice * rng.NextInclusiveInt32(drop.MinQuantity, drop.MaxQuantity);
         }
         if (!gold) return;

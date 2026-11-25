@@ -5,7 +5,11 @@ using System.Linq;
 namespace CheatMenu;
 
 /// <summary>One bonus the game's own modifier system understands: a stat on one component of one entity.</summary>
-public sealed record StatRef(string StatsType, string Name, string Entity, string Component, double Unit);
+public sealed record StatRef(string StatsType, string Name, string Entity, string Component, double Unit)
+{
+    /// <summary>More of the stat's context as JSON fields (e.g. "\"Category\": \"MelvorBase:SlayerZones\""), or null.</summary>
+    public string? Context { get; init; }
+}
 
 /// <summary>A game-wide bonus group (applies to every skill at once).</summary>
 public sealed record GlobalRef(string StatGroup, double Unit);
@@ -170,6 +174,11 @@ public static class Features
         // own stat), so +10000% on the combat equipment keeps exactly them.
         new() { Id = "combat.infiniteLanterns", Tab = TabCombat, En = "Infinite lanterns", Kind = FeatureKind.Toggle,
                 Stats = { Combat("Equipment", "PreservationChance", "Equipment", 100) } },
+        // The shop's "<area> - Area Effect Removal" purchases each give DisableAreaEffect = 1 for one slayer area;
+        // the game then works the area's effect out to strength 0 (also on the area's page). The same stat for the
+        // whole Slayer Zones category does all of them at once, nothing is bought, and switched off they come back.
+        new() { Id = "combat.noSlayerAreaEffects", Tab = TabCombat, En = "No slayer area penalties", Kind = FeatureKind.Toggle,
+                Stats = { Combat("CombatAreas", "DisableAreaEffect", "Areas", 1) with { Context = "\"Category\": \"MelvorBase:SlayerZones\"" } } },
         new() { Id = "combat.slayerReward", Tab = TabCombat, En = "Slayer coin reward", Suffix = "x",
                 Min = 1, Max = 100, Off = 1, ToMultiplier = Times, Stats = { new("SlayerTasks", "PercentRewardCurrency", "Slayer", "Tasks", 1) } },
         new() { Id = "combat.slayerFreeReroll", Tab = TabCombat, En = "Cheap slayer task rerolls", Kind = FeatureKind.Toggle,
@@ -279,6 +288,7 @@ public static class Features
         [RanchingForever.Setting] = "Ranch animals stop aging: their lifetime stands still, so they never die of old age.",
         ["combat.infiniteLanterns"] = "Lit lanterns are never used up in dark areas: one is enough.",
         ["combat.ignoreImmunity"] = "Any attack style hits monsters that are immune to it (Wind Drifter, for example). Poison and bleeding stick to them too.",
+        ["combat.noSlayerAreaEffects"] = "Slayer areas lose their bad area effects (burn, less healing from food, quicksand...), as if you had bought every Area Effect Removal in the shop.",
         ["combat.slayerReward"] = "Multiplies the slayer coins earned per task kill.",
         ["combat.slayerFreeReroll"] = "Changing your slayer task costs 1 coin (the game's minimum).",
         [SlayerLength.Setting] = "No slayer task asks for more kills than this, at every master and also when extended (0 keeps the game's own lengths).",

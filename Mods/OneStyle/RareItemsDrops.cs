@@ -63,6 +63,8 @@ public static partial class RareItems
         {
             if (n is ViewEnemyDropsModal modal) { enemy = EnemyOfModal(modal); break; }
             if (n is GamesByMalcs.Melvor2.Entities.Combat.ViewEnemyStatsPanel stats) { enemy = EnemyOfStats(stats); break; }
+            // a dungeon's rewards: what its chest's gear can come as, in two short lines (that window cannot scroll)
+            if (n is ViewDungeonRewardsModal rewards) { DungeonNote(drops, rewards); break; }
             // any other window is not a monster's drop list: a dungeon's "View Rewards" sits inside the fight screen too,
             // and a monster's rare drops there filled a window that cannot scroll past the screen (2026-11-25)
             if (n is GamesByMalcs.Melvor2.CustomControls.PanelContainerPopup) break;
@@ -138,6 +140,12 @@ public static partial class RareItems
             Row($"Unique ({Pct(unique)} of kills)", "2 items", new Color(1f, 0.6f, 0.3f));
         }
         Note($"Item level {iLvl}{(iLvl > enemy.CombatLevel ? " (Slayer task +5)" : "")}  ·  level {Math.Clamp((int)Math.Round(iLvl * 0.8), 1, 99)}+ to wear");
+        DungeonGear? asBoss = DungeonOfBoss(game, enemy);
+        if (asBoss != null)
+        {
+            string line = $"As the final boss of {asBoss.Name}: {Pct(asBoss.GearChance)} of its rare drops are that dungeon's gear (item level {asBoss.ILvl})";
+            Note(line);
+        }
         // the game items a rare drop can be made from, as the game's own rows (icon, tooltip, chance of each)
         var shares = BaseShares(game, iLvl, DropStyle());
         if (shares.Count > 0)
@@ -162,6 +170,23 @@ public static partial class RareItems
             };
             box.AddChild(toggle);
             box.AddChild(scroll);
+            if (asBoss != null)
+            {
+                // first: the dungeon's own gear, as its chest weighs it (only as the dungeon's final boss)
+                var dh = new Label { Text = $"{asBoss.Name}'s gear  ·  {Pct(asBoss.GearChance)} of rare drops as its final boss" };
+                dh.AddThemeFontSizeOverride("font_size", 13);
+                dh.CustomMinimumSize = new Vector2(0, 24);
+                dh.VerticalAlignment = VerticalAlignment.Bottom;
+                dh.AddThemeColorOverride("font_color", Colors[Rarity.Unique]);
+                list.AddChild(dh);
+                var dtable = new WeightedTable<WeightedItemDrop>();
+                foreach (var (gearItem, chance) in asBoss.Gear) dtable.AddItem(new WeightedItemDrop(Math.Max(1, (int)Math.Round(chance * 10000)), gearItem, 1, 1));
+                var dpart = TableSceneOf(drops).Instantiate<ItemDropTableChanceContainer>();
+                list.AddChild(dpart);
+                dpart.SetTable(new ItemDropTableChance(asBoss.GearChance, dtable), null);
+                TitleOf(dpart).Visible = false;
+                text.Add(dh.Text);
+            }
             foreach (var group in slots)
             {
                 int n = group.Count();
