@@ -94,11 +94,12 @@ public sealed partial class Window
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 12);
         header.AddChild(Style.Label("BULK SELL", Style.Accent, 20));
-        Label hint = Style.Label("Click a row to mark it, Shift+click to mark a range. Locked items never appear here.", Style.Muted);
-        hint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        hint.VerticalAlignment = VerticalAlignment.Center;
-        hint.SizeFlagsVertical = Control.SizeFlags.Fill;
-        header.AddChild(hint);
+        _hint = Style.Label(ListHint, Style.Muted);
+        _hint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        _hint.VerticalAlignment = VerticalAlignment.Center;
+        _hint.SizeFlagsVertical = Control.SizeFlags.Fill;
+        _hint.ClipText = true;
+        header.AddChild(_hint);
         _autoButton.Pressed += () => ShowAutoPage(!_autoPage.Visible);
         header.AddChild(_autoButton);
         header.AddChild(MakeButton("Close", Hide));
@@ -154,6 +155,8 @@ public sealed partial class Window
         gear.AddChild(_affixPick);
         gear.AddChild(_levelPick);
         gear.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        _matchChip.Pressed += HideMatchesOnly;
+        gear.AddChild(_matchChip);
         gear.AddChild(MakeButton("Clear filters", ClearFilters));
         list.AddChild(gear);
 
@@ -281,6 +284,8 @@ public sealed partial class Window
         _autoPage.Visible = false;
         _listPage.Visible = true;
         _autoButton.Text = "Auto-sell";
+        _hint.Text = ListHint;
+        LeaveMatchesOnly();
         Reload();
         _layer.Visible = true;
     }
@@ -373,6 +378,7 @@ public sealed partial class Window
         if (_affixPick.Visible && affix >= 1 && affix - 1 < _affixKinds.Count)
             list = list.Where(e => e.Affixes.Any(a => Gear.AffixKind(a) == _affixKinds[affix - 1]));
         if (MaxLevel > 0) list = list.Where(e => e.Slot != "" && e.Level <= MaxLevel);
+        if (_onlyAutoMatches) list = list.Where(e => AutoSell.Reason(e) != "");
 
         list = _sortColumn switch
         {
@@ -400,7 +406,8 @@ public sealed partial class Window
             row.SetIconMaxWidth(ColItem, 22);
             if (e.Color is { } rarity) row.SetCustomColor(ColItem, rarity);
             row.SetTooltipText(ColItem, e.Rarity == "" ? "" :
-                $"{e.Rarity} {e.BaseName}{(e.Level > 0 ? $", item level {e.Level}" : "")}\n{string.Join("\n", e.Affixes)}");
+                $"{e.Rarity} {e.BaseName}{(e.Level > 0 ? $", item level {e.Level}" : "")}{(e.Style != "" ? $", {e.Style} gear" : "")}\n{string.Join("\n", e.Affixes)}"
+                + (_onlyAutoMatches ? $"\nAuto-sell rule: {AutoSell.Reason(e)}" : ""));
             row.SetText(ColLevel, e.Level > 0 ? e.Level.ToString() : "");
             row.SetCustomColor(ColLevel, Style.Muted);
             for (int c = ColLevel; c <= ColTotal; c++) row.SetTextAlignment(c, HorizontalAlignment.Right);
@@ -428,6 +435,7 @@ public sealed partial class Window
 
     void ClearFilters()
     {
+        LeaveMatchesOnly();
         _search.Text = "";
         _tabPick.Select(0);
         _kindPick.Select(0);

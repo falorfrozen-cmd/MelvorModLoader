@@ -3,7 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>BulkSell</AssemblyName>
     <RootNamespace>BulkSell</RootNamespace>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Product>Melvor Idle 2 Bulk Sell</Product>
     <AssemblyTitle>Bulk Sell</AssemblyTitle>
     <Description>Adds a "Bulk sell" window and one-click "Sell junk", "Bury all" and "Open all" buttons to the bank of Melvor Idle 2 (requires Melvor Mod Loader).</Description>

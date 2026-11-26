@@ -27,6 +27,7 @@ public sealed class Entry
     public int Level;               // a rare item's item level, else the level the gear asks for (0: none)
     public string Rarity = "";      // One Style: "Magic", "Rare" or "Unique"; "" for a normal item
     public string BaseName = "";    // One Style: the game item it is made from
+    public string Style = "";       // the combat style the gear is for: "Melee", "Ranged", "Magic"; "" for every class or not gear
     public Godot.Color? Color;      // One Style: the rarity's colour
     public string[] Affixes = Array.Empty<string>();
     public string[] AffixIds = Array.Empty<string>();   // One Style: the affixes' ids (Magic and Rare items)

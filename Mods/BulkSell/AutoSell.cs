@@ -25,8 +25,19 @@ public sealed class AutoRules
     public int RareBelow { get; set; }
     /// <summary>Affix ids: an item with any of these is sold.</summary>
     public List<string> SellAffixes { get; set; } = new();
-    /// <summary>Affix ids: an item with any of these is never sold, whatever the other rules say.</summary>
+    /// <summary>Affix ids: an item with any of these is never sold by the other rules (only gear for another style still goes).</summary>
     public List<string> KeepAffixes { get; set; } = new();
+    /// <summary>0.4.0: sell gear for the combat styles that are not the character's One Style class (rings, amulets and
+    /// capes fit every class and are never "another style").</summary>
+    public bool OtherStyles { get; set; }
+    /// <summary>0.4.0: sell gear for this style, whatever the class.</summary>
+    public bool SellMelee { get; set; }
+    public bool SellRanged { get; set; }
+    public bool SellMagic { get; set; }
+    /// <summary>0.4.0: sell Rare items with 3 affixes (the ones with 4 stay).</summary>
+    public bool RareThreeAffix { get; set; }
+    /// <summary>0.4.0: sell Magic and Rare items for these gear slots ("Helmet", "Ring"...).</summary>
+    public List<string> SellSlots { get; set; } = new();
     /// <summary>Only on an entry of Bulk Sell 0.3.0's first builds, which kept the rules by character name: the save
     /// that took these rules over. No second save with the same name gets them.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -50,8 +61,10 @@ public static class AutoSell
     static readonly PropertyInfo? s_activeSave = typeof(SaveManager)
         .GetProperty("ActiveSaveId", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
     public static AutoRules Rules { get; private set; } = new();
-    /// <summary>The last auto-sales, newest first: "Gloom Guard (Magic, item level 3 &lt; 10): 534 Gold Pieces".</summary>
+    /// <summary>The last auto-sales, newest first: "10:48 Gloom Guard (every Magic)".</summary>
     public static readonly List<string> History = new();
+    /// <summary>How many sales the history keeps.</summary>
+    public const int HistoryLength = 30;
     public static long SoldItems { get; private set; }
     public static readonly Dictionary<Currency, long> SoldFor = new();
     public static Action<string> Log { get; set; } = _ => { };
@@ -107,15 +120,22 @@ public static class AutoSell
             catch (Exception e) { Log("The auto-sell rules could not be saved: " + e.Message); }
         }
         else Rules = new AutoRules();
+        // a file written by hand may hold "null" for a list
+        Rules.SellAffixes ??= new();
+        Rules.KeepAffixes ??= new();
+        Rules.SellSlots ??= new();
         History.Clear();
         SoldItems = 0;
         SoldFor.Clear();
     }
 
-    /// <summary>Saves the rules; turning them on forgets the drops so far (only drops from now on are auto-sold).</summary>
-    public static void Save(BankEntity? bank, bool turnedOn = false)
+    /// <summary>
+    /// Saves the rules. Turning them on, or changing a rule (<paramref name="forgetDrops"/>), forgets the drops so far:
+    /// only what drops from now on is judged by the rules as they are now.
+    /// </summary>
+    public static void Save(BankEntity? bank, bool turnedOn = false, bool forgetDrops = false)
     {
-        if (turnedOn) Gear.TakeNewDrops();
+        if (turnedOn || forgetDrops) Gear.TakeNewDrops();
         if (s_key == "") return;
         try
         {
@@ -126,23 +146,78 @@ public static class AutoSell
         catch (Exception e) { Log("The auto-sell rules could not be saved: " + e.Message); }
     }
 
-    /// <summary>Why the rules sell this item ("" when they do not): a keep affix, Unique and plain items always "".</summary>
+    /// <summary>
+    /// Why the rules sell this item ("" when they do not). Unique and plain items: always "". Gear for another combat
+    /// style goes first, Keep affix or not (the character cannot use it); then a Keep affix saves the item from the rest.
+    /// </summary>
     public static string Reason(Entry e)
     {
         if (e.Rarity is not ("Magic" or "Rare")) return "";
+        if (StyleSold(e.Style)) return $"{e.Style} gear";
+        // affix lines without their ids (an older One Style, a read that failed): a Keep affix cannot be seen, so nothing else sells it
+        if (Rules.KeepAffixes.Count > 0 && e.Affixes.Length > 0 && e.AffixIds.Length == 0) return "";
         if (e.AffixIds.Any(Rules.KeepAffixes.Contains)) return "";
         if (e.Rarity == "Magic" && Rules.AllMagic) return "every Magic";
         if (e.Rarity == "Rare" && Rules.AllRare) return "every Rare";
+        if (e.Rarity == "Rare" && Rules.RareThreeAffix && Math.Max(e.AffixIds.Length, e.Affixes.Length) is > 0 and < 4) return "3-affix Rare";
         int below = e.Rarity == "Magic" ? Rules.MagicBelow : Rules.RareBelow;
         if (below > 0 && e.Level < below) return $"item level {e.Level} < {below}";
+        if (e.Slot != "" && Rules.SellSlots.Contains(e.Slot)) return $"{e.Slot} slot";
         string? bad = e.AffixIds.FirstOrDefault(Rules.SellAffixes.Contains);
         if (bad != null) return "affix " + (Gear.Catalog().FirstOrDefault(a => a.Id == bad)?.Text ?? bad);
         return "";
     }
 
+    /// <summary>True when the style rules sell gear of this style ("" never: rings, amulets, capes and non-gear).</summary>
+    public static bool StyleSold(string style) => style != "" && (
+        style == "Melee" && Rules.SellMelee || style == "Ranged" && Rules.SellRanged || style == "Magic" && Rules.SellMagic
+        || Rules.OtherStyles && Gear.ClassStyle() is { Length: > 0 } mine && style != mine);
+
+    /// <summary>The ready-made rule sets the window offers. They set rarity, style and level rules; affixes stay as they are.</summary>
+    public static readonly string[] Presets =
+    {
+        "Other styles + every Magic",
+        "Other styles + every Magic + low Rares",
+        "Late game: only 4-affix Rares of my style",
+    };
+
+    /// <summary>Puts a ready-made rule set in place (the player's affix choices and "on/off" stay as they are).</summary>
+    public static void ApplyPreset(int which, Game game)
+    {
+        AutoRules r = Rules;
+        r.OtherStyles = Gear.ClassStyle() != "";
+        r.SellMelee = r.SellRanged = r.SellMagic = false;
+        r.AllMagic = true;
+        r.MagicBelow = 0;
+        r.AllRare = false;
+        r.RareBelow = which == 1 ? LowRareLevel(game) : 0;
+        r.RareThreeAffix = which == 2;
+        r.SellSlots = new();
+    }
+
+    /// <summary>Every rule off and every affix choice gone ("Auto-sell new rare items" stays as it is).</summary>
+    public static void ResetRules() => Rules = new AutoRules { On = Rules.On };
+
+    /// <summary>"Low Rares" of the preset: item level below the class's level less 20, in steps of 10 (0: none yet).</summary>
+    public static int LowRareLevel(Game game)
+    {
+        int Level(string id) => game.LeveledEntities.FirstOrDefault(e => e.Id == id)?.Experience.Level ?? 0;
+        int level = Gear.ClassStyle() switch
+        {
+            "Melee" => Math.Max(Level("MelvorBase:Attack"), Level("MelvorBase:Strength")),
+            "Ranged" => Level("MelvorBase:Ranged"),
+            "Magic" => Level("MelvorBase:Magic"),
+            _ => new[] { "MelvorBase:Attack", "MelvorBase:Strength", "MelvorBase:Ranged", "MelvorBase:Magic" }.Max(Level),
+        };
+        return Math.Clamp((level - 20) / 10 * 10, 0, 100);
+    }
+
     /// <summary>Every unlocked rare item in the bank the rules would sell now, with the reason (for "Sell matching items now").</summary>
-    public static List<(Entry Entry, string Reason)> Matching(BankEntity bank) =>
-        Bank.Sellable(bank).Where(e => e.Rarity != "").Select(e => (e, Reason(e))).Where(p => p.Item2 != "").ToList();
+    public static List<(Entry Entry, string Reason)> Matching(BankEntity bank) => Matching(Bank.Sellable(bank));
+
+    /// <summary>The same for entries already read from the bank.</summary>
+    public static List<(Entry Entry, string Reason)> Matching(IEnumerable<Entry> entries) =>
+        entries.Where(e => e.Rarity != "").Select(e => (e, Reason(e))).Where(p => p.Item2 != "").ToList();
 
     /// <summary>About once a second while playing: sells the new rare items the rules match.</summary>
     public static void Pulse(Game game)
@@ -173,8 +248,9 @@ public static class AutoSell
         var (sold, paid) = Bank.Sell(bank, items.Select(i => i.Item), keep: 0);
         SoldItems += sold;
         foreach (var (c, n) in paid) SoldFor[c] = SoldFor.GetValueOrDefault(c) + n;
-        foreach (var (_, name, why) in items) History.Insert(0, $"{name} ({why})");
-        while (History.Count > 12) History.RemoveAt(History.Count - 1);
+        string at = DateTime.Now.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+        foreach (var (_, name, why) in items) History.Insert(0, $"{at} {name} ({why})");
+        while (History.Count > HistoryLength) History.RemoveAt(History.Count - 1);
         Log($"Auto-sell: sold {sold} rare item(s) for {Bank.Money(paid)}: {string.Join(", ", items.Select(i => i.Name))}.");
         return (sold, paid);
     }

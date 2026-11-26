@@ -1,4 +1,4 @@
-Bulk Sell 0.3.0  -  a mod for Melvor Idle 2
+Bulk Sell 0.4.0  -  a mod for Melvor Idle 2
 ===========================================
 
 Quality-of-life buttons for the bank. Not a cheat: everything goes through the game's own
@@ -41,12 +41,28 @@ The Bulk sell window has two rows of filters:
   show when you point at the name. Example: Rarity "Magic", "Mark: All shown", "Sell marked".
 Shift+click marks every row between the last row you clicked and this one (as in Windows).
 AUTO-SELL (with the One Style mod 0.4.0 or newer): the window's "Auto-sell" button opens rules for new Magic
-and Rare items: sell every Magic, every Rare, Magic or Rare below an item level, and items with
-an affix you marked "Sell". An affix marked "Keep" wins over every rule. Locked, worn and Unique
-items are never sold. Only an item that has just dropped counts as new: one you take off, or
-one that was already in the bank, is never sold on its own. "Sell matching items now" shows
-what the rules match in the bank and sells it with a second click. All rules start off; they
-are kept per save in "bulksell-auto.json": two characters with the same name never share them.
+and Rare items as they drop:
+  - every Magic, every Rare, Rares with 3 affixes (the ones with 4 stay), Magic or Rare below an
+    item level;
+  - gear for other combat styles: "Other styles" follows your One Style class (a Melee character
+    sells Ranged and Magic gear), or tick Melee, Ranged or Magic yourself. Rings, amulets and capes
+    fit every class and never count. This rule goes before Keep affixes, since your character
+    cannot use that gear. If you ever change your class, gear of your new style may already have
+    been sold;
+  - "Sell by slot": every Magic and Rare item of the slots you pick (the slot you wear a Unique in,
+    for example);
+  - affixes: click to cycle off, Sell (red), Keep (green). Keep saves an item from every rule but
+    the style rule. Search the affixes, show one group (Attack, On hit, Defence, Gains) or only the
+    ones you set ("Active"). The number on a button is how many unlocked items in the bank have it.
+"Ready-made rules" sets the rarity, style and level rules in one go and leaves your affix choices
+alone. "Reset rules" turns everything off (asks once). Locked, worn and Unique items are never
+sold. Only an item that has just dropped counts as new: one you take off, or one that was
+already in the bank, is never sold on its own, and after you change a rule only the next drops
+are judged by it. "Sell matching items now" shows what the rules match in the bank and sells it
+with a second click. "Show in the list" opens those items in the list, all marked, so you can
+unmark the ones to keep and sell the rest. The line turns orange when many Rare items match.
+"Last N sales" lists the last 30 auto-sales with the time and the reason. All rules start off;
+they are kept per save in "bulksell-auto.json": two characters with the same name never share them.
 F7 opens the Bulk sell window from anywhere (so does the Mods button in the top bar, where the key can be changed).
 
 

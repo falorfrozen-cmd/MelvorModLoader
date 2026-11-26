@@ -15,12 +15,22 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\BulkSell-0.3.0.zip   (name: Bulk Sell, version 0.3.0)
+MAIN FILE:  dist\BulkSell-0.4.0.zip   (name: Bulk Sell, version 0.4.0)
+ARSIV:      eski 0.3.0 dosyasini "Archived" yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\banka-2-toplu-satis.png (main image), banka-1-dugmeler.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.4.0
+- Auto-sell can sell gear for other combat styles: "Other styles" follows your One Style class (a Melee character sells Ranged and Magic gear), or tick Melee, Ranged or Magic yourself. Rings, amulets and capes never count. Asked for in play: a Melee character no longer has to look at Ranged and Magic Rares
+- Auto-sell can sell Rares with 3 affixes (the ones with 4 stay) and every Magic and Rare item of the gear slots you pick
+- Ready-made rules and a "Reset rules" button
+- The affix buttons show their full text when you point at them, and how many items in the bank have each affix. A search box and groups (Attack, On hit, Defence, Gains, Active) make them easy to find
+- "Show in the list" opens the items the rules match in the list, all marked, so you can keep some before you sell
+- The preview turns orange when the rules match many Rare items; the last 30 auto-sales are listed with time and reason
+- After a rule changes, only the next drops are judged by it
+
 0.3.0
 - Auto-sell (with One Style 0.4.0 or newer): rules sell new Magic and Rare items as they drop (only real new drops, never an item you take off or already own): every Magic, every Rare, below an item level, or with an affix you marked Sell; a Keep affix wins; locked, worn and Unique items are never sold
 - Shift+click marks a range of rows
@@ -62,13 +72,13 @@ Quality of life, not a cheat: everything goes through the game's own functions a
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Bulk Sell [b]0.3.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open the bank: the new buttons sit next to the search box. [b]F7[/b] opens the bulk sell window from anywhere.
+This is Bulk Sell [b]0.4.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open the bank: the new buttons sit next to the search box. [b]F7[/b] opens the bulk sell window from anywhere.
 
 [size=5][b]Bulk sell window[/b][/size]
 [list]
 [*]Every sellable stack in one table: icon, amount, price each, what you would get.
 [*]Click a row to mark it, Shift+click to mark a range. "All shown", "None" and "Invert shown" mark many at once.
-[*][b]Auto-sell[/b] (with One Style): rules that sell new Magic and Rare items as they drop: every Magic, every Rare, below an item level, or with an affix you do not want. A "Keep" affix wins over every rule; locked, worn and Unique items are never sold.
+[*][b]Auto-sell[/b] (with One Style): rules that sell new Magic and Rare items as they drop: every Magic, every Rare, Rares with only 3 affixes, below an item level, gear for the combat styles that are not your class, chosen gear slots, or an affix you do not want. A "Keep" affix saves an item from every rule except the style rule; locked, worn and Unique items are never sold. Ready-made rules set it up in one click, and "Show in the list" lets you look at what the rules would sell before anything goes.
 [*]Filter by search text, by bank tab and by kind (Woodcutting, Smithing, ... or "Untagged").
 [*][b]Gear filters:[/b] slot, level ("Level 30 or lower") and, with the One Style mod, rarity (Magic, Rare, Unique, Magic + Rare) and affix. Rare items show in their colour, their affixes when you point at the name, and the search finds affixes too ("lifesteal").
 [*][b]Keep of each:[/b] leave a number of every marked item in the bank.
@@ -93,7 +103,7 @@ The game already lets you select several stacks with Ctrl and Shift. This mod ad
 [list=1]
 [*]Install [b]Melvor Mod Loader[/b] first (see Requirements).
 [*]Open the game folder: Steam > right-click Melvor Idle 2 > Manage > Browse local files.
-[*]Extract [b]BulkSell-0.3.0.zip[/b] there. The mod ends up in [b]mods\BulkSell[/b].
+[*]Extract [b]BulkSell-0.4.0.zip[/b] there. The mod ends up in [b]mods\BulkSell[/b].
 [*]Start the game from Steam as usual.
 [/list]
 No installer, no .exe, no script. Nothing is written outside the game folder.
@@ -104,7 +114,7 @@ Delete the folder [b]mods\BulkSell[/b].
 [size=5][b]Safe to download[/b][/size]
 [list]
 [*]One file: [b]BulkSell.dll[/b]. No .exe, no .bat, no installer.
-[*]VirusTotal, scanned on upload: [url=VIRUSTOTAL-BAGLANTISI-0.3.0-TARANINCA-BURAYA]0 detections[/url].
+[*]VirusTotal, scanned on upload: [url=VIRUSTOTAL-BAGLANTISI-0.4.0-TARANINCA-BURAYA]0 detections[/url].
 [*]None of the game's own files are changed or included.
 [/list]
 
