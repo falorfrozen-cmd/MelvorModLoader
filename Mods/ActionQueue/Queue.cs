@@ -113,9 +113,13 @@ public sealed class Step : IGoal
     public string State = "";
     /// <summary>How this step last ended ("done: out of runes"), still shown while it waits for its turn in the next round (not saved).</summary>
     internal string LastResult = "";
+    /// <summary>How long the step ran the last time it ended (its Seconds then), shown while it waits for its turn in the next round (not saved).</summary>
+    internal double LastSeconds;
     /// <summary>Where the step stands in the current run (not saved).</summary>
     public RunState Run;
     internal double Seconds, RetryAt, GrewAt;
+    /// <summary>The time the step had run when the queue was paused: it carries on from there, like "make N more" (0.13.1).</summary>
+    internal double SecondsBefore;
     internal long Pile, GainedAtStart, DoneAtStart, SpentAtStart, SeenAtStart;
     /// <summary>"Make N more" / "N times" / "use up N": what was counted before a pause, so carrying on does not start from zero.</summary>
     internal long CountBefore;
@@ -525,6 +529,8 @@ public static class Queue
     /// <summary>The saved queue the current steps came from, or "" when they are not saved.</summary>
     public static string Name { get; private set; } = "";
     public static bool Running { get; private set; }
+    /// <summary>Paused: Start carries on with what was done (the window keeps showing last round's results then).</summary>
+    public static bool Paused => !Running && s_resume;
     public static int Index { get; private set; }
     /// <summary>The last thing worth telling the player (why it paused, that it finished...).</summary>
     public static string Note { get; private set; } = "";
@@ -757,6 +763,8 @@ public static class Queue
             s.State = p.State;
             s.Ran = p.Ran;
             s.Seconds = p.Seconds;
+            s.SecondsBefore = s.Run != RunState.Done && (s.State == "paused" || !s.Ran) ? p.Seconds : 0;
+            if (s.Run == RunState.Done) { s.LastResult = s.State; s.LastSeconds = s.Seconds; }
             s.CountBefore = p.Count;
             s.OwnedAtStart = (int)Math.Min(int.MaxValue, p.OwnedBase);
             if (s.Or is IGoal or)
@@ -779,7 +787,7 @@ public static class Queue
             s.Pile = 0;
             // the game loads its actions with the save; one that is not going any more is simply started again
             if (snap.Running && s.Run == RunState.Running
-                && !(Targets.Find(game, s.Entity) is { } action && Targets.IsDoing(action, new Target(s.TargetId, s.Name, s.Extra))))
+                && !(Targets.Find(game, s.Entity) is { } action && StepDoing(action, s)))
                 s.Run = RunState.Idle;
         }
         Running = snap.Running;
@@ -1266,13 +1274,14 @@ public static class Queue
         bool resume = s_resume && Steps.Any(s => s.Run != RunState.Done);
         foreach (Step s in Steps)
         {
-            if (!resume) s.LastResult = "";
+            if (!resume) { s.LastResult = ""; s.LastSeconds = 0; }
             if (resume && s.Run == RunState.Done) continue;
             if (s.State != "paused") ClearCounts(s);              // "make N more" / "N times" carry on after a pause, else count afresh
             s.State = "";
             s.Run = RunState.Idle;
             s.Ran = false;
-            s.Seconds = s.RetryAt = s.GrewAt = 0;
+            s.Seconds = s.SecondsBefore;   // (0, or what it had run before a pause: shown and saved at once)
+            s.RetryAt = s.GrewAt = 0;
             s.Pile = 0;
         }
         Running = true;
@@ -1323,7 +1332,8 @@ public static class Queue
         Trace($"paused at step {Index + 1}: {why}");
         Running = false;
         s_resume = true;
-        foreach (Step s in Steps.Where(s => s.Run is RunState.Running or RunState.Waiting))
+        foreach (Step s in Steps.Where(s => s.Run is RunState.Running or RunState.Waiting
+                     || s.Run == RunState.Idle && (s.Ran || s.SecondsBefore > 0 || Goals(s).Any(g => g.CountBefore > 0))))
         {
             s.State = "paused";
             if (s.Ran) KeepCounts(s);   // keep what "make N more" / "N times" has already counted
@@ -1355,6 +1365,7 @@ public static class Queue
     {
         step.State = state;
         step.LastResult = state;
+        step.LastSeconds = step.Seconds;
         step.Run = RunState.Done;
         Trace($"{Number(step)}: {state}");
     }
@@ -1947,7 +1958,7 @@ public static class Queue
         }
         if (!step.Ran)
         {
-            step.Seconds = 0;
+            step.Seconds = step.SecondsBefore;   // (0, or what it had run before a pause)
             MarkStart(game, step);
             step.CountGains = Lanes > 1;
         }
@@ -2122,7 +2133,7 @@ public static class Queue
             Step s = Steps[i];
             bool mine = !laneMode || LaneOf(s) == lane;
             // A finished (or new) queue starts a new run: nothing of the last one counts as done in it, or is shown as "last time".
-            if (!wasRunning && !paused) { s.Ran = false; s.LastResult = ""; }
+            if (!wasRunning && !paused) { s.Ran = false; s.LastResult = ""; s.LastSeconds = 0; }
             if (!mine)
             {
                 // Not running: the other lanes of a paused queue carry on where they were (Start resumes them); those of
@@ -2248,7 +2259,8 @@ public static class Queue
     {
         ActionComponent? action = Targets.Find(game, step.Entity);
         if (action == null) { End(step, "skipped: this skill is not in the game"); return; }
-        if (HandsOff(action)) return;   // a fight step is looked at again when the game is back
+        // A fight step is looked at again when the game is back; the time it fights meanwhile still counts (Time column, "for N minutes").
+        if (HandsOff(action)) { if (StepDoing(action, step)) step.Seconds += seconds; return; }
         var wanted = new Target(step.TargetId, step.Name, step.Extra);
         Target? now = Targets.Current(action);
         if (now == null)
@@ -2434,10 +2446,10 @@ public static class Queue
     }
 
     /// <summary>Keeps what the counting goals have counted (a pause, or the game saving a snapshot).</summary>
-    static void KeepCounts(Step step) { foreach (IGoal g in Goals(step)) g.CountBefore = Counter(step, g); }
+    static void KeepCounts(Step step) { foreach (IGoal g in Goals(step)) g.CountBefore = Counter(step, g); step.SecondsBefore = step.Seconds; }
 
     /// <summary>Counting starts from nothing (a fresh start, or a new round of "start over").</summary>
-    static void ClearCounts(Step step) { foreach (IGoal g in Goals(step)) g.CountBefore = 0; }
+    static void ClearCounts(Step step) { foreach (IGoal g in Goals(step)) g.CountBefore = 0; step.SecondsBefore = 0; }
 
     /// <summary>How many node unlocks the step's constellation has earned (minor or major, the game's own numbers).</summary>
     /// <summary>The most node unlocks a constellation has (minor, or major), so a goal above it never waits for ever.</summary>
@@ -2602,7 +2614,14 @@ public static class Queue
         step.Until == Until.FoodRunsOut && Reached(game, step, step) ? "done: the food ran out"
         : step.Or != null && !Reached(game, step, step) && Reached(game, step, step.Or) ? $"done: {Progress(game, step, step.Or)} ({step.Or.Text})" : "done";
 
-    static string Clock(double seconds) => $"{(int)(seconds / 60)}:{(int)(seconds % 60):00}";
+    static string Clock(double seconds) => Duration(seconds);
+
+    /// <summary>A step's time for the list's Time column (0.13.1): "4:07", or "1:02:15" from an hour on.</summary>
+    public static string Duration(double seconds)
+    {
+        long s = (long)Math.Max(0, seconds);
+        return s < 3600 ? $"{s / 60}:{s % 60:00}" : $"{s / 3600}:{s / 60 % 60:00}:{s % 60:00}";
+    }
 
     static string Progress(Game game, Step step) =>
         step.Or == null ? Progress(game, step, step) : $"{Progress(game, step, step)}  |  or  {Progress(game, step, step.Or)}";

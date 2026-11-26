@@ -3,7 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>ActionQueue</AssemblyName>
     <RootNamespace>ActionQueue</RootNamespace>
-    <Version>0.13.0</Version>
+    <Version>0.13.1</Version>
     <Product>Melvor Idle 2 Action Queue</Product>
     <AssemblyTitle>Action Queue</AssemblyTitle>
     <Description>Chains actions in Melvor Idle 2: do one thing until a goal is reached, then start the next (requires Melvor Mod Loader). Opens with F6.</Description>

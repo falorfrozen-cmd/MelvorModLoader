@@ -1,4 +1,4 @@
-Action Queue 0.13.0  -  a mod for Melvor Idle 2
+Action Queue 0.13.1  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:
@@ -67,6 +67,10 @@ columns' widths; a double-click on one puts the normal widths back. All of it is
   "Equip" or "Go to a saved queue" at the end of the skill list (see SELLING, EQUIP and
   GO TO A SAVED QUEUE).
 While the queue runs, one line at the top of the screen shows the current step.
+The list's Time column shows how long a running step has been at it, and how long a finished
+one took. Only the time a step really runs counts, not the time it waits for materials or a
+free slot; after a pause it carries on from where it was. With "start over at the end" on, a
+step that waits for its turn in the next round shows last round's time in brackets.
 Steps can be moved up and down at any time, also while the queue runs: a running step
 is not interrupted, and the new order decides what comes next.
 To change a step, select it and press "Edit": the step is shown in the form above. Change

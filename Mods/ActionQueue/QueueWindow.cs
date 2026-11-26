@@ -369,14 +369,15 @@ public sealed class QueueWindow
         // -- the queue
         _table = new Tree
         {
-            Columns = 4, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true, AllowRmbSelect = true,
+            Columns = 5, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true, AllowRmbSelect = true,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 150)
         };
-        string[] titles = { "#", "Do", "Until", "State" };
+        // Time (0.13.1, asked for on Nexus): how long the step has been running, or took.
+        string[] titles = { "#", "Do", "Until", "State", "Time" };
         for (int c = 0; c < titles.Length; c++)
         {
             _table.SetColumnTitle(c, titles[c]);
-            _table.SetColumnTitleAlignment(c, HorizontalAlignment.Left);
+            _table.SetColumnTitleAlignment(c, c == 4 ? HorizontalAlignment.Right : HorizontalAlignment.Left);
             // a long name or goal is cut short (its tooltip has it whole) instead of widening its column past what the player set
             _table.SetColumnClipContent(c, c != 0);
         }
@@ -836,7 +837,7 @@ public sealed class QueueWindow
 
     /// <summary>Widths the player dragged the Do and Until columns to (0: the normal layout, Do and State share the room).</summary>
     int _doWidth, _untilWidth;
-    const int UntilNormal = 290, DoLeast = 120, UntilLeast = 140, StateLeast = 140;
+    const int UntilNormal = 290, DoLeast = 120, UntilLeast = 140, StateLeast = 140, TimeWidth = 84;
     readonly ColorRect?[] _dividers = new ColorRect?[3];
     /// <summary>The divider being dragged (1: after Do, 2: after Until), how far the mouse moved since the press, and the column's width then.</summary>
     int _dividerDragged;
@@ -854,11 +855,13 @@ public sealed class QueueWindow
         _table.SetColumnExpand(1, !custom);
         _table.SetColumnExpand(2, false);
         _table.SetColumnExpand(3, true);
+        _table.SetColumnExpand(4, false);
+        _table.SetColumnCustomMinimumWidth(4, TimeWidth);
         int doW = custom ? Math.Max(DoLeast, _doWidth > 0 ? _doWidth : 300) : 0;
         int untilW = Math.Max(UntilLeast, _untilWidth > 0 ? _untilWidth : UntilNormal);
         // A window narrower than when the widths were set (made smaller, another screen): they give way so State and both
         // handles stay in view. The widths the player chose are kept and come back when there is room again.
-        float room = _table.Size.X - _table.GetColumnWidth(0) - StateLeast;
+        float room = TableInside() - Math.Max(44, _table.GetColumnWidth(0)) - Math.Max(TimeWidth, _table.GetColumnWidth(4)) - StateLeast;
         if (custom && room > 0 && doW + untilW > room)
         {
             untilW = (int)Math.Max(UntilLeast, Math.Min(untilW, room - DoLeast));
@@ -890,6 +893,15 @@ public sealed class QueueWindow
             _table.AddChild(grip);
         }
         _table.Resized += () => Callable.From(ApplyColumns).CallDeferred();   // (it places the handles too)
+    }
+
+    /// <summary>The width the list's columns share: the list less its frame and, when shown, its vertical scroll bar.</summary>
+    float TableInside()
+    {
+        float inside = _table.Size.X - _table.GetThemeStylebox("panel").GetMinimumSize().X;
+        foreach (Node n in _table.GetChildren(true))
+            if (n is VScrollBar bar && bar.Visible) inside -= bar.Size.X;
+        return inside;
     }
 
     void PlaceDividers()
@@ -960,7 +972,7 @@ public sealed class QueueWindow
     public Rect2 CornerGripRect => new(_cornerGrip.Position, _cornerGrip.Size);
     public Rect2 EdgeGripRect => new(_edgeGrip.Position, _edgeGrip.Size);
     /// <summary>For tests: the list's column widths, a divider dragged to a width (as ColumnTo does), and its double-click.</summary>
-    public int[] ColumnWidths => Enumerable.Range(0, 4).Select(c => _table.GetColumnWidth(c)).ToArray();
+    public int[] ColumnWidths => Enumerable.Range(0, _table.Columns).Select(c => _table.GetColumnWidth(c)).ToArray();
     public void SetColumn(int column, int width) { ColumnTo(column, width); SavePlace(); }
     public void ResetColumns() => DragDivider(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, DoubleClick = true }, 1);
     public Vector2 DividerPosition(int column) => _dividers[column]?.Position ?? Vector2.Zero;
@@ -2486,6 +2498,27 @@ public sealed class QueueWindow
 
     PopupMenu _stepMenu = null!;
 
+    /// <summary>
+    /// The Time column of a step: while it runs, how long it has been at it; once done, how long it took; while it waits
+    /// for its turn in a new round, in brackets, how long it took last time. Only the time it really ran counts (it
+    /// stands still while the step waits for materials or a free slot, and while the queue is paused).
+    /// </summary>
+    static (string Text, string Tip) TimeOf(Step step, bool waitingNewRound)
+    {
+        string lastTime = step.LastSeconds >= 1 ? $"\nLast time it took {Queue.Duration(step.LastSeconds)}." : "";
+        if (Queue.Running && step.Run == RunState.Running)
+            return (Queue.Duration(step.Seconds), $"Running for {Queue.Duration(step.Seconds)} (waiting and pauses do not count).{lastTime}");
+        if (step.Seconds >= 1 && step.Run == RunState.Done)
+            return (Queue.Duration(step.Seconds), step.State.StartsWith("done") ? $"It took {Queue.Duration(step.Seconds)}." : $"It ran for {Queue.Duration(step.Seconds)} before it stopped.");
+        if (step.Seconds >= 1) return (Queue.Duration(step.Seconds), $"It has run for {Queue.Duration(step.Seconds)} so far.");
+        if (waitingNewRound && step.LastSeconds >= 1) return ($"({Queue.Duration(step.LastSeconds)})", $"Last time it took {Queue.Duration(step.LastSeconds)}.");
+        return ("", "");
+    }
+
+    /// <summary>For tests: what the Time column shows for a step, and its tooltip.</summary>
+    public string TimeText(int index) => StepRows().FirstOrDefault(r => (int)r.GetMetadata(0) == index)?.GetText(4) ?? "";
+    public string TimeTip(int index) => StepRows().FirstOrDefault(r => (int)r.GetMetadata(0) == index)?.GetTooltipText(4) ?? "";
+
     /// <summary>"Run from here" (button, or the right-click menu): the queue goes on from the selected step.</summary>
     void RunFromSelected()
     {
@@ -2554,7 +2587,7 @@ public sealed class QueueWindow
                 Step? at = mine.FirstOrDefault(st => st.Run != RunState.Done);
                 heading.SetText(1, $"Lane {lane}");
                 heading.SetText(3, !Queue.Running ? $"{mine.Count} step(s)" : at == null ? "finished" : $"at step {Queue.Steps.IndexOf(at) + 1}");
-                for (int c = 0; c < 4; c++) { heading.SetCustomColor(c, Style.Accent); heading.SetSelectable(c, false); }
+                for (int c = 0; c < _table.Columns; c++) { heading.SetCustomColor(c, Style.Accent); heading.SetSelectable(c, false); }
                 headings[lane] = heading;
             }
         for (int i = 0; i < Queue.Steps.Count; i++)
@@ -2568,17 +2601,23 @@ public sealed class QueueWindow
             row.SetText(1, step.Name);
             row.SetText(2, step.Goal);
             // Waiting for its turn in a new round: how it ended last time stays in view ("last time: done: out of runes").
-            bool last = step.State == "" && step.LastResult != "" && Queue.Running;
+            bool last = step.State == "" && step.LastResult != "" && (Queue.Running || Queue.Paused);
             string state = last ? $"last time: {step.LastResult}" : step.State;
             row.SetText(3, state);
             // (once it runs again, the tooltip still says how it ended the last time)
             row.SetTooltipText(3, !last && Queue.Running && step.LastResult != "" && step.State != step.LastResult ? $"{state}\nlast time: {step.LastResult}" : state);
             row.SetTooltipText(1, step.Name);
             row.SetTooltipText(2, step.Goal);
+            // Time: what the step has run so far (waiting does not count), what it took, or in brackets what it took last time
+            (string time, string timeTip) = TimeOf(step, (Queue.Running || Queue.Paused) && step.Run is RunState.Idle or RunState.Waiting);
+            row.SetText(4, time);
+            row.SetTooltipText(4, timeTip);
+            row.SetTextAlignment(4, HorizontalAlignment.Right);
+            row.SetCustomColor(4, current ? Style.Good : Style.Muted);
             row.SetCustomColor(0, Style.Muted);
             row.SetCustomColor(3, step.State.StartsWith("skipped") ? Style.Bad : current ? Style.Good : waiting ? Style.Accent : Style.Muted);
             if (current)
-                for (int c = 0; c < 4; c++) row.SetCustomBgColor(c, new Color(Style.GoodDim, 0.55f));
+                for (int c = 0; c < _table.Columns; c++) row.SetCustomBgColor(c, new Color(Style.GoodDim, 0.55f));
         }
         if (selected >= 0 && selected < Queue.Steps.Count) SelectRow(selected);
         else PaintLaneButton();
