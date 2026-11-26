@@ -18,7 +18,7 @@ public sealed class QueueWindow
         "it stops by itself", "I own this many of an item", "a skill reaches this level", "this many minutes have passed",
         "only this many of an item are left", "I make this many more of an item", "it has been done this many times",
         "it has used up this many of an item", "node unlocks of this constellation are earned",
-        "an astrology event has been seen this many times", "a mastery task is complete",
+        "an astrology event has been seen this many times", "a mastery task is complete", "the food runs out",
     };
 
     /// <summary>One theme for the window and for the popups of its pick lists (a popup is a window of its own).</summary>
@@ -53,7 +53,12 @@ public sealed class QueueWindow
     bool _tasksStale = true;
     /// <summary>One line in the goal row for the steps that are not actions (equip a loadout, go to a saved queue).</summary>
     readonly Label _pseudoNote = Style.Label("", Style.Muted, 12);
+    /// <summary>Equip, food picked: the skill that eats it (0.13.0, by madmousepad). Item metadata: the skill's entity id.</summary>
+    readonly OptionButton _foodSkill = new() { Visible = false, CustomMinimumSize = new Vector2(150, 0) };
+    /// <summary>The list key of a food in the Equip list (food is no gear: its own keys).</summary>
+    const string FoodKeyPrefix = "food:";
     readonly Tree _table;
+    Button _runFrom = null!;
     readonly Button _run = new() { CustomMinimumSize = new Vector2(150, 0) };
     readonly Button _repeat = new() { ToggleMode = true, CustomMinimumSize = new Vector2(205, 0) };
     /// <summary>With steps in lanes and "start over" on: which lanes start over (a lane can also run once).</summary>
@@ -96,6 +101,11 @@ public sealed class QueueWindow
     string _stopShown = "?";
     /// <summary>The id of "never" in the stop list (Godot gives an item added with -1 its index as id).</summary>
     const int NeverId = 99;
+    /// <summary>When the stop is looked at: at once (0) or when a round is over (1). 0.13.0.</summary>
+    readonly OptionButton _stopTiming = new() { Visible = false };
+    /// <summary>"When the queue ends, go on with": nothing, or a saved queue (0.13.0, by madmousepad).</summary>
+    readonly OptionButton _thenPick = new() { CustomMinimumSize = new Vector2(260, 0), FitToLongestItem = false, ClipText = true };
+    string _thenShown = "?";
 
     // The card on top has two faces: the form for one step, and the planner.
     readonly Button _stepMode = new() { Text = "Add one step", ToggleMode = true };
@@ -153,10 +163,26 @@ public sealed class QueueWindow
         panel.AddThemeStyleboxOverride("panel", frame);
         _holder.AddChild(panel);
         Panel = panel;
+        // Making it bigger (0.13.0, by madmousepad): the right edge widens it, the corner grip widens and heightens it.
+        _edgeGrip = new Control { MouseFilter = Control.MouseFilterEnum.Stop, MouseDefaultCursorShape = Control.CursorShape.Hsize,
+            TooltipText = "Drag to make the window wider. Double-click: back to its normal size." };
+        _cornerGrip = new Control { MouseFilter = Control.MouseFilterEnum.Stop, MouseDefaultCursorShape = Control.CursorShape.Fdiagsize,
+            Size = new Vector2(CornerSize, CornerSize), TooltipText = "Drag to make the window bigger. Double-click: back to its normal size." };
+        Control corner = _cornerGrip;
+        corner.Draw += () =>
+        {
+            const float edge = CornerSize - 4;
+            for (int length = 4; length <= 12; length += 4)
+                corner.DrawLine(new Vector2(edge - length, edge), new Vector2(edge, edge - length), Style.Muted, 1.25f, true);
+        };
+        _edgeGrip.GuiInput += e => DragGrip(e, tall: false);
+        _cornerGrip.GuiInput += e => DragGrip(e, tall: true);
+        _holder.AddChild(_edgeGrip);
+        _holder.AddChild(_cornerGrip);
         panel.Resized += Place;
         panel.MinimumSizeChanged += Place;
         _holder.Resized += Place;
-        _offset = ReadPlace();
+        ReadLayout();
 
         var root = new VBoxContainer();
         root.AddThemeConstantOverride("separation", 0);
@@ -238,7 +264,7 @@ public sealed class QueueWindow
         var what = new HBoxContainer();
         what.AddThemeConstantOverride("separation", 10);
         what.AddChild(Fixed("Do", 50));
-        _skillPick.ItemSelected += _ => { FillKinds(_untilPick, Astrology, withStops: true); FillKinds(_orPick, Astrology, withStops: false); FillTargets(null); UntilChanged(); };
+        _skillPick.ItemSelected += _ => { FillKinds(_untilPick, withStops: true); FillKinds(_orPick, withStops: false); FillTargets(null); UntilChanged(); };
         _target.Picked += _ =>
         {
             if (Pseudo) { UntilChanged(); return; }
@@ -266,7 +292,7 @@ public sealed class QueueWindow
         until.AddThemeConstantOverride("separation", 10);
         _untilLabel.CustomMinimumSize = new Vector2(50, 0);
         until.AddChild(_untilLabel);
-        FillKinds(_untilPick, false, withStops: true);
+        FillKinds(_untilPick, withStops: true);
         _untilPick.ItemSelected += _ => UntilChanged();
         until.AddChild(_untilPick);
         until.AddChild(_amount);
@@ -298,6 +324,8 @@ public sealed class QueueWindow
                 if (Mastery.Find(e.Key) is { Done: true })
                     Say("That task is already complete on this character, so a step waiting for it ends at once.");
             };
+        _foodSkill.TooltipText = "The skill that eats this food: the step puts it in that skill's own food box (the fight's, Thieving's, Agility's...).";
+        until.AddChild(_foodSkill);
         until.AddChild(_pseudoNote);
         _orBox.TooltipText = "Give the step a second goal: it is over when either one is reached\n(e.g. until a Gold Topaz Ring is in the bank, or until 780 Salmon are used up).";
         _orBox.Toggled += _ => UntilChanged();
@@ -322,7 +350,7 @@ public sealed class QueueWindow
         Label orLabel = Style.Label("or until", Style.Text);
         orLabel.CustomMinimumSize = new Vector2(50, 0);
         _orRow.AddChild(orLabel);
-        FillKinds(_orPick, false, withStops: false);
+        FillKinds(_orPick, withStops: false);
         _orPick.ItemSelected += _ => OrChanged();
         _orRow.AddChild(_orPick);
         _orRow.AddChild(_orAmount);
@@ -341,7 +369,7 @@ public sealed class QueueWindow
         // -- the queue
         _table = new Tree
         {
-            Columns = 4, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true,
+            Columns = 4, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true, AllowRmbSelect = true,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 150)
         };
         string[] titles = { "#", "Do", "Until", "State" };
@@ -349,11 +377,25 @@ public sealed class QueueWindow
         {
             _table.SetColumnTitle(c, titles[c]);
             _table.SetColumnTitleAlignment(c, HorizontalAlignment.Left);
-            _table.SetColumnExpand(c, c is 1 or 3);
+            // a long name or goal is cut short (its tooltip has it whole) instead of widening its column past what the player set
+            _table.SetColumnClipContent(c, c != 0);
         }
         _table.SetColumnCustomMinimumWidth(0, 44);
-        _table.SetColumnCustomMinimumWidth(2, 290);
+        ApplyColumns();
+        AddColumnDividers();
         _table.ItemSelected += PaintLaneButton;
+        // Right-click on a step: run the queue from it, or edit it (0.13.0).
+        _stepMenu = new PopupMenu { Theme = s_theme };
+        _stepMenu.AddItem("Run from here", 0);
+        _stepMenu.AddItem("Edit", 1);
+        _stepMenu.IdPressed += id => { if (id == 0) RunFromSelected(); else EditSelected(); };
+        _table.AddChild(_stepMenu);
+        _table.ItemMouseSelected += (position, button) =>
+        {
+            if (button != (long)MouseButton.Right || SelectedIndex() < 0) return;
+            PaintLaneButton();
+            _stepMenu.Popup(new Rect2I((Vector2I)(_table.GetScreenPosition() + position), Vector2I.Zero));
+        };
         body.AddChild(_table);
 
         // -- the idle action
@@ -398,6 +440,12 @@ public sealed class QueueWindow
         buttons.AddChild(Style.Label("Selected step:", Style.Muted));
         buttons.AddChild(MakeButton("Move up", () => MoveSelected(-1)));
         buttons.AddChild(MakeButton("Move down", () => MoveSelected(1)));
+        _runFrom = MakeButton("Run from here", RunFromSelected);
+        _runFrom.TooltipText = "The queue goes on from the selected step: the steps before it are skipped this round,\n"
+            + "this step and the ones after it start afresh. In lanes only that lane jumps. A queue that is not running starts from it.\n"
+            + "Also on the right-click menu of a step.";
+        _runFrom.Disabled = true;
+        buttons.AddChild(_runFrom);
         Button edit = MakeButton("Edit", EditSelected);
         edit.TooltipText = "Shows the selected step in the form above. Change what you like and press \"Save step\": it stays in its place.";
         buttons.AddChild(edit);
@@ -429,8 +477,9 @@ public sealed class QueueWindow
         Label stopLabel = Style.Label("Stop the whole queue when", Style.Muted);
         stopLabel.MouseFilter = Control.MouseFilterEnum.Stop;
         stopLabel.TooltipText = "Once this is reached, every step stops and the queue ends, also with \"Start over at the end\" on\n"
-            + "and in lanes. The action under \"When the queue waits or ends, do\" then takes over.\n"
-            + "E.g. thieve, fish and cook round after round until 1 Bandit Gloves is in the bank, then stop.";
+            + "and in lanes. The action under \"When the queue waits or ends, do\" then takes over (or the saved queue below).\n"
+            + "E.g. thieve, fish and cook round after round until 1 Bandit Gloves is in the bank, then stop.\n"
+            + "\"at once\" stops in the middle of a step; \"when a round is over\" lets the round finish first (the sale at the end still happens).";
         stopRow.AddChild(stopLabel);
         _stopPick.TooltipText = stopLabel.TooltipText;
         _stopPick.AddItem("never: the steps decide", NeverId);
@@ -448,13 +497,42 @@ public sealed class QueueWindow
         stopRow.AddChild(_stopItem.Control);
         _stopLevel.ItemSelected += _ => { if (!_syncing) ApplyStop(); };
         stopRow.AddChild(_stopLevel);
-        _stopTask.Control.CustomMinimumSize = new Vector2(480, 0);
+        // (narrower than 0.12's 480 to leave room for the stop's timing; it takes what a wider window gives)
+        _stopTask.Control.CustomMinimumSize = new Vector2(300, 0);
+        _stopTask.Control.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         _stopTask.HintWidth = 120;
         _stopTask.Control.TooltipText = "Every skill's Mastery Guild tasks (the skills of this queue first). Click and type to search.";
         _stopTask.Picked += _ => { if (!_syncing) ApplyStop(); };
         stopRow.AddChild(_stopTask.Control);
+        _stopTiming.AddItem("at once", 0);
+        _stopTiming.AddItem("when a round is over", 1);
+        _stopTiming.TooltipText = "At once: the queue stops the moment this is true, in the middle of a step.\n"
+            + "When a round is over: the queue finishes the round it is in first (in lanes: a lane that is through does not start over),\n"
+            + "so the steps at the end of the round, a sale or an equip, still happen. Also when it is true already as the queue starts.";
+        _stopTiming.ItemSelected += i =>
+        {
+            if (_syncing) return;
+            _stopShown = ShownKey(Queue.StopWhen, i == 1);   // (before the queue is told: its change repaints the window)
+            Queue.SetStopAtEnd(i == 1);
+            if (Queue.StopWhen is { } g) Say(StopSaid(g));
+        };
+        stopRow.AddChild(_stopTiming);
         body.AddChild(stopRow);
         StopKindShown(fresh: false);
+
+        // -- what comes after the queue (0.13.0, by madmousepad)
+        var thenRow = new HBoxContainer();
+        thenRow.AddThemeConstantOverride("separation", 10);
+        Label thenLabel = Style.Label("When the queue ends, go on with", Style.Muted);
+        thenLabel.MouseFilter = Control.MouseFilterEnum.Stop;
+        thenLabel.TooltipText = "A saved queue to start from its first step once this queue has ended: its steps are done\n"
+            + "(\"Start over at the end\" off), or its own stop above was reached. Pausing, emptying or stopping it yourself does not count.\n"
+            + "A queue never starts itself again this way. Nothing: the idle action above takes over, as before.";
+        thenRow.AddChild(thenLabel);
+        _thenPick.TooltipText = thenLabel.TooltipText;
+        _thenPick.ItemSelected += i => { if (!_syncing) PickThen((int)i); };
+        thenRow.AddChild(_thenPick);
+        body.AddChild(thenRow);
 
         // ---- footer
         StyleBoxFlat footBox = Style.Box(Style.Sidebar, 0, null, 0, 18, 8);
@@ -618,15 +696,30 @@ public sealed class QueueWindow
     /// <summary>How far the window is from the middle of the screen (0, 0: centred). Kept in queue-window.json.</summary>
     Vector2 _offset;
     bool _dragging;
+    /// <summary>The size the player dragged the window to (0: as big as its content needs). Kept in queue-window.json (0.13.0).</summary>
+    Vector2 _size;
+    Control _edgeGrip = null!, _cornerGrip = null!;
+    const float EdgeWidth = 6, CornerSize = 16;
+    /// <summary>A grip is being dragged: whether it also makes the window taller.</summary>
+    bool? _resizing;
 
     /// <summary>Puts the window at its place: the middle plus the player's offset, kept on the screen (the title bar always is).</summary>
     void Place()
     {
         if (_holder == null || Panel == null) return;
-        // as the centring container did: the window is as big as its content needs, and shrinks again with it
+        // as the centring container did: the window is as big as its content needs, and shrinks again with it; a size
+        // the player dragged it to is kept, as far as the screen has room for it (never smaller than the content)
         Vector2 min = Panel.GetCombinedMinimumSize();
-        if (Panel.Size != min) Panel.Size = min;
-        Vector2 area = _holder.Size, size = Panel.Size;
+        Vector2 area = _holder.Size;
+        Vector2 want = min;
+        if (area.X > 0 && area.Y > 0)
+        {
+            if (_size.X > min.X) want.X = Math.Min(_size.X, Math.Max(min.X, area.X));
+            if (_size.Y > min.Y) want.Y = Math.Min(_size.Y, Math.Max(min.Y, area.Y));
+        }
+        want = want.Floor();
+        if (Panel.Size != want) Panel.Size = want;
+        Vector2 size = Panel.Size;
         if (area.X <= 0 || area.Y <= 0) return;
         Vector2 centred = ((area - size) / 2).Floor();
         Vector2 at = centred + _offset;
@@ -635,6 +728,53 @@ public sealed class QueueWindow
         at = at.Round();
         _offset = at - centred;   // what does not fit is not kept: the window never hides off screen later
         if (Panel.Position != at) Panel.Position = at;
+        if (_edgeGrip == null || _cornerGrip == null) return;
+        _edgeGrip.Position = at + new Vector2(size.X - EdgeWidth, 8);
+        _edgeGrip.Size = new Vector2(EdgeWidth, Math.Max(0, size.Y - 8 - CornerSize));
+        _cornerGrip.Position = at + size - new Vector2(CornerSize, CornerSize);
+    }
+
+    /// <summary>
+    /// The right edge (wider) or the corner grip (wider and taller): the window grows from its top-left corner, which stays
+    /// where it is. A double-click gives it back its normal size.
+    /// </summary>
+    void DragGrip(InputEvent e, bool tall)
+    {
+        if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left } b)
+        {
+            if (b.DoubleClick) { _resizing = null; SizeTo(null, true); SavePlace(); return; }
+            _resizing = b.Pressed ? tall : null;
+            // the size follows the mouse from where it was pressed (dragged below the least size and back, nothing jumps)
+            _gripStart = Panel.Size;
+            _gripMoved = Vector2.Zero;
+            if (!b.Pressed) SavePlace();
+        }
+        else if (e is InputEventMouseMotion m && _resizing is bool alsoTaller)
+        {
+            _gripMoved += new Vector2(m.Relative.X, alsoTaller ? m.Relative.Y : 0);
+            SizeTo(_gripStart + _gripMoved, alsoTaller);
+        }
+    }
+
+    Vector2 _gripStart, _gripMoved;
+
+    /// <summary>Gives the window this size (null: its normal size), keeping its top-left corner in place. Only the corner sets the height.</summary>
+    void SizeTo(Vector2? target, bool tall)
+    {
+        if (Panel == null || _holder == null) return;
+        Vector2 oldSize = Panel.Size;
+        Vector2 min = Panel.GetCombinedMinimumSize();
+        if (target is not { } t) _size = Vector2.Zero;
+        else
+        {
+            Vector2 room = (_holder.Size - Panel.Position).Max(min);   // never past the screen's right or bottom edge
+            Vector2 want = t.Clamp(min, room);
+            _size = new Vector2(want.X, tall ? want.Y : _size.Y);   // the edge only widens: a height set before stays
+        }
+        // the top-left corner stays: the offset from the middle moves by half of what the size changed
+        Vector2 newSize = new(Math.Max(min.X, _size.X), Math.Max(min.Y, _size.Y));
+        _offset += (newSize - oldSize) / 2;
+        Place();
     }
 
     /// <summary>The title bar: drag to move, double-click to centre again.</summary>
@@ -655,22 +795,142 @@ public sealed class QueueWindow
 
     static string PlaceFile => System.IO.Path.Combine(Queue.Dir, "queue-window.json");
 
-    static Vector2 ReadPlace()
+    /// <summary>
+    /// The window's place, size and column widths from queue-window.json ({"X", "Y"} since 0.12.1; "W", "H", "Do", "Until"
+    /// since 0.13.0). Anything missing or odd is left at its normal value.
+    /// </summary>
+    void ReadLayout()
     {
+        _offset = _size = Vector2.Zero;
+        _doWidth = _untilWidth = 0;
         try
         {
-            if (Queue.Dir == "" || !System.IO.File.Exists(PlaceFile)) return Vector2.Zero;
+            if (Queue.Dir == "" || !System.IO.File.Exists(PlaceFile)) return;
             using var doc = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText(PlaceFile));
-            float x = (float)doc.RootElement.GetProperty("X").GetDouble(), y = (float)doc.RootElement.GetProperty("Y").GetDouble();
-            return float.IsFinite(x) && float.IsFinite(y) ? new Vector2(x, y) : Vector2.Zero;
+            float Read(string name, float most)
+            {
+                if (!doc.RootElement.TryGetProperty(name, out var p) || p.ValueKind != System.Text.Json.JsonValueKind.Number) return 0;
+                double v = p.GetDouble();
+                return double.IsFinite(v) ? (float)Math.Clamp(v, -most, most) : 0;
+            }
+            _offset = new Vector2(Read("X", 20000), Read("Y", 20000));
+            _size = new Vector2(Math.Max(0, Read("W", 20000)), Math.Max(0, Read("H", 20000)));
+            _doWidth = (int)Math.Max(0, Read("Do", 5000));
+            _untilWidth = (int)Math.Max(0, Read("Until", 5000));
         }
-        catch (Exception) { return Vector2.Zero; }
+        catch (Exception) { _offset = _size = Vector2.Zero; _doWidth = _untilWidth = 0; }
     }
 
     void SavePlace()
     {
-        try { if (Queue.Dir != "") System.IO.File.WriteAllText(PlaceFile, $"{{\"X\": {_offset.X.ToString(System.Globalization.CultureInfo.InvariantCulture)}, \"Y\": {_offset.Y.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}"); }
+        static string N(float v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        try
+        {
+            if (Queue.Dir == "") return;
+            System.IO.File.WriteAllText(PlaceFile, $"{{\"X\": {N(_offset.X)}, \"Y\": {N(_offset.Y)}, \"W\": {N(_size.X)}, \"H\": {N(_size.Y)}, \"Do\": {_doWidth}, \"Until\": {_untilWidth}}}");
+        }
         catch (Exception) { }   // a place that could not be kept: the window still moves, it is centred next time
+    }
+
+    // ---------------------------------------------------------------- the list's column widths (0.13.0, by madmousepad)
+
+    /// <summary>Widths the player dragged the Do and Until columns to (0: the normal layout, Do and State share the room).</summary>
+    int _doWidth, _untilWidth;
+    const int UntilNormal = 290, DoLeast = 120, UntilLeast = 140, StateLeast = 140;
+    readonly ColorRect?[] _dividers = new ColorRect?[3];
+    /// <summary>The divider being dragged (1: after Do, 2: after Until), how far the mouse moved since the press, and the column's width then.</summary>
+    int _dividerDragged;
+    float _dividerMoved;
+    int _dividerStartWidth;
+
+    /// <summary>
+    /// Normal layout: Do and State share the free room, Until is 290 wide. Once the player drags a divider, Do and Until keep
+    /// the widths given and State takes the rest.
+    /// </summary>
+    void ApplyColumns()
+    {
+        bool custom = _doWidth > 0 || _untilWidth > 0;
+        _table.SetColumnExpand(0, false);   // (a Tree column grows by default: "#" never does)
+        _table.SetColumnExpand(1, !custom);
+        _table.SetColumnExpand(2, false);
+        _table.SetColumnExpand(3, true);
+        int doW = custom ? Math.Max(DoLeast, _doWidth > 0 ? _doWidth : 300) : 0;
+        int untilW = Math.Max(UntilLeast, _untilWidth > 0 ? _untilWidth : UntilNormal);
+        // A window narrower than when the widths were set (made smaller, another screen): they give way so State and both
+        // handles stay in view. The widths the player chose are kept and come back when there is room again.
+        float room = _table.Size.X - _table.GetColumnWidth(0) - StateLeast;
+        if (custom && room > 0 && doW + untilW > room)
+        {
+            untilW = (int)Math.Max(UntilLeast, Math.Min(untilW, room - DoLeast));
+            doW = (int)Math.Max(DoLeast, room - untilW);
+        }
+        _table.SetColumnCustomMinimumWidth(1, doW);
+        _table.SetColumnCustomMinimumWidth(2, untilW);
+        _table.SetColumnCustomMinimumWidth(3, custom ? StateLeast : 0);
+        Callable.From(PlaceDividers).CallDeferred();
+    }
+
+    /// <summary>Two thin handles in the list's title row, after "Do" and after "Until": drag to change the width, double-click for the normal layout.</summary>
+    void AddColumnDividers()
+    {
+        Color quiet = new(Style.AccentDim, 0.45f);
+        for (int column = 1; column <= 2; column++)
+        {
+            int which = column;
+            var grip = new ColorRect
+            {
+                Color = quiet, Size = new Vector2(6, 22), MouseFilter = Control.MouseFilterEnum.Stop,
+                MouseDefaultCursorShape = Control.CursorShape.Hsize,
+                TooltipText = $"Drag to make the {(which == 1 ? "Do" : "Until")} column wider or narrower. Double-click: the normal widths.",
+            };
+            grip.MouseEntered += () => grip.Color = Style.AccentDim;
+            grip.MouseExited += () => grip.Color = quiet;
+            grip.GuiInput += e => DragDivider(e, which);
+            _dividers[which] = grip;
+            _table.AddChild(grip);
+        }
+        _table.Resized += () => Callable.From(ApplyColumns).CallDeferred();   // (it places the handles too)
+    }
+
+    void PlaceDividers()
+    {
+        float x = 0;
+        for (int column = 0; column < 3; column++)
+        {
+            x += _table.GetColumnWidth(column);
+            if (_dividers[column] is { } grip) grip.Position = new Vector2(x - 3, 2);
+        }
+    }
+
+    void DragDivider(InputEvent e, int column)
+    {
+        if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left } b)
+        {
+            if (b.DoubleClick) { _dividerDragged = 0; _doWidth = _untilWidth = 0; ApplyColumns(); SavePlace(); return; }
+            _dividerDragged = b.Pressed ? column : 0;
+            _dividerMoved = 0;
+            _dividerStartWidth = _table.GetColumnWidth(column);
+            if (!b.Pressed) SavePlace();
+        }
+        else if (e is InputEventMouseMotion m && _dividerDragged == column)
+        {
+            _dividerMoved += m.Relative.X;
+            ColumnTo(column, _dividerStartWidth + (int)MathF.Round(_dividerMoved));
+        }
+    }
+
+    /// <summary>Gives the Do (1) or Until (2) column this width, as far as the State column keeps its least width.</summary>
+    void ColumnTo(int column, int width)
+    {
+        // what the two columns and State have together now: the dragged one can take State's room down to its least
+        int doNow = _table.GetColumnWidth(1), untilNow = _table.GetColumnWidth(2), stateNow = _table.GetColumnWidth(3);
+        int least = column == 1 ? DoLeast : UntilLeast;
+        int most = (column == 1 ? doNow : untilNow) + Math.Max(0, stateNow - StateLeast);
+        width = Math.Clamp(width, least, Math.Max(least, most));
+        // the other column keeps the width it has on screen
+        if (column == 1) { _doWidth = width; if (_untilWidth <= 0) _untilWidth = untilNow; }
+        else { _untilWidth = width; if (_doWidth <= 0) _doWidth = doNow; }
+        ApplyColumns();
     }
 
     /// <summary>For tests: drag the title bar by this much (press, move, release, as a mouse does), or double-click it.</summary>
@@ -684,6 +944,28 @@ public sealed class QueueWindow
     public Vector2 PanelPosition => Panel.Position;
     public Vector2 PanelSize => Panel.Size;
     public Vector2 ScreenSize => _holder.Size;
+    /// <summary>For tests: drag the right edge (tall: the corner grip) by this much, as a mouse does; double-click it.</summary>
+    public void DragGripBy(Vector2 by, bool tall)
+    {
+        DragGrip(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true }, tall);
+        DragGrip(new InputEventMouseMotion { Relative = by }, tall);
+        DragGrip(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false }, tall);
+    }
+    public void DoubleClickGrip() => DragGrip(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, DoubleClick = true }, true);
+    public void PressGrip(bool tall) => DragGrip(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true }, tall);
+    public void MoveGrip(Vector2 by, bool tall) => DragGrip(new InputEventMouseMotion { Relative = by }, tall);
+    public void ReleaseGrip(bool tall) => DragGrip(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false }, tall);
+    public int TableWidth => (int)_table.Size.X;
+    public string FoodSkillText => _foodSkill.Text;
+    public Rect2 CornerGripRect => new(_cornerGrip.Position, _cornerGrip.Size);
+    public Rect2 EdgeGripRect => new(_edgeGrip.Position, _edgeGrip.Size);
+    /// <summary>For tests: the list's column widths, a divider dragged to a width (as ColumnTo does), and its double-click.</summary>
+    public int[] ColumnWidths => Enumerable.Range(0, 4).Select(c => _table.GetColumnWidth(c)).ToArray();
+    public void SetColumn(int column, int width) { ColumnTo(column, width); SavePlace(); }
+    public void ResetColumns() => DragDivider(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, DoubleClick = true }, 1);
+    public Vector2 DividerPosition(int column) => _dividers[column]?.Position ?? Vector2.Zero;
+    public Vector2 TablePosition => _table.GetGlobalRect().Position;
+    public int TableHeight => (int)_table.Size.Y;
 
     public void Show(Game game)
     {
@@ -694,6 +976,20 @@ public sealed class QueueWindow
             _levelSkills = game.LeveledEntities.Select(s => s.DisplayName.Text).ToList();
             Fill(_skillPick, _skills.Select(s => s.Entity.DisplayName.Text).Append(SellChoice).Append(EquipChoice).Append(SwitchChoice));
             Fill(_idleSkill, _skills.Select(s => s.Entity.DisplayName.Text).Prepend("Nothing"));
+            // the skills that eat food: the fight first, as the game's own bank lists them
+            _foodSkill.Clear();
+            _foodSkills.Clear();
+            foreach (var (id, name) in Queue.FoodSkills(game).OrderBy(f => f.Id == "MelvorBase:Combat" ? 0 : 1))
+            {
+                _foodSkills.Add(id);
+                _foodSkill.AddItem(name);
+                _foodSkill.SetItemMetadata(_foodSkill.ItemCount - 1, id);
+            }
+            if (_foodSkill.ItemCount > 0) _foodSkill.Select(0);
+            // the goal lists for the first skill of this character (another character's skill could have left
+            // "the food runs out" or the astrology goals in them)
+            FillKinds(_untilPick, withStops: true);
+            FillKinds(_orPick, withStops: false);
             Fill(_levelPick, _levelSkills);
             Fill(_orLevel, _levelSkills);
             Fill(_stopLevel, _levelSkills);
@@ -714,6 +1010,7 @@ public sealed class QueueWindow
         Rares.Paint(_orItem, game, itemEntries);
         Rares.Paint(_stopItem, game, itemEntries);
         _stopShown = "?";   // the lists are made again: show the queue's stop in them
+        _thenShown = "?";
         _stopTasksFilled = false;
         _tasksStale = true;
         _planPick.SetEntries(Catalog.Items(game, _makeable));
@@ -726,12 +1023,18 @@ public sealed class QueueWindow
     public void Hide()
     {
         foreach (var pick in new Action[] { _target.Close, _item.Close, _orItem.Close, _idleTarget.Close, _planPick.Close, _stopItem.Close, _taskPick.Close, _orTask.Close, _stopTask.Close }) pick();
+        // closed with the mouse button still down on the title bar, a grip or a column handle: that drag is over
+        _dragging = false;
+        _resizing = null;
+        _dividerDragged = 0;
         _layer.Visible = false;
     }
 
     // ---------------------------------------------------------------- the queue's own stop
 
     static string StopSignature(Goal? g) => g == null ? "" : $"{(int)g.Until}|{g.Amount}|{g.Subject}";
+    /// <summary>The stop as the row shows it: the goal, and when it is looked at (also with no goal yet: the timing list shows it too).</summary>
+    static string ShownKey(Goal? g, bool atEnd) => StopSignature(g) + (atEnd ? "|end" : "");
 
     /// <summary>The kind picked in the stop row (null: "never").</summary>
     Until? StopKindPicked => _stopPick.Selected < 0 || _stopPick.GetSelectedId() == NeverId ? null : (Until)_stopPick.GetSelectedId();
@@ -750,6 +1053,7 @@ public sealed class QueueWindow
         _stopItem.Control.Visible = kind is Until.Item or Until.ItemLeft;
         _stopLevel.Visible = kind == Until.Level;
         _stopTask.Control.Visible = kind == Until.Mastery;
+        _stopTiming.Visible = kind != null;
         if (kind == Until.Mastery) FillStopTasks();
         _stopAmount.MinValue = kind == Until.ItemLeft ? 0 : 1;
         _stopAmount.MaxValue = kind == Until.Level ? Queue.MaxStopLevel : Queue.MaxStopAmount;
@@ -778,7 +1082,7 @@ public sealed class QueueWindow
         Until? kind = StopKindPicked;
         if (kind == null)
         {
-            _stopShown = "";
+            _stopShown = ShownKey(null, Queue.StopAtEnd);
             Queue.SetStopWhen(null);
             Say("The queue has no stop of its own: it ends when its steps are done.");
             return;
@@ -802,7 +1106,7 @@ public sealed class QueueWindow
         else if (old is { Until: Until.Level } && !_levelSkills.Contains(old.Subject)) { goal.Subject = old.Subject; goal.SubjectName = old.SubjectName; }
         if (goal.Subject == "")
         {
-            _stopShown = "";
+            _stopShown = ShownKey(null, Queue.StopAtEnd);
             Queue.SetStopWhen(null);
             Say(kind switch
             {
@@ -812,19 +1116,81 @@ public sealed class QueueWindow
             });
             return;
         }
-        _stopShown = StopSignature(goal);   // before the queue is told: its change repaints the window
+        _stopShown = ShownKey(goal, Queue.StopAtEnd);   // before the queue is told: its change repaints the window
         Queue.SetStopWhen(goal);
-        if (Queue.StopWhen is not { } now || StopSignature(now) != _stopShown) { _stopShown = "?"; Say("That stop could not be taken."); return; }
+        if (Queue.StopWhen is not { } now || ShownKey(now, Queue.StopAtEnd) != _stopShown) { _stopShown = "?"; Say("That stop could not be taken."); return; }
+        Say(StopSaid(now));
+    }
+
+    /// <summary>What the status line says about the queue's stop, with what happens when it is true already.</summary>
+    static string StopSaid(Goal now)
+    {
+        bool atEnd = Queue.StopAtEnd;
         string already = !Queue.StopReachedNow ? ""
+            : atEnd ? (Queue.Running ? " That is true already, so the queue stops when this round is over."
+                                     : " That is true already: started, the queue does one round and then stops.")
             : Queue.Running ? " That is true already, so the queue stops now."
             : " That is true already, so the queue will not start until you change it.";
-        Say($"The whole queue stops when {Queue.StopText(now)}.{already}");
+        return $"The whole queue stops {(atEnd ? "at the end of a round once" : "when")} {Queue.StopText(now)}.{already}";
+    }
+
+    /// <summary>The "go on with" list: nothing, then the saved queues (made again when they or the choice changed).</summary>
+    void PaintThen()
+    {
+        List<string> names = Queue.PresetNames.Where(n => !string.Equals(n, Queue.AutoName, StringComparison.OrdinalIgnoreCase)).ToList();
+        string shown = Queue.Then + "\n" + string.Join("\n", names);
+        if (shown == _thenShown) return;
+        _thenShown = shown;
+        bool wasSyncing = _syncing;
+        _syncing = true;
+        _thenPick.Clear();
+        _thenPick.AddItem("Nothing");   // (the tooltip says that the idle action then takes over)
+        _thenPick.SetItemMetadata(0, "");
+        foreach (string n in names)
+        {
+            _thenPick.AddItem(n);
+            _thenPick.SetItemMetadata(_thenPick.ItemCount - 1, n);
+        }
+        int at = 0;
+        if (Queue.Then != "")
+        {
+            at = names.FindIndex(n => string.Equals(n, Queue.Then, StringComparison.OrdinalIgnoreCase)) + 1;
+            if (at <= 0)
+            {
+                _thenPick.AddItem($"{Queue.Then} (no longer saved)");
+                _thenPick.SetItemMetadata(_thenPick.ItemCount - 1, Queue.Then);
+                at = _thenPick.ItemCount - 1;
+            }
+        }
+        _thenPick.Select(at);
+        _syncing = wasSyncing;
+    }
+
+    void PickThen(int index)
+    {
+        string name = index <= 0 || index >= _thenPick.ItemCount ? "" : _thenPick.GetItemMetadata(index).AsString();
+        Queue.SetThen(name);
+        Say(name == "" ? "When the queue ends, the idle action takes over."
+            : $"When the queue ends, it goes on with the saved queue '{name}', from its first step."
+              + (string.Equals(name, Queue.Name, StringComparison.OrdinalIgnoreCase) ? " (Not after itself: a queue never starts itself again this way.)" : ""));
+    }
+
+    // test helpers for the stop's timing and the "go on with" list
+    public void PickStopTiming(bool atEnd) { _stopTiming.Select(atEnd ? 1 : 0); _stopTiming.EmitSignal(OptionButton.SignalName.ItemSelected, atEnd ? 1 : 0); }
+    public string StopTimingShown => _stopTiming.Visible ? _stopTiming.GetItemText(_stopTiming.Selected) : "";
+    public List<string> ThenChoices => Enumerable.Range(0, _thenPick.ItemCount).Select(i => _thenPick.GetItemText(i)).ToList();
+    public string ThenShown => _thenPick.Selected >= 0 ? _thenPick.GetItemText(_thenPick.Selected) : "";
+    public bool ChooseThen(string name)
+    {
+        for (int i = 0; i < _thenPick.ItemCount; i++)
+            if (_thenPick.GetItemMetadata(i).AsString() == name) { _thenPick.Select(i); _thenPick.EmitSignal(OptionButton.SignalName.ItemSelected, i); return true; }
+        return false;
     }
 
     /// <summary>Sets the stop row from the queue's stop (another queue loaded, a code imported, the window opened).</summary>
     void PaintStop()
     {
-        string now = StopSignature(Queue.StopWhen);
+        string now = ShownKey(Queue.StopWhen, Queue.StopAtEnd);
         if (now == _stopShown) return;
         _stopShown = now;
         Goal? g = Queue.StopWhen;
@@ -833,6 +1199,7 @@ public sealed class QueueWindow
         for (int i = 0; i < _stopPick.ItemCount; i++)
             if (_stopPick.GetItemId(i) == (g == null ? NeverId : (int)g.Until)) index = i;
         _stopPick.Select(index);
+        _stopTiming.Select(Queue.StopAtEnd ? 1 : 0);
         StopKindShown(fresh: false);
         ClearStopSubject();   // nothing left over from another stop
         if (g != null)
@@ -1350,8 +1717,8 @@ public sealed class QueueWindow
         int skill = _skills.FindIndex(s => s.Entity.Id == entityId);
         if (skill < 0) return false;
         _skillPick.Select(skill);
-        FillKinds(_untilPick, Astrology, withStops: true);
-        FillKinds(_orPick, Astrology, withStops: false);
+        FillKinds(_untilPick, withStops: true);
+        FillKinds(_orPick, withStops: false);
         FillTargets(targetId);
         UntilChanged();
         return _target.Selected is { } chosen && (chosen.Value.Id == targetId || chosen.Key == targetId);
@@ -1379,8 +1746,8 @@ public sealed class QueueWindow
         int skill = active == null ? -1 : _skills.FindIndex(s => ReferenceEquals(s.Action, active));
         if (target == null || skill < 0) { Say("Start an action in the game first, then press this."); return; }
         _skillPick.Select(skill);
-        FillKinds(_untilPick, Astrology, withStops: true);
-        FillKinds(_orPick, Astrology, withStops: false);
+        FillKinds(_untilPick, withStops: true);
+        FillKinds(_orPick, withStops: false);
         FillTargets(Catalog.Key(target));
         UntilChanged();
         Say($"Filled in: {_skills[skill].Entity.DisplayName.Text}: {target.Name}");
@@ -1556,14 +1923,21 @@ public sealed class QueueWindow
     bool Astrology => !Pseudo && _skillPick.Selected >= 0 && _skillPick.Selected < _skills.Count
         && _skills[_skillPick.Selected].Action is GamesByMalcs.Melvor2.Entities.Astrology.AstrologyActionComponent;
     bool EquipIsLoadout => _target.Selected?.Value.Id.StartsWith(Step.LoadoutPrefix, StringComparison.Ordinal) == true;
+    /// <summary>Equip, and a food is picked (not gear): the step chooses the food a skill eats.</summary>
+    bool EquipIsFood => Equipping && _target.Selected?.Key.StartsWith(FoodKeyPrefix, StringComparison.Ordinal) == true;
+    /// <summary>The skills that eat food (each has a food box), by entity id: their steps can wait for the food to run out.</summary>
+    readonly HashSet<string> _foodSkills = new();
+    bool HasFood => !Pseudo && _skillPick.Selected >= 0 && _skillPick.Selected < _skills.Count && _foodSkills.Contains(_skills[_skillPick.Selected].Entity.Id);
     bool _wasSelling;
 
     /// <summary>The goal kinds are list entries whose id is the <see cref="Until"/> number (Astrology has two more).</summary>
     Until Kind => _untilPick.Selected < 0 ? Until.Stops : (Until)_untilPick.GetSelectedId();
     Until OrKind => _orPick.Selected < 0 ? Until.Item : (Until)_orPick.GetSelectedId();
 
-    static void FillKinds(OptionButton pick, bool astrology, bool withStops)
+    /// <summary>The goals the chosen skill offers: the astrology ones for Astrology, "the food runs out" for a skill that eats.</summary>
+    void FillKinds(OptionButton pick, bool withStops)
     {
+        bool astrology = Astrology, food = HasFood;
         int keep = pick.Selected >= 0 ? pick.GetSelectedId() : -1;
         pick.Clear();
         for (int i = 0; i < UntilNames.Length; i++)
@@ -1571,6 +1945,7 @@ public sealed class QueueWindow
             var kind = (Until)i;
             if (kind == Until.Stops && !withStops) continue;
             if (kind is Until.Nodes or Until.Event && !astrology) continue;
+            if (kind == Until.FoodRunsOut && !food) continue;
             pick.AddItem(UntilNames[i], i);
         }
         int index = keep >= 0 ? pick.GetItemIndex(keep) : -1;
@@ -1588,9 +1963,11 @@ public sealed class QueueWindow
         if (pseudo)
         {
             // Sell: which item, and how many to keep in the bank. Equip: what to put on (and for a stack, how many to
-            // keep). Go to a saved queue: which one.
-            bool keep = selling || equipping && !EquipIsLoadout;
-            _untilLabel.Text = keep ? "keep" : "";
+            // keep; for a food, which skill eats it). Go to a saved queue: which one.
+            bool food = equipping && EquipIsFood;
+            bool keep = selling || equipping && !EquipIsLoadout && !food;
+            _untilLabel.Text = keep ? "keep" : food ? "for" : "";
+            _foodSkill.Visible = food;
             _item.Control.Visible = selling;
             _amount.Visible = keep;
             _levelPick.Visible = _orBox.Visible = _orRow.Visible = false;
@@ -1606,12 +1983,14 @@ public sealed class QueueWindow
                 : "For arrows, bolts, javelins and other stacks: how many to keep in the bank (0 puts all of them on).\nOther gear is simply put on.";
             _pseudoNote.Text = switching ? "the queue goes on with this saved queue once every step before it is over (in every lane)"
                 : equipping && EquipIsLoadout ? "switches to this loadout (gear, food, prayers and spells) while the game is open"
+                : food ? (_foodSkill.ItemCount == 0 ? "no skill in this game eats food" : "makes it the food this skill eats, as its own food box does, while the game is open")
                 : equipping ? "puts it on from the bank while the game is open" : "";
             _pseudoNote.Visible = _pseudoNote.Text != "";
             _wasSelling = true;
             return;
         }
         _pseudoNote.Visible = false;
+        _foodSkill.Visible = false;
         _untilLabel.Text = "until";
         _amount.TooltipText = "";
         if (_wasSelling)
@@ -1621,7 +2000,7 @@ public sealed class QueueWindow
             _amount.Value = _lastKind == Until.ItemLeft ? _amountLeft : Math.Max(1, _amountOther);
         }
         var kind = Kind;
-        _amount.Visible = kind is not (Until.Stops or Until.Mastery);
+        _amount.Visible = kind is not (Until.Stops or Until.Mastery or Until.FoodRunsOut);
         _item.Control.Visible = kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent;
         _amount.MinValue = kind == Until.ItemLeft ? 0 : 1;
         if (kind == Until.ItemLeft && _lastKind != Until.ItemLeft)
@@ -1658,7 +2037,7 @@ public sealed class QueueWindow
     void OrChanged()
     {
         var kind = OrKind;
-        _orAmount.Visible = kind is not (Until.Stops or Until.Mastery);
+        _orAmount.Visible = kind is not (Until.Stops or Until.Mastery or Until.FoodRunsOut);
         _orItem.Control.Visible = kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent;
         _orLevel.Visible = kind == Until.Level;
         _orNode.Visible = kind == Until.Nodes;
@@ -1775,8 +2154,17 @@ public sealed class QueueWindow
             }
         GamesByMalcs.Melvor2.Entities.Bank.BankEntity? bank = game.Entities.TryGetObjectById("MelvorBase:Bank", out GameEntity? b) ? b as GamesByMalcs.Melvor2.Entities.Bank.BankEntity : null;
         var gear = new List<PickEntry<Target>>();
+        var food = new List<PickEntry<Target>>();
         foreach (Item item in game.Data.GetDataRegistryOutput<Item>().GetAllObjects())
         {
+            // Food (0.13.0, by madmousepad): the step makes it the food of a skill picked next to the list.
+            if (item.Capabilities.TryGet<GamesByMalcs.Melvor2.Components.CombatFood.FoodCapability>(out _))
+            {
+                string foodName = item.DisplayName.GetPluralText(1);
+                int have = bank?.Inventory.GetQuantity(item) ?? 0;
+                food.Add(new PickEntry<Target>(FoodKeyPrefix + item.Id, foodName, new Target(item.Id, foodName, ""), "Food (for the skill you pick)", "", item.Icon, null,
+                    have > 0 ? $"{have:N0} in bank" : "", "The step makes it the food the skill picked next to this list eats.", Muted: have <= 0, Keywords: "food"));
+            }
             if (!item.Capabilities.TryGet<GamesByMalcs.Melvor2.Components.Equipment.EquipmentCapability>(out var equip)) continue;
             string name = item.DisplayName.GetPluralText(1);
             int owned = bank?.Inventory.GetQuantity(item) ?? 0;
@@ -1792,6 +2180,7 @@ public sealed class QueueWindow
                 owned > 0 ? $"{owned:N0} in bank" : "", Muted: owned <= 0));
         }
         entries.AddRange(gear.OrderBy(g => g.Group, StringComparer.OrdinalIgnoreCase).ThenBy(g => g.Text, StringComparer.OrdinalIgnoreCase));
+        entries.AddRange(food.OrderBy(f => f.Muted).ThenBy(f => f.Text, StringComparer.OrdinalIgnoreCase));
         return entries;
     }
 
@@ -1836,6 +2225,8 @@ public sealed class QueueWindow
             goal.SubjectName = chosen.Text;
             goal.Amount = 1;
         }
+        else if (kind == Until.FoodRunsOut)
+            goal.Amount = 0;   // (the step's skill and the food its box holds when the step runs: nothing to pick)
         return true;
     }
 
@@ -1854,6 +2245,17 @@ public sealed class QueueWindow
         if (Equipping)
         {
             if (_target.Selected is not { Enabled: true } gear || gear.Key == "") { Say("Choose what to equip first."); return; }
+            if (EquipIsFood)
+            {
+                if (_foodSkill.Selected < 0 || _foodSkill.ItemCount == 0) { Say("Choose the skill that eats this food first."); return; }
+                Put(new Step
+                {
+                    Entity = Step.EquipEntity, TargetId = gear.Value.Id, Subject = Step.FoodSubject, Lane = NewLane,
+                    Extra = _foodSkill.GetItemMetadata(_foodSkill.Selected).AsString(), SubjectName = _foodSkill.GetItemText(_foodSkill.Selected),
+                    Name = $"Equip: {gear.Text}",
+                });
+                return;
+            }
             bool loadout = EquipIsLoadout;
             bool stack = !loadout && _game != null && _game.Data.GetDataRegistryOutput<Item>().GetAllObjects().FirstOrDefault(i => i.Id == gear.Value.Id) is { } it
                 && it.Capabilities.TryGet<GamesByMalcs.Melvor2.Components.Equipment.EquipmentCapability>(out var cap) && cap.CanEquipQuantity;
@@ -1954,6 +2356,8 @@ public sealed class QueueWindow
     void EndEdit()
     {
         _editing = null;
+        // a food step edited for a skill this game does not have left the skill list empty: the next food gets the first skill
+        if (_foodSkill.Selected < 0 && _foodSkill.ItemCount > 0) _foodSkill.Select(0);
         _addButton.Text = "Add step";
         _cancelEdit.Visible = false;
     }
@@ -1974,9 +2378,27 @@ public sealed class QueueWindow
         if (skill < 0) { Say("This step's skill is not on the list here, so it cannot be edited (remove it and add it again)."); return; }
         ShowStepForm();
         _skillPick.Select(skill);
-        FillKinds(_untilPick, Astrology, withStops: true);
-        FillKinds(_orPick, Astrology, withStops: false);
-        FillTargets(Catalog.Key(s.TargetId, s.Extra), suggest: false);
+        FillKinds(_untilPick, withStops: true);
+        FillKinds(_orPick, withStops: false);
+        string wantKey = s.IsFood ? FoodKeyPrefix + s.TargetId : Catalog.Key(s.TargetId, s.Extra);
+        FillTargets(wantKey, suggest: false);
+        // Equip for an item (or loadout) this game does not have: shown as missing, not swapped for the list's first entry
+        // (saving then asks for a choice instead of quietly turning the step into another one).
+        if (Equipping && _target.SelectedKey != wantKey) _target.ShowMissing(wantKey, $"{s.Name} (not in this game)");
+        string foodNote = "";
+        if (s.IsFood)
+        {
+            // A skill this game does not have (a shared code): nothing is chosen, so saving asks for one instead of
+            // quietly giving the food to another skill.
+            _foodSkill.Select(-1);
+            for (int i = 0; i < _foodSkill.ItemCount; i++)
+                if (_foodSkill.GetItemMetadata(i).AsString() == s.Extra) { _foodSkill.Select(i); break; }
+            if (_foodSkill.Selected < 0)
+            {
+                _foodSkill.Text = "Choose a skill";
+                foodNote = $" {(s.SubjectName != "" ? s.SubjectName : s.Extra)} does not eat food in this game: pick the skill for it.";
+            }
+        }
         if (Selling) _item.Select(s.TargetId);
         else if (!Pseudo)
         {
@@ -2002,7 +2424,7 @@ public sealed class QueueWindow
         _editing = s;
         _addButton.Text = $"Save step {index + 1}";
         _cancelEdit.Visible = true;
-        Say($"Editing step {index + 1}: change it above and press \"Save step {index + 1}\" (or Cancel).");
+        Say($"Editing step {index + 1}: change it above and press \"Save step {index + 1}\" (or Cancel).{foodNote}");
     }
 
     /// <summary>Puts a goal's item, skill, node kind or event back into its pickers.</summary>
@@ -2062,9 +2484,41 @@ public sealed class QueueWindow
         SelectRow(index);
     }
 
+    PopupMenu _stepMenu = null!;
+
+    /// <summary>"Run from here" (button, or the right-click menu): the queue goes on from the selected step.</summary>
+    void RunFromSelected()
+    {
+        int index = SelectedIndex();
+        if (index < 0 || index >= Queue.Steps.Count) { Say("Select a step in the list first, then press \"Run from here\"."); return; }
+        if (Queue.RunFrom(index)) SelectRow(index);
+    }
+
+    /// <summary>For tests: "Run from here" on a step, as the button does; whether the button can be pressed; the right-click menu.</summary>
+    public void PressRunFrom(int index) { SelectRow(index); RunFromSelected(); }
+    public bool RunFromEnabled => !_runFrom.Disabled;
+    public List<string> StepMenuItems => Enumerable.Range(0, _stepMenu.ItemCount).Select(i => _stepMenu.GetItemText(i)).ToList();
+    public void PressStepMenu(int index, int id) { SelectRow(index); _stepMenu.EmitSignal(PopupMenu.SignalName.IdPressed, id); }
+    /// <summary>For tests: the Equip face with a food and the skill that eats it, as the clicks do it; the skills offered.</summary>
+    public bool ChooseFood(string itemId, string skillId)
+    {
+        _skillPick.Select(_skills.Count + 1);
+        _skillPick.EmitSignal(OptionButton.SignalName.ItemSelected, _skills.Count + 1);
+        if (!_target.Pick(FoodKeyPrefix + itemId)) return false;
+        for (int i = 0; i < _foodSkill.ItemCount; i++)
+            if (_foodSkill.GetItemMetadata(i).AsString() == skillId) { _foodSkill.Select(i); return _foodSkill.Visible; }
+        return false;
+    }
+    public List<string> FoodSkillsShown => _foodSkill.Visible ? Enumerable.Range(0, _foodSkill.ItemCount).Select(i => _foodSkill.GetItemText(i)).ToList() : new List<string>();
+    public string FoodSkillChosen => _foodSkill.Visible && _foodSkill.Selected >= 0 ? _foodSkill.GetItemText(_foodSkill.Selected) : "";
+    /// <summary>For tests: what the State column shows for a step, and its tooltip.</summary>
+    public string StateText(int index) => StepRows().FirstOrDefault(r => (int)r.GetMetadata(0) == index)?.GetText(3) ?? "";
+    public string StateTip(int index) => StepRows().FirstOrDefault(r => (int)r.GetMetadata(0) == index)?.GetTooltipText(3) ?? "";
+
     void PaintLaneButton()
     {
         int index = SelectedIndex();
+        if (_runFrom != null) _runFrom.Disabled = index < 0 || index >= Queue.Steps.Count;
         _laneButton.Text = index >= 0 && index < Queue.Steps.Count ? $"Lane {Math.Clamp(Queue.Steps[index].Lane, 1, Queue.MaxLanes)} > {Math.Clamp(Queue.Steps[index].Lane, 1, Queue.MaxLanes) % LanesOffered() + 1}" : "Change lane";
     }
 
@@ -2113,13 +2567,22 @@ public sealed class QueueWindow
             row.SetText(0, (i + 1).ToString());
             row.SetText(1, step.Name);
             row.SetText(2, step.Goal);
-            row.SetText(3, step.State);
+            // Waiting for its turn in a new round: how it ended last time stays in view ("last time: done: out of runes").
+            bool last = step.State == "" && step.LastResult != "" && Queue.Running;
+            string state = last ? $"last time: {step.LastResult}" : step.State;
+            row.SetText(3, state);
+            // (once it runs again, the tooltip still says how it ended the last time)
+            row.SetTooltipText(3, !last && Queue.Running && step.LastResult != "" && step.State != step.LastResult ? $"{state}\nlast time: {step.LastResult}" : state);
+            row.SetTooltipText(1, step.Name);
+            row.SetTooltipText(2, step.Goal);
             row.SetCustomColor(0, Style.Muted);
             row.SetCustomColor(3, step.State.StartsWith("skipped") ? Style.Bad : current ? Style.Good : waiting ? Style.Accent : Style.Muted);
             if (current)
                 for (int c = 0; c < 4; c++) row.SetCustomBgColor(c, new Color(Style.GoodDim, 0.55f));
         }
         if (selected >= 0 && selected < Queue.Steps.Count) SelectRow(selected);
+        else PaintLaneButton();
+        Callable.From(PlaceDividers).CallDeferred();   // (a scroll bar that came or went moves the column borders)
 
         _run.Text = Queue.Running ? "Pause" : "Start the queue";
         if (_editing != null && !Queue.Steps.Contains(_editing)) EndEdit();   // the step being edited is gone (removed, another queue)
@@ -2135,6 +2598,7 @@ public sealed class QueueWindow
         _syncing = false;
         PaintIdle();
         PaintStop();
+        PaintThen();
         if (Queue.Note != "") Say(Queue.Note);
         else if (Queue.Running) Say(Queue.Headline);
         PaintQuick();

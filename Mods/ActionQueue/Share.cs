@@ -23,8 +23,12 @@ public static class Share
     /// <summary>Codes with the queue's own stop (0.12.0): an older version refuses them instead of running the queue without
     /// its stop, which would go round for ever.</summary>
     public const string Prefix3 = "AQ3:";
+    /// <summary>Codes with what 0.13.0 added (the "food runs out" goal, food for a skill, a stop looked at when a round is
+    /// over): an older version refuses them instead of reading the food step as gear or stopping too early.</summary>
+    public const string Prefix4 = "AQ4:";
 
     static bool UsesNew(Step s) => s.Or != null || s.Until > Until.Spent || s.IsEquip || s.IsSwitch;
+    static bool Uses013(Step s) => s.Until == Until.FoodRunsOut || s.Or?.Until == Until.FoodRunsOut || s.IsFood;
     public const int MaxCodeLength = 20_000;
     public const int MaxSteps = 200;
     const int MaxText = 120;
@@ -38,6 +42,8 @@ public static class Share
         public List<PackedStep> S { get; set; } = new();
         [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
         public PackedGoal? W { get; set; }    // the queue's own stop, "stop the whole queue when ..." (missing: none)
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+        public bool Z { get; set; }           // that stop is looked at when a round is over (0.13.0; missing: at once)
     }
 
     sealed class PackedStep
@@ -67,13 +73,14 @@ public static class Share
     }
 
     static bool Sensible(int until, double amount) =>
-        until >= 0 && until <= (int)Until.Mastery && !double.IsNaN(amount) && !double.IsInfinity(amount) && amount >= 0 && amount <= 1_000_000_000;
+        until >= 0 && until <= (int)Until.FoodRunsOut && !double.IsNaN(amount) && !double.IsInfinity(amount) && amount >= 0 && amount <= 1_000_000_000;
 
-    public static string Export(string name, IEnumerable<Step> steps, bool repeat, Goal? stop = null)
+    public static string Export(string name, IEnumerable<Step> steps, bool repeat, Goal? stop = null, bool stopAtEnd = false)
     {
+        stopAtEnd = stopAtEnd && stop != null;
         var packed = new Packed
         {
-            N = name, R = repeat,
+            N = name, R = repeat, Z = stopAtEnd,
             W = stop == null ? null : new PackedGoal { U = (int)stop.Until, A = stop.Amount, J = stop.Subject, K = stop.SubjectName },
             S = steps.Select(s => new PackedStep { E = s.Entity, T = s.TargetId, X = s.Extra, N = s.Name, U = (int)s.Until, A = s.Amount, J = s.Subject, K = s.SubjectName, L = s.Lane > 1 ? Math.Min(s.Lane, Queue.MaxLanes) : 0, M = s.Mode,
                 O = s.Or == null ? null : new PackedGoal { U = (int)s.Or.Until, A = s.Or.Amount, J = s.Or.Subject, K = s.Or.SubjectName } }).ToList(),
@@ -81,25 +88,37 @@ public static class Share
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(packed);
         using var buffer = new MemoryStream();
         using (var deflate = new DeflateStream(buffer, CompressionLevel.SmallestSize, leaveOpen: true)) deflate.Write(json, 0, json.Length);
-        string head = stop != null ? Prefix3 : steps.Any(UsesNew) ? Prefix2 : Prefix;
+        string head = stopAtEnd || steps.Any(Uses013) ? Prefix4 : stop != null ? Prefix3 : steps.Any(UsesNew) ? Prefix2 : Prefix;
         return head + Convert.ToBase64String(buffer.ToArray()).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
     public static bool TryImport(string? code, out string name, out List<Step> steps, out bool repeat, out string problem) =>
-        TryImport(code, out name, out steps, out repeat, out _, out problem);
+        TryImport(code, out name, out steps, out repeat, out _, out _, out problem);
 
-    public static bool TryImport(string? code, out string name, out List<Step> steps, out bool repeat, out Goal? stop, out string problem)
+    public static bool TryImport(string? code, out string name, out List<Step> steps, out bool repeat, out Goal? stop, out string problem) =>
+        TryImport(code, out name, out steps, out repeat, out stop, out _, out problem);
+
+    public static bool TryImport(string? code, out string name, out List<Step> steps, out bool repeat, out Goal? stop, out bool stopAtEnd, out string problem)
     {
         name = "";
         steps = new List<Step>();
         repeat = false;
         stop = null;
+        stopAtEnd = false;
         problem = "";
         code = new string((code ?? "").Where(c => !char.IsWhiteSpace(c)).ToArray());
         if (code.Length == 0) { problem = "There is no code to read. Paste one into the box first."; return false; }
         if (code.Length > MaxCodeLength) { problem = "That text is too long to be a share code."; return false; }
-        string prefix = code.StartsWith(Prefix3, StringComparison.Ordinal) ? Prefix3 : code.StartsWith(Prefix2, StringComparison.Ordinal) ? Prefix2 : Prefix;
-        if (!code.StartsWith(prefix, StringComparison.Ordinal)) { problem = $"That is not an Action Queue share code (it must start with {Prefix}, {Prefix2} or {Prefix3})."; return false; }
+        string prefix = new[] { Prefix4, Prefix3, Prefix2 }.FirstOrDefault(p => code.StartsWith(p, StringComparison.Ordinal)) ?? Prefix;
+        if (!code.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            // "AQ5:..." and later: made by a newer Action Queue than this one.
+            int colon = code.IndexOf(':');
+            problem = colon > 2 && colon <= 6 && code.StartsWith("AQ", StringComparison.Ordinal) && code[2..colon].All(char.IsDigit)
+                ? "That code was made by a newer version of Action Queue. Update the mod to read it."
+                : $"That is not an Action Queue share code (it must start with {Prefix}, {Prefix2}, {Prefix3} or {Prefix4}).";
+            return false;
+        }
 
         Packed? packed;
         try
@@ -152,6 +171,7 @@ public static class Share
                 return false;
             }
             stop = new Goal { Until = (Until)w.U, Amount = w.A, Subject = Clip(w.J), SubjectName = Clip(w.K) };
+            stopAtEnd = packed.Z;
         }
         name = CleanName(packed.N);
         repeat = packed.R;

@@ -1,4 +1,4 @@
-Action Queue 0.12.1  -  a mod for Melvor Idle 2
+Action Queue 0.13.0  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:
@@ -28,7 +28,10 @@ HOW TO USE
 ----------
 Open a character and press F6 (or pick it from the Mods button in the top bar; the key can be changed there).
 Drag the window by its title bar to move it; it opens where you left it. Double-click the title bar
-to put it back in the middle.
+to put it back in the middle. Drag its right edge to make it wider, or the grip in its bottom-right
+corner to make it wider and taller (the step list gets the room). A double-click on that grip gives
+it back its normal size. In the list's title row, the thin handles after "Do" and "Until" set those
+columns' widths; a double-click on one puts the normal widths back. All of it is kept for next time.
   1. Pick a skill and what to do (or press "Use what I am doing now"). Click the list and
      type to search; arrows and Enter work too. The list is grouped like the skill's own
      page, in the game's order. Things you have not unlocked yet are dimmed with the level
@@ -52,7 +55,8 @@ to put it back in the middle.
      fight, the runes your spells used and the arrows, bolts or other ammo you shot. Food
      your preservation chance kept is not counted: only what really left the bank.
      Astrology has two more goals (see ASTROLOGY). Every skill also has "a mastery task
-     is complete" (see MASTERY TASKS).
+     is complete" (see MASTERY TASKS). A fight, Thieving and Agility also have "the food
+     runs out" (see FOOD).
   2b. Tick "or" to give the step a second goal: a second row "or until ..." appears. The
      step is over when either goal is reached, and its state says which one ended it.
      For example: thieve the Bandit Chief until a Gold Topaz Ring is in the bank, or until
@@ -69,6 +73,10 @@ To change a step, select it and press "Edit": the step is shown in the form abov
 what you like and press "Save step N": it stays in its place ("Cancel" leaves it as it
 was). A running step that is changed starts again with its new settings; one that is
 already done this round stays done.
+To jump, select a step and press "Run from here" (or right-click the step): the queue goes on
+from that step. The steps before it are skipped this round (one that runs is stopped), and the
+step and the ones after it start afresh, also when they were done. With lanes only that step's
+lane jumps; the other lanes go on. A queue that is not running is started from that step.
 
 
 THE GAME'S OWN BUTTONS
@@ -181,12 +189,29 @@ Choose "Equip" at the end of the skill list, then what to put on:
   - Like a sale, it waits for the steps before it, and nothing after it starts before it
     is done. Gear is only changed while the game is open: while the game works out the
     time you were away, the step waits ("waits for the game to be open").
+  - At the end of the list is the food. Pick one and, next to it, the skill that eats it
+    (a fight, Thieving, Agility): the step makes it that skill's food, as the skill's own food
+    box does (see FOOD).
   - With the One Style mod: its Magic, Rare and Unique items work in Equip, Sell and item
     goals. The lists show the ones you own (in the bank or worn), in their rarity colour,
     with their affixes when you point at them. A step for one you have since sold is
     skipped with "this rare item is no longer owned".
 Example (start over at the end ON): fight the Golbins (the step ends when the arrows run
 out) -> Fletching: Bronze Arrows, make 500 more -> Equip: Bronze Arrows, keep 0 -> again.
+
+
+FOOD
+----
+A fight, Thieving and Agility each eat from their own food box. Two things work with it:
+  - Equip, then a food from the end of the list, then the skill that eats it: the step puts
+    that food in the skill's food box. Only while the game is open, like other gear. No food
+    of that kind in the bank skips the step; a food that is chosen already simply ends it.
+  - "the food runs out" as a goal (or as the second goal, "or until"): the step ends when the
+    food its skill has chosen is gone from the bank. It follows whatever food the box holds
+    when the step runs, so an Equip step before it can change the food and the goal still
+    fits. With no food chosen, or none left, the step ends at once and says so.
+Example (start over at the end ON): Cooking: Shrimp, make 200 more -> Equip: Shrimp for
+Thieving -> Thieving: Bandit Chief until the food runs out -> again.
 
 
 GO TO A SAVED QUEUE
@@ -196,9 +221,14 @@ queues. When every step before it is over (with lanes: every lane), the queue go
 with that saved queue, from its first step, as if you had loaded it. Put it last to chain
 queues: "Smithing day" -> "Fishing evening" -> back to "Smithing day".
   - The steps on screen are kept the way loading always keeps them (a changed or unsaved
-    queue as "Unsaved queue (auto)").
-  - A name that no longer exists skips the step. Queues that only send each other back
-    and forth without anything being done stop after a few rounds, and say so.
+    queue as "Unsaved queue (auto)"). In lanes it waits until every other lane is through;
+    steps after it in its own lane are not done (the queue goes on with the saved queue).
+  - A name that no longer exists skips the step.
+  - Saved queues that only send each other round stop: when the chain comes back to a
+    queue it already left without anything being done since, the queue ends and says so.
+    Any number of queues that do nothing for now (things you have not unlocked yet) can be
+    passed on the way to one that works. Putting on gear, a loadout or food does not count as
+    doing something here (it can be undone and done again for ever).
   - It also works while the game is closed. Share codes keep it (as a name: the other
     player needs a saved queue with that name).
 
@@ -258,14 +288,26 @@ still:
     waits until you start something yourself; when that ends, it comes back. It waits a
     few seconds after a character is opened.
   - "Nothing" switches it off. The choices are kept per character.
+Under it, "When the queue ends, go on with" [saved queue] starts one of your saved queues, from
+its first step, once this queue has ended: its steps are done ("Start over at the end" off), or
+its own stop was reached (see below). Pausing, emptying the queue or stopping its last step
+yourself does not count. A queue never starts itself again this way, so when the saved queue
+you picked ends, the queue finishes and the idle action takes over. "nothing" switches it off;
+a saved queue you have since deleted is shown as "(no longer saved)" and the queue simply ends.
+It is a setting of the character, like the idle action, not part of a saved queue.
 
 
 STOP THE WHOLE QUEUE WHEN
 -------------------------
-Under the buttons: "Stop the whole queue when" [what] [number] [item or skill]. Once that is
-reached, every step stops and the queue ends, also with "Start over at the end" on and in
-lanes, and also while the game is closed. The action under "When the queue waits or ends"
-then takes over.
+Under the buttons: "Stop the whole queue when" [what] [number] [item or skill] [when]. Once
+that is reached, every step stops and the queue ends, also with "Start over at the end" on and
+in lanes, and also while the game is closed. The action under "When the queue waits or ends"
+then takes over (or the saved queue under "When the queue ends, go on with").
+  - [when] is "at once" (the queue stops the moment it is true, in the middle of a step) or
+    "when a round is over": the queue first finishes the round it is in, so a sale or an equip
+    at the end of the round still happens. In lanes, a lane that is through does not start
+    over while it is true, and the queue ends once every lane is through. Started while it is
+    true already, the queue does one round and then stops.
   - "I own this many of an item": e.g. thieve, fish and cook round after round until 1
     Bandit Gloves is in the bank, then stop.
   - "a skill reaches this level", "only this many of an item are left", "a mastery task is
@@ -275,7 +317,7 @@ then takes over.
   - Pick the kind first, then the item or skill. Until you pick one the queue has no stop of
     its own, so nothing left over from before can stop it by surprise.
   - Already reached when you set it or press Start: the window says so, and the queue stops
-    or does not start.
+    or does not start ("at once"), or does this one round ("when a round is over").
   - A sale or an equip step that brings you there ends the queue at once: the next step does
     not start.
   - While the game is closed the queue never ends a fight. The other steps stop, nothing
@@ -297,9 +339,11 @@ Press "Saved queues" at the top of the window.
     "Unsaved queue (auto)" when you load another one. Nothing is lost by switching.
   - "Copy share code" turns a queue into a short text (AQ1:... or, when it uses an "or"
     goal, an astrology goal, an Equip or a "Go to a saved queue" step, AQ2:...; with a
-    "Stop the whole queue when", AQ3:...). Paste it in a chat. A version older than 0.10
-    cannot read an AQ2 code, and one older than 0.12 cannot read an AQ3 code: it refuses it
-    instead of running the queue without its stop.
+    "Stop the whole queue when", AQ3:...; with food for a skill, "the food runs out" or a stop
+    "when a round is over", AQ4:...). Paste it in a chat. A version older than 0.10 cannot read
+    an AQ2 code, one older than 0.12 an AQ3 code and one older than 0.13 an AQ4 code: it
+    refuses it instead of running the queue without those parts. A code made by a newer version
+    than yours says so: update the mod to read it.
   - To use somebody's code: paste it into the box and press Import, then Load it.
     A code only holds names and numbers. Steps for things your game does not have are
     skipped, and so are steps you have not unlocked yet.
@@ -337,7 +381,10 @@ GOOD TO KNOW
   "done: out of ammo" (or "out of runes") and the queue goes on with the next step.
   A fight you cannot attack in is not started at all ("skipped: out of ammo"), so with
   "start over at the end" on it is not started again and again; and a fight as the idle
-  action is stopped (or not started) the same way.
+  action is stopped (or not started) the same way. When the game itself ends such a fight,
+  the step says why too.
+- With "start over at the end" on, a step that waits for its turn in the next round shows how
+  it ended the last time ("last time: done: out of runes"), until it starts again.
 - With the Multitask mod and a free slot, what you keep running yourself (a fight next to
   the queue's smithing) goes on while the queue moves from one step to the next; it is no
   longer stopped and started again from the beginning.
@@ -353,6 +400,13 @@ GOOD TO KNOW
 - The queue is remembered per character in "queue.json" next to the mod.
 - With side by side switched off, the Multitask mod keeps what you were doing before
   running beside the queue instead.
+
+
+THANKS
+------
+"Run from here", food for a skill, "the food runs out", the queue to go on with, the stop when a
+round is over, the bigger window and the column widths came from madmousepad (lmadrabbitl on
+GitHub), who made them for their own game and shared them. Thank you!
 
 
 UNINSTALL

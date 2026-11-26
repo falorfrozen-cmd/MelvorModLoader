@@ -15,12 +15,25 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.12.1.zip   (name: Action Queue, version 0.12.1)  -  0.12.0 dosyasini Archived yap
+MAIN FILE:  dist\ActionQueue-0.13.0.zip   (name: Action Queue, version 0.13.0)  -  0.12.1 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.13.0
+- New: "Run from here". Select a step and press it (or right-click the step): the queue goes on from that step. The steps before it are skipped this round, the step and the ones after it start afresh. In lanes only that lane jumps, and a queue that is not running starts from that step
+- New: food for a skill. Equip lists food at the end of its list: pick one and the skill that eats it (a fight, Thieving, Agility), and the step puts it in that skill's food box
+- New goal: "the food runs out", for a fight, Thieving and Agility. The step ends when the food its skill has chosen is gone from the bank. Cook, put the food in, thieve until it runs out, start over
+- New: "When the queue ends, go on with" a saved queue. Once the queue's steps are done, or its own stop is reached, that saved queue starts from its first step. A queue never starts itself again this way
+- New: the queue's stop can wait "when a round is over". The round finishes first, so a sale or an equip at its end still happens, and then the queue stops
+- The window can be made bigger: drag its right edge or the grip in its bottom-right corner, and the step list gets the room. The Do and Until columns can be dragged wider or narrower in the list's title row. It is all kept for next time
+- A step that waits for its turn in the next round shows how it ended the last time ("last time: done: out of runes"). When the game itself ends a fight you can no longer attack in, the step says why
+- Share codes with these new things start with AQ4: (older versions refuse them). A code from a newer version than yours now says to update the mod
+- Fixed: a chain of saved queues stopped with "the saved queues go to each other without doing anything" after passing three queues that could not do anything yet, even when the next one would have worked. It now stops only when the chain comes back to a queue it already left without anything being done, so any number of locked queues can be passed (reported on Discord, thank you!). Queues that only swap gear, a loadout or food back and forth now stop too
+- Fixed: a "Go to a saved queue" step in the middle of a lane, with steps after it in that lane, waited for ever. It now waits for the other lanes only
+- All of this came from madmousepad (lmadrabbitl on GitHub), who built it for their own game and shared it on Discord. Thank you!
+
 0.12.1
 - The window can be moved: drag it by its title bar. It opens where you left it, and a double-click on the title bar puts it back in the middle (asked for on Nexus, thank you!)
 
@@ -130,7 +143,18 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.12.1[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again.
+This is Action Queue [b]0.13.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+
+[size=5][b]New in 0.13: run from a step, food, what comes next[/b][/size]
+Select a step and press [b]Run from here[/b] (or right-click it): the queue goes on from that step. In lanes only that step's lane jumps, and a queue that is not running starts from there.
+
+Equip now lists food too. Pick one and the skill that eats it (a fight, Thieving or Agility). A new goal, [b]the food runs out[/b], ends a step when that food is gone from the bank. Cook, put the food in, thieve until it runs out, start over.
+
+Under the stop row, [b]When the queue ends, go on with[/b] starts one of your saved queues once this one is done or its stop is reached. The stop itself can now wait [b]when a round is over[/b], so the sale at the end of the round still happens.
+
+The window can be made bigger by its right edge or bottom-right corner, and the Do and Until columns can be dragged wider in the list's title row.
+
+All of this came from madmousepad (lmadrabbitl on GitHub), who built it for their own game and shared it. Thank you!
 
 [size=5][b]New in 0.12: stop the whole queue, mastery tasks[/b][/size]
 Under the buttons there is now [b]Stop the whole queue when[/b]: you own this many of an item, a skill reaches a level, or only this many of an item are left. Once that happens every step stops and the queue ends, even with "Start over at the end" on, in lanes and while the game is closed, and your idle action takes over. Farm a drop round after round (thieve, fish for food, cook it, start over) and the queue stops by itself when the drop is in your bank.
@@ -221,7 +245,7 @@ Plans cover Woodcutting, Mining, Fishing, Hunting, Smithing, Cooking, Crafting, 
 [size=5][b]How it works[/b][/size]
 [list]
 [*][b]Pick what to do:[/b] choose a skill, then click the list and type to search (grouped like the skill page, with the game's pictures), or press "Use what I am doing now".
-[*][b]Pick when it ends:[/b] when it stops by itself, when you own a number of an item, when you have made a number more of an item (whatever the bank already holds), when it has been done a number of times (every catch, hit, finished bar, lap or kill counts, like mastery), when it has used up a number of an item, when a skill reaches a level, after a number of minutes, or when only a number of an item are left (fight until only 5 of your food are left). For the item goal the item is filled in with what the action makes (Smithing: Gold Bar counts Gold Bars); you can still pick another one.
+[*][b]Pick when it ends:[/b] when it stops by itself, when you own a number of an item, when you have made a number more of an item (whatever the bank already holds), when it has been done a number of times (every catch, hit, finished bar, lap or kill counts, like mastery), when it has used up a number of an item, when a skill reaches a level, after a number of minutes, when only a number of an item are left (fight until only 5 of your food are left), or when the food runs out (a fight, Thieving, Agility). For the item goal the item is filled in with what the action makes (Smithing: Gold Bar counts Gold Bars); you can still pick another one.
 [*][b]Sacrificial Anvil per step:[/b] when the recipe has the game's anvil switch, tick the box next to it and that step smiths with the anvil; leave it unticked and it smiths without.
 [*][b]Start the queue.[/b] One line at the top of the screen shows the current step and its progress.
 [*][b]Start over at the end[/b] turns the queue into a loop.
@@ -257,7 +281,7 @@ On its own the queue does one step after another. Add the [url=https://www.nexus
 [list=1]
 [*]Install [b]Melvor Mod Loader[/b] first (see Requirements).
 [*]Open the game folder: Steam > right-click Melvor Idle 2 > Manage > Browse local files.
-[*]Extract [b]ActionQueue-0.9.1.zip[/b] there. The mod ends up in [b]mods\ActionQueue[/b].
+[*]Extract the downloaded zip there. The mod ends up in [b]mods\ActionQueue[/b].
 [*]Start the game from Steam as usual.
 [/list]
 No installer, no .exe, no script. Nothing is written outside the game folder.
