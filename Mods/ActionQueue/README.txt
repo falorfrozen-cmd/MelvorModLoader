@@ -1,4 +1,4 @@
-Action Queue 0.12.0  -  a mod for Melvor Idle 2
+Action Queue 0.12.1  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:
@@ -27,6 +27,8 @@ INSTALL
 HOW TO USE
 ----------
 Open a character and press F6 (or pick it from the Mods button in the top bar; the key can be changed there).
+Drag the window by its title bar to move it; it opens where you left it. Double-click the title bar
+to put it back in the middle.
   1. Pick a skill and what to do (or press "Use what I am doing now"). Click the list and
      type to search; arrows and Enter work too. The list is grouped like the skill's own
      page, in the game's order. Things you have not unlocked yet are dimmed with the level

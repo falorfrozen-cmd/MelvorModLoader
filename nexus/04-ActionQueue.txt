@@ -15,12 +15,15 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.12.0.zip   (name: Action Queue, version 0.12.0)  -  0.11.0 dosyasini Archived yap
+MAIN FILE:  dist\ActionQueue-0.12.1.zip   (name: Action Queue, version 0.12.1)  -  0.12.0 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.12.1
+- The window can be moved: drag it by its title bar. It opens where you left it, and a double-click on the title bar puts it back in the middle (asked for on Nexus, thank you!)
+
 0.12.0
 - New: "Stop the whole queue when ..." under the buttons: I own this many of an item, a skill reaches this level, or only this many of an item are left. Once it is reached every step stops and the queue ends, also with "Start over at the end" on, in lanes and while the game is closed, and your idle action takes over. E.g. thieve, fish and cook round after round until Bandit Gloves drop, then stop (asked for on Nexus, thank you!)
 - The stop is kept in saved queues and share codes (a code with a stop starts with AQ3:; older versions refuse it instead of running the queue without its stop)
@@ -127,7 +130,7 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.12.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed).
+This is Action Queue [b]0.12.1[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again.
 
 [size=5][b]New in 0.12: stop the whole queue, mastery tasks[/b][/size]
 Under the buttons there is now [b]Stop the whole queue when[/b]: you own this many of an item, a skill reaches a level, or only this many of an item are left. Once that happens every step stops and the queue ends, even with "Start over at the end" on, in lanes and while the game is closed, and your idle action takes over. Farm a drop round after round (thieve, fish for food, cook it, start over) and the queue stops by itself when the drop is in your bank.

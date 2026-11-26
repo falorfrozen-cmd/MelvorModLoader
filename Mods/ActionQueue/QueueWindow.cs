@@ -141,17 +141,22 @@ public sealed class QueueWindow
         var shade = new ColorRect { Color = new Color(0, 0, 0, 0.25f), MouseFilter = Control.MouseFilterEnum.Ignore };
         shade.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _layer.AddChild(shade);
-        var center = new CenterContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
-        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        _layer.AddChild(center);
+        // The window sits where the player dragged it (centred at first): a plain holder, not a centring container.
+        _holder = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _holder.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _layer.AddChild(_holder);
 
         var panel = new PanelContainer { CustomMinimumSize = new Vector2(1000, 700), Theme = s_theme };
         StyleBoxFlat frame = Style.Box(Style.Window, 8, Style.AccentDim, 1);
         frame.ShadowColor = new Color(0, 0, 0, 0.55f);
         frame.ShadowSize = 14;
         panel.AddThemeStyleboxOverride("panel", frame);
-        center.AddChild(panel);
+        _holder.AddChild(panel);
         Panel = panel;
+        panel.Resized += Place;
+        panel.MinimumSizeChanged += Place;
+        _holder.Resized += Place;
+        _offset = ReadPlace();
 
         var root = new VBoxContainer();
         root.AddThemeConstantOverride("separation", 0);
@@ -162,8 +167,10 @@ public sealed class QueueWindow
         headBox.CornerRadiusTopLeft = headBox.CornerRadiusTopRight = 7;
         headBox.BorderColor = Style.Line;
         headBox.BorderWidthBottom = 1;
-        var head = new PanelContainer();
+        var head = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Stop, MouseDefaultCursorShape = Control.CursorShape.Move,
+            TooltipText = "Drag here to move the window. Double-click to put it back in the middle." };
         head.AddThemeStyleboxOverride("panel", headBox);
+        head.GuiInput += DragTitle;
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 12);
         header.AddChild(Style.Label("ACTION QUEUE", Style.Accent, 20));
@@ -604,6 +611,79 @@ public sealed class QueueWindow
         foreach (string n in names) pick.AddItem(n);
         if (pick.ItemCount > 0) pick.Select(Math.Clamp(select, 0, pick.ItemCount - 1));
     }
+
+    // ---------------------------------------------------------------- moving the window (asked for on Nexus, 26 Nov)
+
+    Control _holder = null!;
+    /// <summary>How far the window is from the middle of the screen (0, 0: centred). Kept in queue-window.json.</summary>
+    Vector2 _offset;
+    bool _dragging;
+
+    /// <summary>Puts the window at its place: the middle plus the player's offset, kept on the screen (the title bar always is).</summary>
+    void Place()
+    {
+        if (_holder == null || Panel == null) return;
+        // as the centring container did: the window is as big as its content needs, and shrinks again with it
+        Vector2 min = Panel.GetCombinedMinimumSize();
+        if (Panel.Size != min) Panel.Size = min;
+        Vector2 area = _holder.Size, size = Panel.Size;
+        if (area.X <= 0 || area.Y <= 0) return;
+        Vector2 centred = ((area - size) / 2).Floor();
+        Vector2 at = centred + _offset;
+        at.X = Math.Clamp(at.X, Math.Min(0, area.X - size.X), Math.Max(0, area.X - size.X));
+        at.Y = Math.Clamp(at.Y, 0, Math.Max(0, area.Y - size.Y));
+        at = at.Round();
+        _offset = at - centred;   // what does not fit is not kept: the window never hides off screen later
+        if (Panel.Position != at) Panel.Position = at;
+    }
+
+    /// <summary>The title bar: drag to move, double-click to centre again.</summary>
+    void DragTitle(InputEvent e)
+    {
+        if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left } b)
+        {
+            if (b.DoubleClick) { _dragging = false; _offset = Vector2.Zero; Place(); SavePlace(); return; }
+            _dragging = b.Pressed;
+            if (!b.Pressed) SavePlace();
+        }
+        else if (e is InputEventMouseMotion m && _dragging)
+        {
+            _offset += m.Relative;
+            Place();
+        }
+    }
+
+    static string PlaceFile => System.IO.Path.Combine(Queue.Dir, "queue-window.json");
+
+    static Vector2 ReadPlace()
+    {
+        try
+        {
+            if (Queue.Dir == "" || !System.IO.File.Exists(PlaceFile)) return Vector2.Zero;
+            using var doc = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText(PlaceFile));
+            float x = (float)doc.RootElement.GetProperty("X").GetDouble(), y = (float)doc.RootElement.GetProperty("Y").GetDouble();
+            return float.IsFinite(x) && float.IsFinite(y) ? new Vector2(x, y) : Vector2.Zero;
+        }
+        catch (Exception) { return Vector2.Zero; }
+    }
+
+    void SavePlace()
+    {
+        try { if (Queue.Dir != "") System.IO.File.WriteAllText(PlaceFile, $"{{\"X\": {_offset.X.ToString(System.Globalization.CultureInfo.InvariantCulture)}, \"Y\": {_offset.Y.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}"); }
+        catch (Exception) { }   // a place that could not be kept: the window still moves, it is centred next time
+    }
+
+    /// <summary>For tests: drag the title bar by this much (press, move, release, as a mouse does), or double-click it.</summary>
+    public void DragTitleBy(Vector2 by)
+    {
+        DragTitle(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true });
+        DragTitle(new InputEventMouseMotion { Relative = by });
+        DragTitle(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false });
+    }
+    public void DoubleClickTitle() => DragTitle(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, DoubleClick = true });
+    public Vector2 PanelPosition => Panel.Position;
+    public Vector2 PanelSize => Panel.Size;
+    public Vector2 ScreenSize => _holder.Size;
 
     public void Show(Game game)
     {
