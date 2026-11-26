@@ -15,12 +15,18 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.11.0.zip   (name: Action Queue, version 0.11.0)  -  0.10.0 dosyasini Archived yap
+MAIN FILE:  dist\ActionQueue-0.12.0.zip   (name: Action Queue, version 0.12.0)  -  0.11.0 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.12.0
+- New: "Stop the whole queue when ..." under the buttons: I own this many of an item, a skill reaches this level, or only this many of an item are left. Once it is reached every step stops and the queue ends, also with "Start over at the end" on, in lanes and while the game is closed, and your idle action takes over. E.g. thieve, fish and cook round after round until Bandit Gloves drop, then stop (asked for on Nexus, thank you!)
+- The stop is kept in saved queues and share codes (a code with a stop starts with AQ3:; older versions refuse it instead of running the queue without its stop)
+- New: a step can wait for a Mastery Guild task with "a mastery task is complete". The list holds the tasks of the step's skill (for a fight, the combat skills), the ones for the chosen target first and with their progress. It works as an "or" goal and in "Stop the whole queue when" too (asked for on Nexus, thank you!)
+- Fixed: "Plan an item" with "Own in total" and "every material" made the item's step "make N more". It is now "until I own N", so a queue that starts over stops at your number (reported on Nexus, thank you!)
+
 0.11.0
 - New: "Edit" next to Move up / Move down. The selected step opens in the form; change it and press "Save step N" and it stays in its place, no more adding a new one and removing the old (asked for on Nexus, thank you!)
 - Fixed: a planned queue that starts over did nothing after its first round (also while you were away): its item step was "until I own N", which is reached once (reported on Nexus, thank you!)
@@ -121,7 +127,12 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.11.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed).
+This is Action Queue [b]0.12.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed).
+
+[size=5][b]New in 0.12: stop the whole queue, mastery tasks[/b][/size]
+Under the buttons there is now [b]Stop the whole queue when[/b]: you own this many of an item, a skill reaches a level, or only this many of an item are left. Once that happens every step stops and the queue ends, even with "Start over at the end" on, in lanes and while the game is closed, and your idle action takes over. Farm a drop round after round (thieve, fish for food, cook it, start over) and the queue stops by itself when the drop is in your bank.
+
+A step can now also wait for a Mastery Guild task: fish at Deep Blue until "Catch Deep Blue 8,000 times" is complete. Pick [b]a mastery task is complete[/b] and the list shows the tasks for your target first, with how far each has come.
 
 [size=5][b]New in 0.11[/b][/size]
 [list]

@@ -1,4 +1,4 @@
-Action Queue 0.11.0  -  a mod for Melvor Idle 2
+Action Queue 0.12.0  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:
@@ -49,7 +49,8 @@ Open a character and press F6 (or pick it from the Mods button in the top bar; t
      It also counts the food the step's food slot ate (Thieving, Agility, a fight) and, in a
      fight, the runes your spells used and the arrows, bolts or other ammo you shot. Food
      your preservation chance kept is not counted: only what really left the bank.
-     Astrology has two more goals (see ASTROLOGY).
+     Astrology has two more goals (see ASTROLOGY). Every skill also has "a mastery task
+     is complete" (see MASTERY TASKS).
   2b. Tick "or" to give the step a second goal: a second row "or until ..." appears. The
      step is over when either goal is reached, and its state says which one ended it.
      For example: thieve the Bandit Chief until a Gold Topaz Ring is in the bank, or until
@@ -98,9 +99,10 @@ Press "Plan an item" at the top of the window.
 "every material" (next to the Add button) is for a queue that starts over. Every material
 gets its step, none is skipped because the bank already has some. Each material step tops
 the bank up to what one round needs ("I own this many"), so a round only gathers what the
-round before used and nothing piles up; the item itself is "make this many more", so every
-round makes it again. It is ticked by itself while "Start over at the end" is on for the
-plan's lane.
+round before used and nothing piles up. With "Make" the item itself is "make this many
+more", so every round makes it again. With "Own in total" it stays "until I own this many":
+a round only makes what was used since, and the bank stays at the number you asked for.
+"every material" is ticked by itself while "Start over at the end" is on for the plan's lane.
 Several plans can be added one after another. A later plan knows what the earlier ones will
 make and use up, so two plans never count on the same ore.
 The planner only uses what you can do now: when a faster recipe needs something you have not
@@ -214,6 +216,27 @@ With Astrology chosen, the goal list has two more entries:
   Both work with "or" too: "until 10 minor node unlocks are earned, or for 30 minutes".
 
 
+MASTERY TASKS
+-------------
+"a mastery task is complete" ends a step once one of the Mastery Guild's tasks is done, e.g.
+fish at Deep Blue until the task "Catch Deep Blue 8,000 times" is complete.
+  - The list holds the tasks of the step's skill. For a fight it holds the tasks of Attack,
+    Strength, Defence, Hitpoints, Ranged, Magic, Prayer and Slayer.
+  - The tasks for the chosen target come first, from the easiest, and the next one you have
+    not done yet is picked for you. The others follow by tier. Click the list and type to
+    search.
+  - Next to each task you see how far it has come ("1,234 / 2,500", or a percent).
+  - Tasks you have done are dimmed. You can still pick one (for a share code or another
+    character), but a step waiting for it ends at once.
+  - A task's extra conditions follow in brackets ("using Melee", "enemies of combat level
+    1-9"). The step only ends when the game marks the task complete, so let the step do
+    what the task asks.
+  - It also works as the second goal ("or"), and in "Stop the whole queue when", where the
+    list holds every skill's tasks with the skills of the queue on top.
+  - The queue only reads the task. The game does the counting, also while it is closed.
+  - A task your game does not have (a code from another version) is skipped with a note.
+
+
 WHEN THE QUEUE WAITS OR ENDS
 ----------------------------
 At the bottom of the window: "When the queue waits or ends, do" [skill] [action].
@@ -235,6 +258,31 @@ still:
   - "Nothing" switches it off. The choices are kept per character.
 
 
+STOP THE WHOLE QUEUE WHEN
+-------------------------
+Under the buttons: "Stop the whole queue when" [what] [number] [item or skill]. Once that is
+reached, every step stops and the queue ends, also with "Start over at the end" on and in
+lanes, and also while the game is closed. The action under "When the queue waits or ends"
+then takes over.
+  - "I own this many of an item": e.g. thieve, fish and cook round after round until 1
+    Bandit Gloves is in the bank, then stop.
+  - "a skill reaches this level", "only this many of an item are left", "a mastery task is
+    complete" (see MASTERY TASKS).
+  - "never: the steps decide" switches it off (the queue ends when its steps are done, as
+    before).
+  - Pick the kind first, then the item or skill. Until you pick one the queue has no stop of
+    its own, so nothing left over from before can stop it by surprise.
+  - Already reached when you set it or press Start: the window says so, and the queue stops
+    or does not start.
+  - A sale or an equip step that brings you there ends the queue at once: the next step does
+    not start.
+  - While the game is closed the queue never ends a fight. The other steps stop, nothing
+    new starts, and the fight ends as soon as you open the game.
+  - It looks twice a second, so a very fast action can make one or two more.
+  - It is kept with the queue, in saved queues and in share codes. "Remove all" takes it
+    away too.
+
+
 SAVED QUEUES AND SHARE CODES
 ----------------------------
 Press "Saved queues" at the top of the window.
@@ -246,8 +294,10 @@ Press "Saved queues" at the top of the window.
   - If the queue on screen was never saved, or was changed, it is kept as
     "Unsaved queue (auto)" when you load another one. Nothing is lost by switching.
   - "Copy share code" turns a queue into a short text (AQ1:... or, when it uses an "or"
-    goal, an astrology goal, an Equip or a "Go to a saved queue" step, AQ2:...). Paste it in
-    a chat. A version older than 0.10 cannot read an AQ2 code and says so.
+    goal, an astrology goal, an Equip or a "Go to a saved queue" step, AQ2:...; with a
+    "Stop the whole queue when", AQ3:...). Paste it in a chat. A version older than 0.10
+    cannot read an AQ2 code, and one older than 0.12 cannot read an AQ3 code: it refuses it
+    instead of running the queue without its stop.
   - To use somebody's code: paste it into the box and press Import, then Load it.
     A code only holds names and numbers. Steps for things your game does not have are
     skipped, and so are steps you have not unlocked yet.

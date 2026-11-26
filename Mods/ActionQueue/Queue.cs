@@ -24,7 +24,7 @@ using GamesByMalcs.Melvor2.Entities.Astrology;
 namespace ActionQueue;
 
 /// <summary>When a step is over.</summary>
-public enum Until { Stops, Item, Level, Minutes, ItemLeft, Made, Times, Spent, Nodes, Event }   // new kinds go at the end: saved queues store the number
+public enum Until { Stops, Item, Level, Minutes, ItemLeft, Made, Times, Spent, Nodes, Event, Mastery }   // new kinds go at the end: saved queues store the number
 
 /// <summary>
 /// One goal of a step and what it counts from. A step is a goal itself; <see cref="Step.Or"/> is its second one.
@@ -61,7 +61,7 @@ public sealed class Goal : IGoal
 
     public Goal Copy() => new() { Until = Until, Amount = Amount, Subject = Subject, SubjectName = SubjectName };
     public bool SameAs(Goal? other) => other != null && other.Until == Until && other.Amount == Amount && other.Subject == Subject;
-    public string Text => Step.GoalText(Until, Amount, SubjectName);
+    public string Text => Step.GoalText(Until, Amount, SubjectName, Subject);
 }
 
 /// <summary>Idle: not started yet. Waiting: its turn has come but it cannot run right now. Done: over (also when skipped).</summary>
@@ -76,7 +76,7 @@ public sealed class Step : IGoal
     public string Name { get; set; } = "";        // "Woodcutting: Oak Tree"
     public Until Until { get; set; }
     public double Amount { get; set; }
-    public string Subject { get; set; } = "";     // item id (Until.Item) or skill name (Until.Level)
+    public string Subject { get; set; } = "";     // item id (Until.Item), skill name (Until.Level) or mastery task id (Until.Mastery)
     public string SubjectName { get; set; } = "";
     /// <summary>The lane (1..MaxLanes): with steps in more than one lane, every lane does its own steps in order, side by side.</summary>
     public int Lane { get; set; } = 1;
@@ -126,9 +126,9 @@ public sealed class Step : IGoal
         : IsSwitch ? "and go on with it"
         : IsEquip ? (TargetId.StartsWith(LoadoutPrefix, StringComparison.Ordinal) ? "switch to this loadout" : Subject != "stack" ? "put it on"
                      : Amount <= 0 ? "put all of them on" : $"put them on, keep {Amount:N0} in the bank")
-        : GoalText(Until, Amount, SubjectName) + (Or == null ? "" : ", or " + Or.Text);
+        : GoalText(Until, Amount, SubjectName, Subject) + (Or == null ? "" : ", or " + Or.Text);
 
-    public static string GoalText(Until until, double amount, string subjectName) => until switch
+    public static string GoalText(Until until, double amount, string subjectName, string subject = "") => until switch
     {
         Until.Item => $"until {amount:N0} {subjectName} in the bank",
         Until.Made => $"until {amount:N0} more {subjectName} are made",
@@ -139,6 +139,7 @@ public sealed class Step : IGoal
         Until.Spent => $"until {amount:N0} {subjectName} are used up",
         Until.Nodes => $"until {amount:N0} {subjectName} node unlocks are earned",
         Until.Event => amount == 1 ? $"until {subjectName} is seen" : $"until {subjectName} is seen {amount:N0} times",
+        Until.Mastery => $"until the mastery task \"{Mastery.NameOf(subject, subjectName)}\" is complete",
         _ => "until it stops by itself",
     };
 }
@@ -150,6 +151,9 @@ public sealed class Preset
     public bool Repeat { get; set; }
     /// <summary>0.11.0+: with "start over" on, the lanes that run once.</summary>
     public List<int> OnceLanes { get; set; } = new();
+    /// <summary>0.12.0+: "stop the whole queue when ..." (null: none).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Goal? StopWhen { get; set; }
 }
 
 /// <summary>
@@ -170,6 +174,9 @@ public static class Queue
         public bool Repeat { get; set; }
         /// <summary>0.10.2+: with "start over" on, the lanes that run once and do not start over.</summary>
         public List<int> OnceLanes { get; set; } = new();
+        /// <summary>0.12.0+: "stop the whole queue when ..." (null: none).</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Goal? StopWhen { get; set; }
         /// <summary>The saved queue the steps above came from ("" when they were never saved).</summary>
         public string Name { get; set; } = "";
         public Dictionary<string, Preset> Presets { get; set; } = new();
@@ -301,6 +308,116 @@ public static class Queue
 
     public static List<Step> Steps { get; private set; } = new();
     public static bool Repeat { get; private set; }
+
+    /// <summary>
+    /// "Stop the whole queue when ...": once it is reached, every step stops, the queue ends (also with "start over" on,
+    /// and in lanes) and the idle action takes over. Only goals that read the game: an item in the bank, a skill level,
+    /// an item running low, a Mastery Guild task complete. Null: the queue has no stop of its own. Asked for on Nexus: farm until a drop, then stop.
+    /// </summary>
+    public static Goal? StopWhen { get; private set; }
+
+    /// <summary>The kinds of goal the queue's own stop can be.</summary>
+    public static bool StopKind(Until until) => until is Until.Item or Until.Level or Until.ItemLeft or Until.Mastery;
+
+    /// <summary>The highest level the queue's stop can wait for (the window's number box goes up to it too).</summary>
+    public const int MaxStopLevel = 200;
+    /// <summary>The highest item count the queue's stop can wait for.</summary>
+    public const int MaxStopAmount = 1_000_000_000;
+
+    /// <summary>A stop read from a file, a saved queue or a share code: kept only when it makes sense.</summary>
+    public static Goal? CleanStop(Goal? goal) =>
+        goal is { Until: Until.Mastery } task && !string.IsNullOrWhiteSpace(task.Subject)
+            ? new Goal { Until = Until.Mastery, Amount = 1, Subject = task.Subject, SubjectName = task.SubjectName ?? "" }
+        : goal != null && StopKind(goal.Until) && !string.IsNullOrWhiteSpace(goal.Subject) && !double.IsNaN(goal.Amount) && goal.Amount >= 0
+            && goal.Amount <= (goal.Until == Until.Level ? MaxStopLevel : MaxStopAmount) && (goal.Until == Until.ItemLeft || goal.Amount >= 1)
+            ? new Goal { Until = goal.Until, Amount = goal.Amount, Subject = goal.Subject, SubjectName = goal.SubjectName ?? "" } : null;
+
+    /// <summary>
+    /// Offline the stop was reached while a fight step was at it: a fight is never ended offline, so the other steps
+    /// stopped, nothing new starts, and the queue ends (fight and all) as soon as the game is open.
+    /// </summary>
+    static bool s_stopPending;
+
+    /// <summary>What the queue's stop waits for, in words ("you have 1 Bandit Gloves in the bank").</summary>
+    public static string StopText(Goal g) => g.Until switch
+    {
+        Until.Item => $"you have {g.Amount:N0} {g.SubjectName} in the bank",
+        Until.Level => $"{g.SubjectName} reaches level {g.Amount:0}",
+        Until.ItemLeft => g.Amount <= 0 ? $"no {g.SubjectName} is left in the bank" : $"only {g.Amount:N0} {g.SubjectName} are left in the bank",
+        Until.Mastery => $"the mastery task \"{Mastery.NameOf(g.Subject, g.SubjectName)}\" is complete",
+        _ => g.Text,
+    };
+
+    /// <summary>Sets the queue's own stop (null: none).</summary>
+    public static void SetStopWhen(Goal? goal)
+    {
+        Goal? clean = CleanStop(goal);
+        if (clean == null ? StopWhen == null : clean.SameAs(StopWhen)) return;
+        StopWhen = clean;
+        Trace(StopWhen == null ? "the queue has no stop of its own" : $"the whole queue stops when {StopText(StopWhen)}");
+        Save();
+        RaiseChanged();
+    }
+
+    /// <summary>True when the queue's own stop is reached right now (false when it has none).</summary>
+    static bool StopReached(Game game) => StopWhen is { } g && g.Until switch
+    {
+        Until.Item => Owned(game, g) >= g.Amount,
+        Until.ItemLeft => Owned(game, g) <= g.Amount,
+        Until.Level => Level(game, g) >= g.Amount,
+        Until.Mastery => Mastery.Find(g.Subject) is { Done: true },
+        _ => false,
+    };
+
+    /// <summary>True when the queue's own stop is reached right now (the window says so when the player sets one).</summary>
+    public static bool StopReachedNow => s_game != null && StopReached(s_game);
+
+    /// <summary>Looks at the queue's own stop. True when it was reached and the queue is ending: nothing more may start.</summary>
+    static bool StopCheck(Game game)
+    {
+        if (!s_stopPending && !StopReached(game)) return false;
+        s_switchTo = null;   // a "go to a saved queue" step that just came up does not replace a queue that has stopped
+        StopForGood(game);
+        RaiseChanged();
+        return true;
+    }
+
+    /// <summary>
+    /// The queue's own stop was reached: every step's action stops, the queue ends, and the idle action takes over.
+    /// Offline a fight is never ended (see OfflineTick): then the other steps stop, nothing new starts, and the queue
+    /// ends with the first look once the game is open.
+    /// </summary>
+    static void StopForGood(Game game)
+    {
+        bool fightLeft = false;
+        foreach (Step s in Steps)
+        {
+            if (s.Run == RunState.Running && Targets.Find(game, s.Entity) is { } action && StepDoing(action, s))
+            {
+                if (HandsOff(action)) { fightLeft = true; s.State = "the queue's stop was reached: the fight ends when the game is open"; continue; }
+                StopAction(action);
+            }
+            if (s.Run is RunState.Running or RunState.Waiting) s.State = "stopped: the queue's stop was reached";
+            s.Run = RunState.Done;
+        }
+        if (fightLeft)
+        {
+            if (!s_stopPending) Trace("offline: the queue's stop was reached; the fight is ended when the game is open");
+            s_stopPending = true;
+            return;
+        }
+        s_stopPending = false;
+        string why = $"The queue stopped: {(StopWhen is { } g ? StopText(g) : "its stop was reached")} (the queue's stop).";
+        s_idleOwned = false;   // like a real finish: the idle action keeps going, as the player's own from now on
+        Finish(why);
+        try { IdleAfterEnd(game); }
+        catch (Exception e) { Log("The idle action could not be started: " + e.Message); }
+    }
+
+    /// <summary>True while the game does what this running step started (a slayer step: also the monster it is still on).</summary>
+    static bool StepDoing(ActionComponent action, Step s) =>
+        Targets.IsDoing(action, new Target(s.TargetId, s.Name, s.Extra))
+        || s.Extra == Targets.Slayer && s.Following != "" && Targets.Current(action)?.Id == s.Following;
     /// <summary>With "start over" on and steps in lanes: the lanes that run once (the others start over by themselves).</summary>
     static HashSet<int> s_onceLanes = new();
     /// <summary>True when this lane starts over when it is through ("start over" on, and the lane not set to run once).</summary>
@@ -434,7 +551,10 @@ public static class Queue
         Steps = saved?.Steps ?? new List<Step>();
         Repeat = saved?.Repeat ?? false;
         s_onceLanes = new HashSet<int>(saved?.OnceLanes ?? new List<int>());
+        StopWhen = CleanStop(saved?.StopWhen);
+        s_stopPending = false;
         s_presets = new Dictionary<string, Preset>(saved?.Presets ?? new(), StringComparer.OrdinalIgnoreCase);
+        foreach (Preset? preset in s_presets.Values) if (preset != null) preset.StopWhen = CleanStop(preset.StopWhen);
         Name = saved?.Name is { } savedName && s_presets.ContainsKey(savedName) ? savedName : "";
         SideBySide = saved?.SideBySide ?? true;
         Idle = saved?.Idle is { Entity: not "", TargetId: not "" } idle ? idle : null;
@@ -462,6 +582,8 @@ public static class Queue
         if (game.Entities.TryGetObjectById("MelvorBase:Combat", out GameEntity? combat) && combat is CombatEntity fighter)
             fighter.Action.PlayerDied += (_, _) => { if (ReferenceEquals(game, s_game)) s_died = true; };
         CountActions(game);
+        try { Mastery.Bind(game); }
+        catch (Exception e) { Log("The Mastery Guild tasks could not be read: " + e.Message); }
         WatchStops(game);
         s_saveId = ActiveSaveId();
         Targets.PrimeMeta();
@@ -589,7 +711,7 @@ public static class Queue
             // Only this character's entry is replaced in what is on disk right now.
             Dictionary<string, Saved> all = Read();
             Snapshot? run = withRun ? TakeSnapshot() : all.TryGetValue(s_character, out Saved? old) ? old.Run : null;
-            all[s_character] = new Saved { Steps = Steps, Repeat = Repeat, OnceLanes = s_onceLanes.OrderBy(l => l).ToList(), Name = Name, Presets = new Dictionary<string, Preset>(s_presets), SideBySide = SideBySide, Idle = Idle, IdleAlways = IdleAlways, GameCreate = GameCreate, Run = run };
+            all[s_character] = new Saved { Steps = Steps, Repeat = Repeat, OnceLanes = s_onceLanes.OrderBy(l => l).ToList(), StopWhen = StopWhen, Name = Name, Presets = new Dictionary<string, Preset>(s_presets), SideBySide = SideBySide, Idle = Idle, IdleAlways = IdleAlways, GameCreate = GameCreate, Run = run };
             File.WriteAllText(FilePath, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception e) { Log("The queue could not be saved: " + e.Message); }
@@ -728,6 +850,8 @@ public static class Queue
         foreach (Step step in Steps) StopOwn(step);
         Steps.Clear();
         s_onceLanes.Clear();
+        StopWhen = null;   // the queue's own stop goes with its steps
+        s_stopPending = false;
         Name = "";
         Finish(Running ? "The queue was emptied, so what it had started was stopped." : "");
         Save();
@@ -804,6 +928,7 @@ public static class Queue
         // Nothing else to do: run it now. The finished steps stay finished (they are not done again).
         s_resume = Steps.Count > 1;
         Start();
+        if (!Running) return $"added as step {number}: {step.Name}, {step.Goal}. {Note}";
         return $"started {step.Name}, {step.Goal} (step {number}). Add more and they follow it.";
     }
 
@@ -892,7 +1017,11 @@ public static class Queue
     /// <summary>True when the steps on screen differ from the saved queue they came from.</summary>
     public static bool Modified =>
         Name != "" && s_presets.TryGetValue(Name, out Preset? preset)
-        && (preset.Repeat != Repeat || !(preset.OnceLanes ?? new List<int>()).OrderBy(l => l).SequenceEqual(s_onceLanes.OrderBy(l => l)) || preset.Steps.Count != Steps.Count || preset.Steps.Where((s, i) => !Same(s, Steps[i])).Any());
+        && (preset.Repeat != Repeat || !(preset.OnceLanes ?? new List<int>()).OrderBy(l => l).SequenceEqual(s_onceLanes.OrderBy(l => l)) || preset.Steps.Count != Steps.Count || preset.Steps.Where((s, i) => !Same(s, Steps[i])).Any()
+            || (preset.StopWhen == null ? StopWhen != null : !preset.StopWhen.SameAs(StopWhen)));
+
+    /// <summary>The steps and settings on screen, kept under a name.</summary>
+    static Preset Current() => new() { Steps = Steps.Select(Copy).ToList(), Repeat = Repeat, OnceLanes = s_onceLanes.OrderBy(l => l).ToList(), StopWhen = StopWhen?.Copy() };
 
     /// <summary>Keeps the current steps under a name (an existing queue of that name is replaced).</summary>
     public static bool SavePreset(string? name, out string message)
@@ -901,7 +1030,7 @@ public static class Queue
         if (name == "") { message = "Type a name for the queue first."; return false; }
         if (Steps.Count == 0) { message = "There are no steps to save. Add some first."; return false; }
         bool replaced = s_presets.ContainsKey(name);
-        s_presets[name] = new Preset { Steps = Steps.Select(Copy).ToList(), Repeat = Repeat, OnceLanes = s_onceLanes.OrderBy(l => l).ToList() };
+        s_presets[name] = Current();
         Name = s_presets.Keys.First(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase));
         Save();
         message = replaced ? $"Saved over '{Name}' ({Steps.Count} step(s))." : $"Saved as '{Name}' ({Steps.Count} step(s)).";
@@ -920,7 +1049,7 @@ public static class Queue
         bool kept = false;
         if (Steps.Count > 0 && (Name == "" || Modified) && !string.Equals(name, AutoName, StringComparison.OrdinalIgnoreCase))
         {
-            s_presets[AutoName] = new Preset { Steps = Steps.Select(Copy).ToList(), Repeat = Repeat, OnceLanes = s_onceLanes.OrderBy(l => l).ToList() };
+            s_presets[AutoName] = Current();
             kept = true;
         }
         foreach (Step step in Steps) StopOwn(step);   // a clean switch: the old queue's actions do not linger
@@ -928,6 +1057,7 @@ public static class Queue
         s_laneRan.Clear();
         Repeat = preset.Repeat;
         s_onceLanes = new HashSet<int>(preset.OnceLanes ?? new List<int>());
+        StopWhen = CleanStop(preset.StopWhen);   // a saved queue brings its own stop (or none)
         Name = s_presets.Keys.First(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase));
         Index = 0;
         s_ranThisRound = false;
@@ -954,19 +1084,19 @@ public static class Queue
     /// <summary>The share code of a saved queue, or of the steps on screen when <paramref name="name"/> is null.</summary>
     public static string? ExportCode(string? name)
     {
-        if (name == null) return Steps.Count == 0 ? null : Share.Export(Name, Steps, Repeat);
-        return s_presets.TryGetValue(name, out Preset? preset) ? Share.Export(name, preset.Steps, preset.Repeat) : null;
+        if (name == null) return Steps.Count == 0 ? null : Share.Export(Name, Steps, Repeat, StopWhen);
+        return s_presets.TryGetValue(name, out Preset? preset) ? Share.Export(name, preset.Steps, preset.Repeat, preset.StopWhen) : null;
     }
 
     /// <summary>Reads a share code and keeps its queue as a saved queue (nothing on screen changes).</summary>
     public static bool ImportCode(string? code, out string importedName, out string message)
     {
         importedName = "";
-        if (!Share.TryImport(code, out string name, out List<Step> steps, out bool repeat, out message)) return false;
+        if (!Share.TryImport(code, out string name, out List<Step> steps, out bool repeat, out Goal? stop, out message)) return false;
         if (name == "" || string.Equals(name, AutoName, StringComparison.OrdinalIgnoreCase)) name = "Shared queue";
         string unique = name;
         for (int n = 2; s_presets.ContainsKey(unique); n++) unique = $"{name} ({n})";
-        s_presets[unique] = new Preset { Steps = steps, Repeat = repeat };
+        s_presets[unique] = new Preset { Steps = steps, Repeat = repeat, StopWhen = CleanStop(stop) };
         importedName = unique;
         Save();
 
@@ -975,15 +1105,28 @@ public static class Queue
         if (s_game != null)
             foreach (Step step in steps)
             {
+                if (Goals(step).Any(g => g.Until == Until.Mastery && Mastery.Find(g.Subject) == null)) continue;   // a mastery task it does not have
                 if (step.IsSell) { if (ItemOf(s_game, step.TargetId) != null) known++; continue; }
                 if (step.IsSwitch) { known++; continue; }   // (a name: checked when its turn comes)
                 if (step.IsEquip) { if (step.TargetId.StartsWith(Step.LoadoutPrefix, StringComparison.Ordinal) || ItemOf(s_game, step.TargetId) != null) known++; continue; }
                 ActionComponent? action = Targets.Find(s_game, step.Entity);
                 if (action != null && Targets.All(action).Any(t => t.Id == step.TargetId && t.Extra == step.Extra)) known++;
             }
+        string stopNote = "";
+        if (s_presets[unique].StopWhen is { } kept)
+        {
+            bool missing = s_game != null && kept.Until switch
+            {
+                Until.Level => !s_game.LeveledEntities.Any(s => s.DisplayName.Text == kept.Subject),
+                Until.Mastery => Mastery.Find(kept.Subject) == null,
+                _ => ItemOf(s_game, kept.Subject) == null,
+            };
+            stopNote = $" Its own stop: the whole queue stops when {StopText(kept)}"
+                + (missing ? $". Your game has no {kept.SubjectName}, so change that stop before you run it." : ".");
+        }
         message = $"Imported '{unique}': {steps.Count} step(s)"
             + (known == steps.Count ? "." : $", {steps.Count - known} of them for things your game does not have (those will be skipped).")
-            + " Select it and press Load to use it.";
+            + stopNote + " Select it and press Load to use it.";
         RaiseChanged();
         return true;
     }
@@ -993,6 +1136,13 @@ public static class Queue
     public static void Start()
     {
         if (Steps.Count == 0) { Note = "Add a step first."; RaiseChanged(); return; }
+        if (s_game != null && StopReached(s_game))
+        {
+            Note = $"Nothing to do: {StopText(StopWhen!)} already, and that is the queue's stop. Change or remove the stop to run the queue.";
+            Trace("not started: the queue's stop is already reached");
+            RaiseChanged();
+            return;
+        }
         // After a pause: carry on. What was finished stays finished, wherever it has been moved since; the rest
         // starts again in the order of the list. Otherwise every step starts afresh.
         bool resume = s_resume && Steps.Any(s => s.Run != RunState.Done);
@@ -1008,6 +1158,7 @@ public static class Queue
         }
         Running = true;
         s_resume = false;
+        s_stopPending = false;
         lock (s_handStops) s_handStops.Clear();
         s_ranThisRound = resume && Steps.Any(s => s.Run == RunState.Done && s.Ran);
         s_laneRan.Clear();
@@ -1108,6 +1259,9 @@ public static class Queue
         }
         if (Steps.Count == 0) { Finish("The queue is empty."); RaiseChanged(); return; }
 
+        // The queue's own stop ("stop the whole queue when ..."): looked at first, so nothing more is started once it is reached.
+        if (StopCheck(game)) return;
+
         // 0. The idle action was a fight and the character died in it: never walk straight back in. (A combat step
         //    cannot run at the same time - one skill, one thing - so the death was the idle action's.)
         if (s_died && s_idleOwned && Idle?.Entity == "MelvorBase:Combat" && !Steps.Any(s => s.Run == RunState.Running && s.Entity == Idle.Entity))
@@ -1158,6 +1312,7 @@ public static class Queue
                 if (step.IsInstant)
                 {
                     Guard(step, () => Begin(game, step));
+                    if (StopCheck(game)) return;   // selling or equipping may reach the queue's stop: nothing after it starts
                     if (s_switchTo != null) break;   // the queue is being replaced: nothing else of the old one starts
                     continue;
                 }
@@ -1581,6 +1736,14 @@ public static class Queue
             End(step, "skipped: " + cannot);
             return;
         }
+        // "Until this mastery task is complete" for a task this game does not have (another version): never reached.
+        if (step.Until == Until.Mastery && Mastery.Find(step.Subject) == null)
+        {
+            End(step, $"skipped: the mastery task \"{step.SubjectName}\" is not in this game");
+            return;
+        }
+        if (step.Or is { Until: Until.Mastery } orTask && Mastery.Find(orTask.Subject) == null && !step.Ran)
+            Trace($"{Number(step)}: its second goal waits for a mastery task this game does not have ({orTask.SubjectName}): only the first goal can end it");
         if (!step.Ran && Goals(step).FirstOrDefault(g => ReadsTheGame(g) && Reached(game, step, g)) is { } already)
         {
             // Not needed: say what was found, so "it never mined" explains itself.
@@ -1589,6 +1752,7 @@ public static class Queue
                 Until.Item => $"done: the bank already holds {Owned(game, already):N0} {already.SubjectName}, nothing to do",
                 Until.ItemLeft => $"done: already only {Owned(game, already):N0} {already.SubjectName} left, nothing to do",
                 Until.Nodes => $"done: {Nodes(game, step, already):N0} {already.SubjectName} node unlocks are already earned (of {MostNodes(game, step.TargetId, already.Subject == "major"):N0}), nothing to do",
+                Until.Mastery => "done: that mastery task is already complete, nothing to do",
                 _ => $"done: {already.SubjectName} is already level {Level(game, already)}, nothing to do",
             });
             return;
@@ -2124,11 +2288,12 @@ public static class Queue
         // (all the constellation has also ends it: a number above that is never reached)
         Until.Nodes => Nodes(game, step, g) >= Math.Min(g.Amount, Math.Max(1, MostNodes(game, step.TargetId, g.Subject == "major"))),
         Until.Event => Seen(step, g) >= g.Amount,
+        Until.Mastery => Mastery.Find(g.Subject) is { Done: true },
         _ => false,
     };
 
     /// <summary>Goals that read a number off the game (the bank, a level, a constellation): already reached before the step starts means nothing to do.</summary>
-    static bool ReadsTheGame(IGoal g) => g.Until is Until.Item or Until.Level or Until.ItemLeft or Until.Nodes;
+    static bool ReadsTheGame(IGoal g) => g.Until is Until.Item or Until.Level or Until.ItemLeft or Until.Nodes or Until.Mastery;
 
     /// <summary>"done" with the reason when the step's second goal ended it (the first one is the plain "done").</summary>
     static string DoneText(Game game, Step step) =>
@@ -2150,6 +2315,7 @@ public static class Queue
         Until.Spent => $"{Spent(step, g):N0} / {g.Amount:N0} {(step.Or != null ? g.SubjectName + " " : "")}used up",
         Until.Nodes => $"{Nodes(game, step, g):N0} / {g.Amount:N0} {g.SubjectName} nodes",
         Until.Event => $"{g.SubjectName} {Seen(step, g):N0} / {g.Amount:N0}",
+        Until.Mastery => Mastery.Find(g.Subject) is { } task ? $"mastery task {Mastery.ProgressText(task)}" : "mastery task not in this game",
         _ => Clock(step.Seconds),
     };
 

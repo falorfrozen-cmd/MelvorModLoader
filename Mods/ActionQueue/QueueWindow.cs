@@ -18,7 +18,7 @@ public sealed class QueueWindow
         "it stops by itself", "I own this many of an item", "a skill reaches this level", "this many minutes have passed",
         "only this many of an item are left", "I make this many more of an item", "it has been done this many times",
         "it has used up this many of an item", "node unlocks of this constellation are earned",
-        "an astrology event has been seen this many times",
+        "an astrology event has been seen this many times", "a mastery task is complete",
     };
 
     /// <summary>One theme for the window and for the popups of its pick lists (a popup is a window of its own).</summary>
@@ -44,6 +44,13 @@ public sealed class QueueWindow
     readonly OptionButton _orLevel = new() { CustomMinimumSize = new Vector2(170, 0) };
     readonly OptionButton _orNode = new() { CustomMinimumSize = new Vector2(110, 0) };
     readonly OptionButton _orEvent = new() { CustomMinimumSize = new Vector2(250, 0), FitToLongestItem = false, ClipText = true };
+    /// <summary>"Until this mastery task is complete" (0.12.0): the chosen skill's Mastery Guild tasks, a fight's: the combat skills'.</summary>
+    readonly PickList<string> _taskPick = new("Choose a mastery task", s_theme);
+    readonly PickList<string> _orTask = new("Choose a mastery task", s_theme);
+    /// <summary>The skill and target the task lists were last made for: a new one picks its own first task.</summary>
+    string _tasksFor = "";
+    /// <summary>The window was opened again: the progress next to each task is made again (once).</summary>
+    bool _tasksStale = true;
     /// <summary>One line in the goal row for the steps that are not actions (equip a loadout, go to a saved queue).</summary>
     readonly Label _pseudoNote = Style.Label("", Style.Muted, 12);
     readonly Tree _table;
@@ -76,6 +83,19 @@ public sealed class QueueWindow
     readonly Label _idleState = Style.Label("", Style.Muted, 12);
     readonly CheckBox _idleAlways = new() { Text = "Also when the queue is not running" };
     readonly CheckBox _gameCreate = new() { Text = "The game's Create button adds to the queue" };
+
+    // "Stop the whole queue when ...": the queue's own stop (0.12.0).
+    readonly OptionButton _stopPick = new() { CustomMinimumSize = new Vector2(250, 0) };
+    readonly SpinBox _stopAmount = new() { MinValue = 1, MaxValue = Queue.MaxStopAmount, Step = 1, Value = 1, CustomMinimumSize = new Vector2(110, 0), SelectAllOnFocus = true };
+    readonly PickList<Item> _stopItem = new("Choose an item", s_theme);
+    readonly OptionButton _stopLevel = new() { CustomMinimumSize = new Vector2(170, 0) };
+    /// <summary>The queue's stop "a mastery task is complete": every skill's tasks (filled when the kind is shown).</summary>
+    readonly PickList<string> _stopTask = new("Choose a mastery task", s_theme);
+    bool _stopTasksFilled;
+    /// <summary>The queue's stop the controls were last set from (they are not reset while the player is still picking).</summary>
+    string _stopShown = "?";
+    /// <summary>The id of "never" in the stop list (Godot gives an item added with -1 its index as id).</summary>
+    const int NeverId = 99;
 
     // The card on top has two faces: the form for one step, and the planner.
     readonly Button _stepMode = new() { Text = "Add one step", ToggleMode = true };
@@ -218,6 +238,7 @@ public sealed class QueueWindow
             if (Kind == Until.ItemLeft) SuggestFood(); else SuggestItem();
             ShowMode();
             FillEvents();
+            FillTasks();
             CapNodes(_amount, _nodePick, Kind);
             CapNodes(_orAmount, _orNode, OrKind);
         };
@@ -256,6 +277,20 @@ public sealed class QueueWindow
         until.AddChild(_nodePick);
         _eventPick.TooltipText = _orEvent.TooltipText = "The events this constellation can show while it is studied. The step counts the ones seen after it starts.";
         until.AddChild(_eventPick);
+        foreach (PickList<string> tasks in new[] { _taskPick, _orTask })
+        {
+            tasks.Control.CustomMinimumSize = new Vector2(400, 0);
+            tasks.HintWidth = 150;   // the count ("Easy: 201 / 2,000") stays readable when a long task's words are cut
+            tasks.Control.TooltipText = "The Mastery Guild's tasks of this skill (a fight: of the combat skills). Click and type to search.\n"
+                + "The ones for the chosen target come first. The step is over when the game marks the task complete.";
+        }
+        until.AddChild(_taskPick.Control);
+        foreach (PickList<string> tasks in new[] { _taskPick, _orTask })
+            tasks.Picked += e =>
+            {
+                if (Mastery.Find(e.Key) is { Done: true })
+                    Say("That task is already complete on this character, so a step waiting for it ends at once.");
+            };
         until.AddChild(_pseudoNote);
         _orBox.TooltipText = "Give the step a second goal: it is over when either one is reached\n(e.g. until a Gold Topaz Ring is in the bank, or until 780 Salmon are used up).";
         _orBox.Toggled += _ => UntilChanged();
@@ -289,6 +324,7 @@ public sealed class QueueWindow
         _orRow.AddChild(_orLevel);
         _orRow.AddChild(_orNode);
         _orRow.AddChild(_orEvent);
+        _orRow.AddChild(_orTask.Control);
         _stepForm.AddChild(_orRow);
         _stepForm.AddChild(_now);
         form.AddChild(_stepForm);
@@ -379,6 +415,39 @@ public sealed class QueueWindow
         _laneRepeats.AddThemeConstantOverride("separation", 12);
         _laneRepeats.Alignment = BoxContainer.AlignmentMode.End;
         body.AddChild(_laneRepeats);
+
+        // -- the queue's own stop
+        var stopRow = new HBoxContainer();
+        stopRow.AddThemeConstantOverride("separation", 10);
+        Label stopLabel = Style.Label("Stop the whole queue when", Style.Muted);
+        stopLabel.MouseFilter = Control.MouseFilterEnum.Stop;
+        stopLabel.TooltipText = "Once this is reached, every step stops and the queue ends, also with \"Start over at the end\" on\n"
+            + "and in lanes. The action under \"When the queue waits or ends, do\" then takes over.\n"
+            + "E.g. thieve, fish and cook round after round until 1 Bandit Gloves is in the bank, then stop.";
+        stopRow.AddChild(stopLabel);
+        _stopPick.TooltipText = stopLabel.TooltipText;
+        _stopPick.AddItem("never: the steps decide", NeverId);
+        _stopPick.AddItem("I own this many of an item", (int)Until.Item);
+        _stopPick.AddItem("a skill reaches this level", (int)Until.Level);
+        _stopPick.AddItem("only this many of an item are left", (int)Until.ItemLeft);
+        _stopPick.AddItem("a mastery task is complete", (int)Until.Mastery);
+        _stopPick.ItemSelected += _ => { if (_syncing) return; StopKindShown(fresh: true); ApplyStop(fresh: true); };
+        stopRow.AddChild(_stopPick);
+        _stopAmount.ValueChanged += _ => { if (!_syncing) ApplyStop(); };
+        stopRow.AddChild(_stopAmount);
+        _stopItem.Control.CustomMinimumSize = new Vector2(240, 0);
+        _stopItem.Control.TooltipText = "Click and type to search.";
+        _stopItem.Picked += _ => { if (!_syncing) ApplyStop(); };
+        stopRow.AddChild(_stopItem.Control);
+        _stopLevel.ItemSelected += _ => { if (!_syncing) ApplyStop(); };
+        stopRow.AddChild(_stopLevel);
+        _stopTask.Control.CustomMinimumSize = new Vector2(480, 0);
+        _stopTask.HintWidth = 120;
+        _stopTask.Control.TooltipText = "Every skill's Mastery Guild tasks (the skills of this queue first). Click and type to search.";
+        _stopTask.Picked += _ => { if (!_syncing) ApplyStop(); };
+        stopRow.AddChild(_stopTask.Control);
+        body.AddChild(stopRow);
+        StopKindShown(fresh: false);
 
         // ---- footer
         StyleBoxFlat footBox = Style.Box(Style.Sidebar, 0, null, 0, 18, 8);
@@ -547,6 +616,8 @@ public sealed class QueueWindow
             Fill(_idleSkill, _skills.Select(s => s.Entity.DisplayName.Text).Prepend("Nothing"));
             Fill(_levelPick, _levelSkills);
             Fill(_orLevel, _levelSkills);
+            Fill(_stopLevel, _levelSkills);
+            _tasksFor = "";   // another character: its own first task
             _makeable = Planner.Makeable(game);
             _target.SetEntries(new List<PickEntry<Target>>());
             FillTargets(null);
@@ -558,8 +629,13 @@ public sealed class QueueWindow
         List<PickEntry<Item>> itemEntries = Rares.Describe(Catalog.Items(game, _items));
         _item.SetEntries(itemEntries);
         _orItem.SetEntries(itemEntries, _orItem.SelectedKey);
+        _stopItem.SetEntries(itemEntries, _stopItem.SelectedKey);
         Rares.Paint(_item, game, itemEntries);
         Rares.Paint(_orItem, game, itemEntries);
+        Rares.Paint(_stopItem, game, itemEntries);
+        _stopShown = "?";   // the lists are made again: show the queue's stop in them
+        _stopTasksFilled = false;
+        _tasksStale = true;
         _planPick.SetEntries(Catalog.Items(game, _makeable));
         UntilChanged();
         Repaint();
@@ -569,9 +645,167 @@ public sealed class QueueWindow
 
     public void Hide()
     {
-        foreach (var pick in new Action[] { _target.Close, _item.Close, _orItem.Close, _idleTarget.Close, _planPick.Close }) pick();
+        foreach (var pick in new Action[] { _target.Close, _item.Close, _orItem.Close, _idleTarget.Close, _planPick.Close, _stopItem.Close, _taskPick.Close, _orTask.Close, _stopTask.Close }) pick();
         _layer.Visible = false;
     }
+
+    // ---------------------------------------------------------------- the queue's own stop
+
+    static string StopSignature(Goal? g) => g == null ? "" : $"{(int)g.Until}|{g.Amount}|{g.Subject}";
+
+    /// <summary>The kind picked in the stop row (null: "never").</summary>
+    Until? StopKindPicked => _stopPick.Selected < 0 || _stopPick.GetSelectedId() == NeverId ? null : (Until)_stopPick.GetSelectedId();
+
+    /// <summary>
+    /// Shows only the controls the picked kind needs. A newly picked kind starts from a sensible number and with no item
+    /// or skill chosen: nothing is taken until the player picks one (an item or skill left over from before could stop
+    /// a running queue on the spot).
+    /// </summary>
+    void StopKindShown(bool fresh)
+    {
+        Until? kind = StopKindPicked;
+        bool wasSyncing = _syncing;
+        _syncing = true;
+        _stopAmount.Visible = kind is not (null or Until.Mastery);
+        _stopItem.Control.Visible = kind is Until.Item or Until.ItemLeft;
+        _stopLevel.Visible = kind == Until.Level;
+        _stopTask.Control.Visible = kind == Until.Mastery;
+        if (kind == Until.Mastery) FillStopTasks();
+        _stopAmount.MinValue = kind == Until.ItemLeft ? 0 : 1;
+        _stopAmount.MaxValue = kind == Until.Level ? Queue.MaxStopLevel : Queue.MaxStopAmount;
+        if (fresh)
+        {
+            _stopAmount.Value = kind switch { Until.Level => 99, Until.ItemLeft => 0, _ => 1 };   // (a task: 1, not shown)
+            ClearStopSubject();
+        }
+        _syncing = wasSyncing;
+    }
+
+    void ClearStopSubject()
+    {
+        _stopItem.Select(null);
+        _stopTask.Select(null);
+        _stopLevel.Select(-1);
+        _stopLevel.Text = "Choose a skill";
+    }
+
+    /// <summary>
+    /// Puts what the stop row shows into the queue. A kind with no item or skill picked yet means no stop until the pick:
+    /// the row never shows one stop while the queue keeps another.
+    /// </summary>
+    void ApplyStop(bool fresh = false)
+    {
+        Until? kind = StopKindPicked;
+        if (kind == null)
+        {
+            _stopShown = "";
+            Queue.SetStopWhen(null);
+            Say("The queue has no stop of its own: it ends when its steps are done.");
+            return;
+        }
+        var goal = new Goal { Until = kind.Value, Amount = _stopAmount.Value };
+        Goal? old = fresh ? null : Queue.StopWhen;
+        if (kind is Until.Item or Until.ItemLeft)
+        {
+            if (_stopItem.Selected is { } picked) { goal.Subject = picked.Value.Id; goal.SubjectName = picked.Value.DisplayName.GetPluralText(1); }
+            // An item the list does not hold right now (shown as "not available"): it stays the stop's item.
+            else if (old is { Until: Until.Item or Until.ItemLeft } && _stopItem.SelectedKey == old.Subject) { goal.Subject = old.Subject; goal.SubjectName = old.SubjectName; }
+        }
+        else if (kind == Until.Mastery)
+        {
+            goal.Amount = 1;
+            if (_stopTask.SelectedKey is { Length: > 0 } id && Mastery.Find(id) is { } task) { goal.Subject = id; goal.SubjectName = task.Text; }
+            // A task this game does not have (shown as such): it stays the stop's task.
+            else if (old is { Until: Until.Mastery } && _stopTask.SelectedKey == old.Subject) { goal.Subject = old.Subject; goal.SubjectName = old.SubjectName; }
+        }
+        else if (_stopLevel.Selected >= 0 && _stopLevel.Selected < _levelSkills.Count) goal.Subject = goal.SubjectName = _levelSkills[_stopLevel.Selected];
+        else if (old is { Until: Until.Level } && !_levelSkills.Contains(old.Subject)) { goal.Subject = old.Subject; goal.SubjectName = old.SubjectName; }
+        if (goal.Subject == "")
+        {
+            _stopShown = "";
+            Queue.SetStopWhen(null);
+            Say(kind switch
+            {
+                Until.Level => "Now pick the skill. Until then the queue has no stop of its own.",
+                Until.Mastery => "Now pick the mastery task. Until then the queue has no stop of its own.",
+                _ => "Now pick the item. Until then the queue has no stop of its own.",
+            });
+            return;
+        }
+        _stopShown = StopSignature(goal);   // before the queue is told: its change repaints the window
+        Queue.SetStopWhen(goal);
+        if (Queue.StopWhen is not { } now || StopSignature(now) != _stopShown) { _stopShown = "?"; Say("That stop could not be taken."); return; }
+        string already = !Queue.StopReachedNow ? ""
+            : Queue.Running ? " That is true already, so the queue stops now."
+            : " That is true already, so the queue will not start until you change it.";
+        Say($"The whole queue stops when {Queue.StopText(now)}.{already}");
+    }
+
+    /// <summary>Sets the stop row from the queue's stop (another queue loaded, a code imported, the window opened).</summary>
+    void PaintStop()
+    {
+        string now = StopSignature(Queue.StopWhen);
+        if (now == _stopShown) return;
+        _stopShown = now;
+        Goal? g = Queue.StopWhen;
+        _syncing = true;
+        int index = 0;
+        for (int i = 0; i < _stopPick.ItemCount; i++)
+            if (_stopPick.GetItemId(i) == (g == null ? NeverId : (int)g.Until)) index = i;
+        _stopPick.Select(index);
+        StopKindShown(fresh: false);
+        ClearStopSubject();   // nothing left over from another stop
+        if (g != null)
+        {
+            _stopAmount.Value = g.Amount;
+            if (g.Until is Until.Item or Until.ItemLeft && !_stopItem.Select(g.Subject)) _stopItem.ShowMissing(g.Subject, g.SubjectName);
+            int at = _levelSkills.IndexOf(g.Subject);
+            if (g.Until == Until.Level && at >= 0) _stopLevel.Select(at);
+            else if (g.Until == Until.Level) _stopLevel.Text = $"{g.SubjectName} (not in this game)";
+            if (g.Until == Until.Mastery && !_stopTask.Select(g.Subject)) _stopTask.ShowMissing(g.Subject, $"{g.SubjectName} (not in this game)");
+        }
+        _syncing = false;
+    }
+
+    // test helpers for the stop row: the same handlers as a click
+    public void PickStopKind(Until? kind)
+    {
+        for (int i = 0; i < _stopPick.ItemCount; i++)
+            if (_stopPick.GetItemId(i) == (kind == null ? NeverId : (int)kind.Value)) { _stopPick.Select(i); StopKindShown(fresh: true); ApplyStop(fresh: true); return; }
+    }
+    public bool ChooseStopItem(string itemId) { bool ok = _stopItem.Select(itemId); if (ok) ApplyStop(); return ok; }
+    public void ChooseStopLevel(string skill) { int at = _levelSkills.IndexOf(skill); if (at >= 0) { _stopLevel.Select(at); ApplyStop(); } }
+    public void SetStopAmount(double value) => _stopAmount.Value = value;
+    public bool ChooseStopTask(string id) { bool ok = _stopTask.Select(id); if (ok) ApplyStop(); return ok; }
+    /// <summary>The stop row's task ("" when the task list is not shown).</summary>
+    public string StopTaskShown => _stopTask.Control.Visible ? _stopTask.SelectedKey ?? "" : "";
+    public int StopTaskCount => _stopTask.Count;
+    public void OpenStopTaskList() => _stopTask.Open();
+    public void CloseStopTaskList() => _stopTask.Close();
+
+    /// <summary>
+    /// The stop row's task list: every skill's tasks, the skills this queue uses first (a fight: the combat skills),
+    /// grouped by skill and tier. Made once each time the window opens, and only when the kind is shown: it is long.
+    /// </summary>
+    void FillStopTasks()
+    {
+        if (_stopTasksFilled) return;
+        _stopTasksFilled = true;
+        var used = Queue.Steps.SelectMany(st => st.Entity == "MelvorBase:Combat" ? Mastery.CombatSkills : new[] { st.Entity }).ToHashSet();
+        var entries = new List<PickEntry<string>>();
+        foreach (Mastery.Task t in Mastery.All(used))
+        {
+            string text = t.Text, progress = Mastery.ProgressText(t);
+            entries.Add(new PickEntry<string>(t.Id, text, t.Id, Group: t.Skill, Subgroup: t.Tier, Hint: progress,
+                Tooltip: $"{t.Skill}, {t.Tier}: {text}  ({progress})", Muted: t.Done, Keywords: $"{t.Skill} {t.Tier}"));
+        }
+        bool wasSyncing = _syncing;
+        _syncing = true;
+        _stopTask.SetEntries(entries, _stopTask.SelectedKey);
+        _syncing = wasSyncing;
+    }
+    /// <summary>What the stop row shows: "kind|amount|item|skill" (kind -1: never).</summary>
+    public string StopShown => $"{(_stopPick.Selected < 0 ? -2 : StopKindPicked is { } k ? (int)k : -1)}|{_stopAmount.Value}|{_stopItem.SelectedKey}|{(_stopLevel.Visible && _stopLevel.Selected >= 0 ? _levelSkills[_stopLevel.Selected] : "")}";
 
     /// <summary>
     /// "Side by side" and the lane controls: only worth showing when the Multitask mod has made room for more than
@@ -960,6 +1194,7 @@ public sealed class QueueWindow
         _target.SetEntries(entries, KeyIn(entries, select) ?? entries.FirstOrDefault(e => !e.Muted)?.Key ?? entries.FirstOrDefault()?.Key);
         ShowMode();
         FillEvents();
+        FillTasks();
         if (!suggest) return;
         // A level goal is usually about the skill being trained.
         int level = _levelSkills.IndexOf(entity.DisplayName.Text);
@@ -1269,6 +1504,7 @@ public sealed class QueueWindow
         _useNow.Visible = _untilPick.Visible = !pseudo;
         ShowMode();
         _nodePick.Visible = _eventPick.Visible = false;
+        _taskPick.Control.Visible = false;
         if (pseudo)
         {
             // Sell: which item, and how many to keep in the bank. Equip: what to put on (and for a stack, how many to
@@ -1305,7 +1541,7 @@ public sealed class QueueWindow
             _amount.Value = _lastKind == Until.ItemLeft ? _amountLeft : Math.Max(1, _amountOther);
         }
         var kind = Kind;
-        _amount.Visible = kind != Until.Stops;
+        _amount.Visible = kind is not (Until.Stops or Until.Mastery);
         _item.Control.Visible = kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent;
         _amount.MinValue = kind == Until.ItemLeft ? 0 : 1;
         if (kind == Until.ItemLeft && _lastKind != Until.ItemLeft)
@@ -1327,6 +1563,8 @@ public sealed class QueueWindow
         _levelPick.Visible = kind == Until.Level;
         _nodePick.Visible = kind == Until.Nodes;
         _eventPick.Visible = kind == Until.Event;
+        _taskPick.Control.Visible = kind == Until.Mastery;
+        FillTasks();
         _amount.Suffix = kind == Until.Minutes ? " min" : "";
         _amount.MaxValue = kind == Until.Level ? 999 : 100_000_000;
         if (kind == Until.Level && _amount.Value > 999) _amount.Value = 99;
@@ -1340,11 +1578,13 @@ public sealed class QueueWindow
     void OrChanged()
     {
         var kind = OrKind;
-        _orAmount.Visible = kind != Until.Stops;
+        _orAmount.Visible = kind is not (Until.Stops or Until.Mastery);
         _orItem.Control.Visible = kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent;
         _orLevel.Visible = kind == Until.Level;
         _orNode.Visible = kind == Until.Nodes;
         _orEvent.Visible = kind == Until.Event;
+        _orTask.Control.Visible = kind == Until.Mastery;
+        FillTasks();
         _orAmount.MinValue = kind == Until.ItemLeft ? 0 : 1;
         _orAmount.Suffix = kind == Until.Minutes ? " min" : "";
         _orAmount.MaxValue = kind == Until.Level ? 999 : 100_000_000;
@@ -1363,6 +1603,66 @@ public sealed class QueueWindow
         if (amount.Value > most) amount.Value = most;
         amount.TooltipText = $"This constellation has {most} {(node.Selected == 1 ? "major" : "minor")} node unlocks in all.";
     }
+
+    /// <summary>
+    /// The mastery tasks the chosen skill can wait for, in both task lists: first the ones for the chosen target (the
+    /// next one not done is picked), then the skill's others by tier (a fight: by combat skill). Done tasks are shown
+    /// dimmed; they can still be picked. A list made again for the same skill and target keeps the player's choice.
+    /// Only made while a goal is "a mastery task is complete" (a fight has some 1,200 tasks), and only again when the
+    /// skill or target changed or the window was opened again.
+    /// </summary>
+    void FillTasks()
+    {
+        if (Pseudo || !(Kind == Until.Mastery || _orBox.ButtonPressed && OrKind == Until.Mastery)) return;
+        var entries = new List<PickEntry<string>>();
+        string entity = "", targetId = "", targetName = "", first = "";
+        if (_game != null && _skillPick.Selected >= 0 && _skillPick.Selected < _skills.Count)
+        {
+            var (skill, action) = _skills[_skillPick.Selected];
+            entity = skill.Id;
+            targetId = _target.Selected?.Value.Id ?? "";
+            targetName = _target.Selected?.Value.Name ?? "";
+            bool fight = entity == "MelvorBase:Combat";
+            // The target, and what it makes: a task "catch Raw Shark" is one for the spot where sharks are caught.
+            var ids = new List<string>();
+            if (targetId != "")
+            {
+                ids.Add(targetId);
+                try { if (_target.Selected is { } chosen && Targets.Product(action, chosen.Value) is { } made) ids.Add(made.Id); } catch { }
+            }
+            string forNow = $"{entity}|{targetId}";
+            if (forNow == _tasksFor && !_tasksStale) return;   // nothing new to show
+            foreach (Mastery.Task t in Mastery.For(entity, ids))
+            {
+                bool mine = Mastery.IsFor(t, ids);
+                string progress = Mastery.ProgressText(t), text = t.Text;
+                if (first == "" && mine && !t.Done) first = t.Id;
+                entries.Add(new PickEntry<string>(t.Id, text, t.Id,
+                    Group: mine ? $"For {targetName}" : fight ? t.Skill : "Other tasks of this skill",
+                    Subgroup: mine ? "" : t.Tier,
+                    Hint: mine ? $"{(fight ? t.Skill + ", " : "")}{t.Tier}: {progress}" : progress,
+                    Tooltip: $"{t.Skill}, {t.Tier}: {text}  ({progress})",
+                    Muted: t.Done, Keywords: $"{t.Skill} {t.Tier}"));
+            }
+        }
+        string built = $"{entity}|{targetId}";
+        bool same = built == _tasksFor;
+        _tasksFor = built;
+        _tasksStale = false;
+        foreach (PickList<string> list in new[] { _taskPick, _orTask })
+        {
+            string? keep = same && list.SelectedKey is { } key && entries.Any(e => e.Key == key) ? key : null;
+            list.SetEntries(entries, keep ?? first);   // "" (no task for this target): nothing chosen
+        }
+    }
+
+    /// <summary>For tests: the task list as "group|key|hint" lines, and picking one as a click does.</summary>
+    public List<string> TaskEntries(bool or = false) => (or ? _orTask : _taskPick).VisibleKeys
+        .Select(k => (or ? _orTask : _taskPick).Entry(k) is { } e ? $"{e.Group}|{e.Key}|{e.Hint}|{(e.Muted ? "done" : "")}" : k).ToList();
+    public void OpenTaskList() => _taskPick.Open();
+    public void CloseTaskList() => _taskPick.Close();
+    public string? TaskChosen(bool or = false) => (or ? _orTask : _taskPick).SelectedKey;
+    public bool ChooseTask(string id, bool or = false) => (or ? _orTask : _taskPick).Select(id);
 
     /// <summary>The events the chosen constellation can show, in both event lists (kept when still there).</summary>
     void FillEvents()
@@ -1426,7 +1726,7 @@ public sealed class QueueWindow
     }
 
     /// <summary>Reads one goal from its controls (the step's own row, or the "or until" row).</summary>
-    bool ReadGoal(Until kind, double amount, PickList<Item> item, OptionButton level, OptionButton node, OptionButton ev, out Goal goal)
+    bool ReadGoal(Until kind, double amount, PickList<Item> item, OptionButton level, OptionButton node, OptionButton ev, PickList<string> task, out Goal goal)
     {
         goal = new Goal { Until = kind, Amount = amount };
         if (kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent)
@@ -1447,6 +1747,14 @@ public sealed class QueueWindow
             if (ev.Selected < 0) { Say("This constellation has no events to wait for."); return false; }
             goal.Subject = ev.GetItemMetadata(ev.Selected).AsString();
             goal.SubjectName = ev.GetItemText(ev.Selected);
+        }
+        else if (kind == Until.Mastery)
+        {
+            if (task.SelectedKey is not { Length: > 0 } id) { Say("Pick the mastery task first."); return false; }
+            if (Mastery.Find(id) is not { } chosen) { Say("That mastery task is not in this game: pick another one."); return false; }
+            goal.Subject = id;
+            goal.SubjectName = chosen.Text;
+            goal.Amount = 1;
         }
         return true;
     }
@@ -1500,12 +1808,13 @@ public sealed class QueueWindow
             step.Mode = _mode.ButtonPressed ? _modeId : "";
             if (_mode.ButtonPressed) step.Name += $" ({_mode.Text})";
         }
-        if (!ReadGoal(step.Until, step.Amount, _item, _levelPick, _nodePick, _eventPick, out Goal main)) return;
+        if (!ReadGoal(step.Until, step.Amount, _item, _levelPick, _nodePick, _eventPick, _taskPick, out Goal main)) return;
         step.Subject = main.Subject;
         step.SubjectName = main.SubjectName;
+        step.Amount = main.Amount;
         if (_orBox.Visible && _orBox.ButtonPressed)
         {
-            if (!ReadGoal(OrKind, _orAmount.Value, _orItem, _orLevel, _orNode, _orEvent, out Goal or)) return;
+            if (!ReadGoal(OrKind, _orAmount.Value, _orItem, _orLevel, _orNode, _orEvent, _orTask, out Goal or)) return;
             step.Or = or;
         }
         Put(step);
@@ -1595,7 +1904,7 @@ public sealed class QueueWindow
             if (kindAt >= 0) _untilPick.Select(kindAt);
         }
         UntilChanged();
-        if (!Pseudo) LoadGoal(s, _item, _levelPick, _nodePick, _eventPick);
+        if (!Pseudo) LoadGoal(s, _item, _levelPick, _nodePick, _eventPick, _taskPick);
         if (!Pseudo) CapNodes(_amount, _nodePick, Kind);   // a node goal's cap is the chosen kind's (minor or major)
         _amount.Value = s.Amount;
         _orBox.ButtonPressed = !Pseudo && s.Or != null;
@@ -1604,7 +1913,7 @@ public sealed class QueueWindow
             int orAt = _orPick.GetItemIndex((int)or.Until);
             if (orAt >= 0) _orPick.Select(orAt);
             OrChanged();
-            LoadGoal(or, _orItem, _orLevel, _orNode, _orEvent);
+            LoadGoal(or, _orItem, _orLevel, _orNode, _orEvent, _orTask);
             CapNodes(_orAmount, _orNode, OrKind);
             _orAmount.Value = or.Amount;
         }
@@ -1617,7 +1926,7 @@ public sealed class QueueWindow
     }
 
     /// <summary>Puts a goal's item, skill, node kind or event back into its pickers.</summary>
-    void LoadGoal(IGoal g, PickList<Item> item, OptionButton level, OptionButton node, OptionButton ev)
+    void LoadGoal(IGoal g, PickList<Item> item, OptionButton level, OptionButton node, OptionButton ev, PickList<string> task)
     {
         switch (g.Until)
         {
@@ -1634,6 +1943,9 @@ public sealed class QueueWindow
             case Until.Event:
                 for (int i = 0; i < ev.ItemCount; i++)
                     if (ev.GetItemMetadata(i).AsString() == g.Subject) { ev.Select(i); break; }
+                break;
+            case Until.Mastery:
+                if (!task.Select(g.Subject)) task.ShowMissing(g.Subject, g.SubjectName + " (not in this list)");
                 break;
         }
     }
@@ -1742,6 +2054,7 @@ public sealed class QueueWindow
         _gameCreate.ButtonPressed = Queue.GameCreate;
         _syncing = false;
         PaintIdle();
+        PaintStop();
         if (Queue.Note != "") Say(Queue.Note);
         else if (Queue.Running) Say(Queue.Headline);
         PaintQuick();

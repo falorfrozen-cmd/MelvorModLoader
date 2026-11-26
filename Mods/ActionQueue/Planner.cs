@@ -450,18 +450,21 @@ public static class Planner
     /// <summary>
     /// Adds the plan's steps to the end of the queue, in the given lane. A plan's materials are "until I own N": the
     /// bank is topped up to what the plan needs. With "every material" (a queue that starts over) N is one round's need,
-    /// so each round tops up only what the last one used, and the item itself is "make N more": an "until I own N" for
-    /// it would be reached in the first round and leave every later round with nothing to do. With <paramref name="sell"/> a step that sells
+    /// so each round tops up only what the last one used. The item itself is then "make N more" when "Make" was chosen:
+    /// an "until I own N" for it would be reached in the first round and leave every later round with nothing to do.
+    /// With "Own in total" it stays "until I own N": the player asked for a cap (keep 1000 food in the bank), and a
+    /// round only makes what was used since (ted1985 on Nexus, 26 Nov). With <paramref name="sell"/> a step that sells
     /// what was made comes last (keeping what the bank held before a "make N more"). Returns how many were added.
     /// </summary>
     public static int AddToQueue(PlanResult plan, int lane = 1, bool sell = false)
     {
+        bool makeMore = plan.Everything && plan.More;
         var steps = plan.Steps.Select(line => new Step
         {
             Entity = line.Maker!.Entity.Id, TargetId = line.Maker.Target.Id, Extra = line.Maker.Target.Extra,
             Name = line.Maker.Name,
-            Until = plan.Everything && line.Item == plan.Item ? Until.Made : Until.Item,
-            Amount = plan.Everything && line.Item == plan.Item ? line.Missing : line.Need,
+            Until = makeMore && line.Item == plan.Item ? Until.Made : Until.Item,
+            Amount = makeMore && line.Item == plan.Item ? line.Missing : line.Need,
             Subject = line.Item.Id, SubjectName = line.ItemName, Lane = lane,
         }).ToList();
         if (sell && steps.Count > 0)
