@@ -137,12 +137,12 @@ public static class Mastery
     /// <summary>"1,234 / 2,500", "40%" (a task with a condition), "not yet" (done or not, nothing in between) or "complete".</summary>
     public static string ProgressText(Task t)
     {
-        if (t.Done) return "complete";
+        if (t.Done) return Lang.T("mastery.complete", "complete");
         ActiveMasteryGuildTask a = t.Active;
         if (a.ActiveGoal is { } goal)
-            return goal.MaxProgress > 0 ? $"{Math.Floor(Math.Min(goal.CurrentProgress, goal.MaxProgress)):N0} / {goal.MaxProgress:N0}" : "not yet";
+            return goal.MaxProgress > 0 ? $"{Math.Floor(Math.Min(goal.CurrentProgress, goal.MaxProgress)):N0} / {goal.MaxProgress:N0}" : Lang.T("mastery.not_yet", "not yet");
         if (a.ConditionGoal is { } condition) return $"{Math.Floor(Math.Clamp(condition.ProgressPercent, 0, 1) * 100):0}%";
-        return "not yet";
+        return Lang.T("mastery.not_yet", "not yet");
     }
 
     static readonly Regex s_pictures = new(@"\[img[^\]]*\].*?\[/img\]", RegexOptions.IgnoreCase | RegexOptions.Singleline);

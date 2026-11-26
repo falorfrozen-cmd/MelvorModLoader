@@ -15,12 +15,17 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.13.1.zip   (name: Action Queue, version 0.13.1)  -  0.13.0 dosyasini Archived yap
+MAIN FILE:  dist\ActionQueue-0.14.0.zip   (name: Action Queue, version 0.14.0)  -  0.13.1 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.14.0
+- New: the queue can speak other languages. A language is a file in the mod's lang folder (ru.json for Russian); when one is there, a list at the top right of the window picks it. The English of every text is in lang/en.json with notes, for anyone who wants to translate the mod: copy it, translate it, and send it if you like. Names of items, skills and monsters stay as the game writes them (asked for by a player who offered a Russian translation, thank you!)
+- Fixed: with Multitask, starting a fight by hand while the queue ran a step in another skill (for example again after your character died) stopped that step and paused the whole queue, although there was room for both. The step now goes on beside your fight (reported by a player, thank you!)
+- Fixed: an Equip step for gear whose requirements are not met said "need needs ..."; it now says "cannot be equipped yet (needs ...)"
+
 0.13.1
 - New: a Time column at the right of the step list. A running step shows how long it has been running, a finished one how long it took, and with "Start over at the end" on, a step waiting for its turn shows last round's time in brackets. Only the time a step really runs counts, not the time it waits (asked for on Nexus, thank you!)
 - A step's time, and a "for N minutes" goal, now carry on after a pause instead of starting again from 0, the way "make N more" always did. A fight that goes on while the game is closed counts its time too
@@ -148,7 +153,12 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.13.1[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+This is Action Queue [b]0.14.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+
+[size=5][b]New in 0.14: other languages[/b][/size]
+The window and the queue's messages can now be translated. A language is a file in the mod's [b]lang[/b] folder, and when one is there a list at the top right of the window picks it. [b]lang/en.json[/b] holds every text in English with notes: copy it, name it after your language (ru.json, de.json), translate it and send it to me if you like, and it ships with the mod with your name in the thanks. Names of items, skills and monsters stay as the game writes them.
+
+With Multitask, a fight you start by hand next to the queue (also again after your character died) no longer pauses the queue: its step keeps going beside the fight.
 
 [size=5][b]New in 0.13: run from a step, food, what comes next[/b][/size]
 Select a step and press [b]Run from here[/b] (or right-click it): the queue goes on from that step. In lanes only that step's lane jumps, and a queue that is not running starts from there.

@@ -86,9 +86,12 @@ $extra = @{
         @{ Path = 'art\unique';   Filter = '*.webp'; Count = 179 },
         @{ Path = 'art\items';    Filter = '*.webp'; Count = 58 }
     )
+    ActionQueue = @(
+        @{ Path = 'lang'; Filter = '*.json'; Count = 1 }                  # en.json, the English for translators
+    )
 }
 # files that must never be in a package (a player's own progress and settings, old DLLs, test output)
-$never = 'elites-progress.json', 'onestyle.json', 'bulksell.json', 'bulksell-auto.json', 'phone.json', 'settings.json', 'hotkeys.json'
+$never = 'language.txt', 'elites-progress.json', 'onestyle.json', 'bulksell.json', 'bulksell-auto.json', 'phone.json', 'settings.json', 'hotkeys.json'
 
 [xml]$csproj = Get-Content (Join-Path $proj "$Mod.csproj")
 $version = ($csproj.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1)

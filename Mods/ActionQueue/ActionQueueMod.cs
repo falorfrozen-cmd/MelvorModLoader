@@ -32,6 +32,12 @@ public class ActionQueueMod : IMod
         _ctx = ctx;
         Queue.Dir = ctx.Directory;
         Queue.Log = ctx.Log;
+        Lang.Dir = ctx.Directory;
+        Lang.Load();
+        // the words the pick lists write themselves (the Cheat Menu's files): their English is their id
+        PickListText.T = en => Lang.T("picklist:" + en, en);
+        Targets.Say = Lang.F;
+        Lang.Changed += () => Callable.From(LanguageChanged).CallDeferred();
         ctx.Frame += Tick;
         GameButtons.Watch(ctx.Tree);
         // A character is opened: the game adds its screen, then computes the time it was closed. Bind right here,
@@ -46,7 +52,7 @@ public class ActionQueueMod : IMod
             catch (System.Exception e) { ctx.Log("Could not get the queue ready early: " + e.Message); }
         };
         GameButtons.Tell = Flash;
-        Key = new WindowKey(ctx, "Action Queue", ToggleWindow, Godot.Key.F6);
+        Key = new WindowKey(ctx, "Action Queue", ToggleWindow, Godot.Key.F6);   // (the loader keeps the key under this title: never translated)
         Key.Changed += () => _window?.KeyChanged();
         ctx.Log($"Ready. Press {Key.Spoken} while a character is open.");
     }
@@ -78,6 +84,22 @@ public class ActionQueueMod : IMod
         }
 
         Key.Poll();
+    }
+
+    /// <summary>Another language: the window is built again in its words, on the page it was on; the game's buttons follow.</summary>
+    void LanguageChanged()
+    {
+        Queue.ForgetNote();
+        if (_window == null) { GameButtons.Retext(); return; }
+        bool shown = _window.Visible;
+        int page = _window.Page;
+        _window.Dispose();
+        _window = null;
+        GameButtons.Retext();
+        UpdateChip();
+        if (!shown) return;
+        ToggleWindow();
+        _window?.ShowPage(page);
     }
 
     public void ToggleWindow()

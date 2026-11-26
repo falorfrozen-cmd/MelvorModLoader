@@ -13,12 +13,12 @@ namespace ActionQueue;
 /// <summary>The F6 window: add steps on top (one at a time, or a whole plan for an item), watch the queue run below.</summary>
 public sealed class QueueWindow
 {
-    static readonly string[] UntilNames =
+    static string[] UntilNames => new[]
     {
-        "it stops by itself", "I own this many of an item", "a skill reaches this level", "this many minutes have passed",
-        "only this many of an item are left", "I make this many more of an item", "it has been done this many times",
-        "it has used up this many of an item", "node unlocks of this constellation are earned",
-        "an astrology event has been seen this many times", "a mastery task is complete", "the food runs out",
+        Lang.T("window.stops_by_itself", "it stops by itself"), Lang.T("window.i_own_many_item", "I own this many of an item"), Lang.T("window.skill_reaches_level", "a skill reaches this level"), Lang.T("window.many_minutes_have_passed", "this many minutes have passed"),
+        Lang.T("window.only_many_item_left", "only this many of an item are left"), Lang.T("window.i_make_many_more_item", "I make this many more of an item"), Lang.T("window.has_been_done_many_times", "it has been done this many times"),
+        Lang.T("window.has_used_up_many_item", "it has used up this many of an item"), Lang.T("window.node_unlocks_constellation_earned", "node unlocks of this constellation are earned"),
+        Lang.T("window.astrology_event_has_been_seen", "an astrology event has been seen this many times"), Lang.T("window.mastery_task_complete", "a mastery task is complete"), Lang.T("window.food_runs_out", "the food runs out"),
     };
 
     /// <summary>One theme for the window and for the popups of its pick lists (a popup is a window of its own).</summary>
@@ -27,26 +27,26 @@ public sealed class QueueWindow
     readonly Label _status = Style.Label("", Style.Good);
     readonly Label _now = Style.Label("", Style.Muted, 12);
     readonly OptionButton _skillPick = new() { CustomMinimumSize = new Vector2(170, 0) };
-    readonly PickList<Target> _target = new("Choose what to do", s_theme);
+    readonly PickList<Target> _target = new(Lang.T("window.choose_what_do", "Choose what to do"), s_theme);
     readonly OptionButton _untilPick = new() { CustomMinimumSize = new Vector2(250, 0) };
     readonly SpinBox _amount = new() { MinValue = 1, MaxValue = 100_000_000, Step = 1, Value = 1000, CustomMinimumSize = new Vector2(120, 0), SelectAllOnFocus = true };
-    readonly PickList<Item> _item = new("Choose an item", s_theme);
+    readonly PickList<Item> _item = new(Lang.T("window.choose_item", "Choose an item"), s_theme);
     readonly OptionButton _levelPick = new() { CustomMinimumSize = new Vector2(170, 0) };
     // Astrology goals: minor or major node unlocks, and the event to wait for.
     readonly OptionButton _nodePick = new() { CustomMinimumSize = new Vector2(110, 0) };
     readonly OptionButton _eventPick = new() { CustomMinimumSize = new Vector2(250, 0), FitToLongestItem = false, ClipText = true };
     // The second goal: "... or until ...". The step is over when either one is reached.
-    readonly CheckBox _orBox = new() { Text = "or" };
+    readonly CheckBox _orBox = new() { Text = Lang.T("window.label.or", "or") };
     readonly HBoxContainer _orRow = new() { Visible = false };
     readonly OptionButton _orPick = new() { CustomMinimumSize = new Vector2(250, 0) };
     readonly SpinBox _orAmount = new() { MinValue = 1, MaxValue = 100_000_000, Step = 1, Value = 100, CustomMinimumSize = new Vector2(120, 0), SelectAllOnFocus = true };
-    readonly PickList<Item> _orItem = new("Choose an item", s_theme);
+    readonly PickList<Item> _orItem = new(Lang.T("window.choose_item", "Choose an item"), s_theme);
     readonly OptionButton _orLevel = new() { CustomMinimumSize = new Vector2(170, 0) };
     readonly OptionButton _orNode = new() { CustomMinimumSize = new Vector2(110, 0) };
     readonly OptionButton _orEvent = new() { CustomMinimumSize = new Vector2(250, 0), FitToLongestItem = false, ClipText = true };
     /// <summary>"Until this mastery task is complete" (0.12.0): the chosen skill's Mastery Guild tasks, a fight's: the combat skills'.</summary>
-    readonly PickList<string> _taskPick = new("Choose a mastery task", s_theme);
-    readonly PickList<string> _orTask = new("Choose a mastery task", s_theme);
+    readonly PickList<string> _taskPick = new(Lang.T("window.choose_mastery_task", "Choose a mastery task"), s_theme);
+    readonly PickList<string> _orTask = new(Lang.T("window.choose_mastery_task", "Choose a mastery task"), s_theme);
     /// <summary>The skill and target the task lists were last made for: a new one picks its own first task.</summary>
     string _tasksFor = "";
     /// <summary>The window was opened again: the progress next to each task is made again (once).</summary>
@@ -68,34 +68,36 @@ public sealed class QueueWindow
     // Lanes: which lane a new step (or plan) goes to, and moving the selected step to another lane.
     readonly OptionButton _lanePick = new() { Visible = false }, _planLanePick = new() { Visible = false };
     readonly Button _laneButton = new() { Visible = false, CustomMinimumSize = new Vector2(120, 0) };
-    readonly CheckBox _planSell = new() { Text = "then sell them" };
+    readonly CheckBox _planSell = new() { Text = Lang.T("window.then_sell_them", "then sell them") };
     /// <summary>The planner: every material from nothing (the bank not counted), for a queue that starts over.</summary>
-    readonly CheckBox _planAll = new() { Text = "every material" };
+    readonly CheckBox _planAll = new() { Text = Lang.T("window.every_material", "every material") };
     bool _planAllSet;
     /// <summary>A recipe's other way of making for this step (Smithing's Sacrificial Anvil); shown only where the game offers one.</summary>
     readonly CheckBox _mode = new() { Visible = false };
     string _modeId = "";
-    readonly Label _untilLabel = Style.Label("until", Style.Text);
+    readonly Label _untilLabel = Style.Label(Lang.T("window.label.until", "until"), Style.Text);
+    /// <summary>The Do row asks how many to keep (a sale, an equip stack): for tests, which must not read the label's words.</summary>
+    bool _keepShown;
     Button _useNow = null!;
     // Editing a step in place: the form shows the step, and its button saves it back where it was.
     Button _addButton = null!;
-    readonly Button _cancelEdit = new() { Text = "Cancel", Visible = false };
+    readonly Button _cancelEdit = new() { Text = Lang.T("window.cancel", "Cancel"), Visible = false };
     Step? _editing;
 
     // "When the queue waits or ends, do": an action for the idle time.
     readonly OptionButton _idleSkill = new() { CustomMinimumSize = new Vector2(170, 0) };
-    readonly PickList<Target> _idleTarget = new("Choose what to do", s_theme);
+    readonly PickList<Target> _idleTarget = new(Lang.T("window.choose_what_do", "Choose what to do"), s_theme);
     readonly Label _idleState = Style.Label("", Style.Muted, 12);
-    readonly CheckBox _idleAlways = new() { Text = "Also when the queue is not running" };
-    readonly CheckBox _gameCreate = new() { Text = "The game's Create button adds to the queue" };
+    readonly CheckBox _idleAlways = new() { Text = Lang.T("window.also_when_queue_not_running", "Also when the queue is not running") };
+    readonly CheckBox _gameCreate = new() { Text = Lang.T("window.game_create_button_adds_queue", "The game's Create button adds to the queue") };
 
     // "Stop the whole queue when ...": the queue's own stop (0.12.0).
     readonly OptionButton _stopPick = new() { CustomMinimumSize = new Vector2(250, 0) };
     readonly SpinBox _stopAmount = new() { MinValue = 1, MaxValue = Queue.MaxStopAmount, Step = 1, Value = 1, CustomMinimumSize = new Vector2(110, 0), SelectAllOnFocus = true };
-    readonly PickList<Item> _stopItem = new("Choose an item", s_theme);
+    readonly PickList<Item> _stopItem = new(Lang.T("window.choose_item", "Choose an item"), s_theme);
     readonly OptionButton _stopLevel = new() { CustomMinimumSize = new Vector2(170, 0) };
     /// <summary>The queue's stop "a mastery task is complete": every skill's tasks (filled when the kind is shown).</summary>
-    readonly PickList<string> _stopTask = new("Choose a mastery task", s_theme);
+    readonly PickList<string> _stopTask = new(Lang.T("window.choose_mastery_task", "Choose a mastery task"), s_theme);
     bool _stopTasksFilled;
     /// <summary>The queue's stop the controls were last set from (they are not reset while the player is still picking).</summary>
     string _stopShown = "?";
@@ -108,25 +110,27 @@ public sealed class QueueWindow
     string _thenShown = "?";
 
     // The card on top has two faces: the form for one step, and the planner.
-    readonly Button _stepMode = new() { Text = "Add one step", ToggleMode = true };
-    readonly Button _planMode = new() { Text = "Plan an item", ToggleMode = true };
+    readonly Button _stepMode = new() { Text = Lang.T("window.add_one_step", "Add one step"), ToggleMode = true };
+    readonly Button _planMode = new() { Text = Lang.T("window.plan_item", "Plan an item"), ToggleMode = true };
     readonly VBoxContainer _stepForm = new(), _planForm = new() { Visible = false };
     readonly OptionButton _planKind = new() { CustomMinimumSize = new Vector2(132, 0) };
     readonly SpinBox _planAmount = new() { MinValue = 1, MaxValue = 100_000_000, Step = 1, Value = 100, CustomMinimumSize = new Vector2(120, 0), SelectAllOnFocus = true };
-    readonly PickList<Item> _planPick = new("Choose an item to plan", s_theme);
+    readonly PickList<Item> _planPick = new(Lang.T("window.choose_item_plan", "Choose an item to plan"), s_theme);
     readonly Label _planNote = Style.Label("", Style.Muted, 12);
-    readonly Button _planAdd = new() { Text = "Add these steps to the queue" };
+    readonly Button _planAdd = new() { Text = Lang.T("window.add_these_steps_queue", "Add these steps to the queue") };
     Tree _planTable = null!;
     List<Item> _makeable = new();
     PlanResult? _plan;
     string _planShown = "";
 
     // The third face of the card: queues kept under a name, and share codes.
-    readonly Button _savedMode = new() { Text = "Saved queues", ToggleMode = true };
+    readonly Button _savedMode = new() { Text = Lang.T("window.saved_queues", "Saved queues"), ToggleMode = true };
+    /// <summary>The queue's language (0.14.0): shown only when a language file is next to the mod.</summary>
+    readonly OptionButton _language = new() { FitToLongestItem = true };
     readonly VBoxContainer _savedForm = new() { Visible = false };
-    readonly LineEdit _presetName = new() { PlaceholderText = "Name, e.g. Smithing day", CustomMinimumSize = new Vector2(260, 0), MaxLength = 40 };
-    readonly LineEdit _code = new() { PlaceholderText = "Share code (AQ1:...)", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClearButtonEnabled = true };
-    readonly Button _deletePreset = new() { Text = "Delete" };
+    readonly LineEdit _presetName = new() { PlaceholderText = Lang.T("window.name_e_g_smithing_day", "Name, e.g. Smithing day"), CustomMinimumSize = new Vector2(260, 0), MaxLength = 40 };
+    readonly LineEdit _code = new() { PlaceholderText = Lang.T("window.share_code_aq", "Share code (AQ1:...)"), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClearButtonEnabled = true };
+    readonly Button _deletePreset = new() { Text = Lang.T("window.delete", "Delete") };
     readonly OptionButton _quick = new() { CustomMinimumSize = new Vector2(230, 0), FitToLongestItem = false, ClipText = true };
     Tree _presetTable = null!;
     List<string> _quickNames = new();
@@ -165,9 +169,9 @@ public sealed class QueueWindow
         Panel = panel;
         // Making it bigger (0.13.0, by madmousepad): the right edge widens it, the corner grip widens and heightens it.
         _edgeGrip = new Control { MouseFilter = Control.MouseFilterEnum.Stop, MouseDefaultCursorShape = Control.CursorShape.Hsize,
-            TooltipText = "Drag to make the window wider. Double-click: back to its normal size." };
+            TooltipText = Lang.T("window.drag_make_window_wider_double", "Drag to make the window wider. Double-click: back to its normal size.") };
         _cornerGrip = new Control { MouseFilter = Control.MouseFilterEnum.Stop, MouseDefaultCursorShape = Control.CursorShape.Fdiagsize,
-            Size = new Vector2(CornerSize, CornerSize), TooltipText = "Drag to make the window bigger. Double-click: back to its normal size." };
+            Size = new Vector2(CornerSize, CornerSize), TooltipText = Lang.T("window.drag_make_window_bigger_double", "Drag to make the window bigger. Double-click: back to its normal size.") };
         Control corner = _cornerGrip;
         corner.Draw += () =>
         {
@@ -194,23 +198,27 @@ public sealed class QueueWindow
         headBox.BorderColor = Style.Line;
         headBox.BorderWidthBottom = 1;
         var head = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Stop, MouseDefaultCursorShape = Control.CursorShape.Move,
-            TooltipText = "Drag here to move the window. Double-click to put it back in the middle." };
+            TooltipText = Lang.T("window.drag_here_move_window_double", "Drag here to move the window. Double-click to put it back in the middle.") };
         head.AddThemeStyleboxOverride("panel", headBox);
         head.GuiInput += DragTitle;
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 12);
-        header.AddChild(Style.Label("ACTION QUEUE", Style.Accent, 20));
-        Label hint = Style.Label("Do this, then that, then that.", Style.Muted);
+        header.AddChild(Style.Label(Lang.T("window.action_queue", "ACTION QUEUE"), Style.Accent, 20));
+        Label hint = Style.Label(Lang.T("window.do_then_then", "Do this, then that, then that."), Style.Muted);
         hint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hint.VerticalAlignment = VerticalAlignment.Center;
         hint.SizeFlagsVertical = Control.SizeFlags.Fill;
         hint.ClipText = true;
         header.AddChild(hint);
+        _language.TooltipText = Lang.T("window.language_queue_window_messages_names", "The language of the queue's window and messages. Names that come from the game stay as the game writes them.");
+        _language.ItemSelected += LanguagePicked;
+        header.AddChild(_language);
+        FillLanguages();
         StyleBoxFlat go = Style.Box(Style.GoodDim, 5, Style.Good, 1, 12, 5);
         _run.AddThemeStyleboxOverride("normal", go);
         _run.AddThemeStyleboxOverride("hover", Style.Box(new Color(0.16f, 0.38f, 0.23f), 5, Style.Good, 1, 12, 5));
-        _run.Pressed += () => { if (Queue.Running) Queue.Pause("Paused. Your character goes on with what it was doing; press Start to carry on with the queue."); else Queue.Start(); };
-        _quick.TooltipText = "Switch to one of your saved queues. A running queue keeps running, from the first step of the new one.";
+        _run.Pressed += () => { if (Queue.Running) Queue.Pause(Lang.T("window.paused_your_character_goes_with", "Paused. Your character goes on with what it was doing; press Start to carry on with the queue.")); else Queue.Start(); };
+        _quick.TooltipText = Lang.T("window.switch_one_your_saved_queues", "Switch to one of your saved queues. A running queue keeps running, from the first step of the new one.");
         _quick.ItemSelected += QuickPicked;
         header.AddChild(_quick);
         header.AddChild(_run);
@@ -248,12 +256,12 @@ public sealed class QueueWindow
             modes.AddChild(mode);
         }
         _stepMode.ButtonPressed = true;
-        _stepMode.TooltipText = "Choose one action and when it is over.";
-        _planMode.TooltipText = "Say which item you want and how many. The steps to get there are worked out for you.";
-        _savedMode.TooltipText = "Keep several queues under a name, switch between them, and share one as a short code.";
+        _stepMode.TooltipText = Lang.T("window.choose_one_action_when_over", "Choose one action and when it is over.");
+        _planMode.TooltipText = Lang.T("window.say_which_item_you_want", "Say which item you want and how many. The steps to get there are worked out for you.");
+        _savedMode.TooltipText = Lang.T("window.keep_several_queues_under_name", "Keep several queues under a name, switch between them, and share one as a short code.");
         foreach (Button mode in new[] { _stepMode, _planMode, _savedMode }) mode.Toggled += _ => ShowFace();
         Label modeHint = Style.Label("", Style.Muted, 12);
-        modeHint.Text = "Build the queue step by step, let a plan work the steps out, or keep whole queues under a name.";
+        modeHint.Text = Lang.T("window.build_queue_step_by_step", "Build the queue step by step, let a plan work the steps out, or keep whole queues under a name.");
         modeHint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         modeHint.HorizontalAlignment = HorizontalAlignment.Right;
         modeHint.ClipText = true;
@@ -263,7 +271,7 @@ public sealed class QueueWindow
 
         var what = new HBoxContainer();
         what.AddThemeConstantOverride("separation", 10);
-        what.AddChild(Fixed("Do", 50));
+        what.AddChild(Fixed(Lang.T("window.label.do", "Do"), 50));
         _skillPick.ItemSelected += _ => { FillKinds(_untilPick, withStops: true); FillKinds(_orPick, withStops: false); FillTargets(null); UntilChanged(); };
         _target.Picked += _ =>
         {
@@ -277,14 +285,13 @@ public sealed class QueueWindow
         };
         _target.Control.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         _target.Control.CustomMinimumSize = new Vector2(300, 0);
-        _target.Control.TooltipText = "Click and type to search. The groups are the ones of the skill's own page.";
+        _target.Control.TooltipText = Lang.T("window.click_type_search_groups_ones", "Click and type to search. The groups are the ones of the skill's own page.");
         what.AddChild(_skillPick);
         what.AddChild(_target.Control);
-        _mode.TooltipText = "Tick it and this step makes the recipe this other way (as the switch under the recipe on the skill's page);\n"
-            + "untick it and the step makes it the normal way. The queue sets the game's switch when the step starts.";
+        _mode.TooltipText = Lang.T("window.tick_step_makes_recipe_other", "Tick it and this step makes the recipe this other way (as the switch under the recipe on the skill's page);\nuntick it and the step makes it the normal way. The queue sets the game's switch when the step starts.");
         what.AddChild(_mode);
-        Button useNow = _useNow = MakeButton("Use what I am doing now", UseCurrent);
-        useNow.TooltipText = "Fills in the skill and the action your character is performing right now.";
+        Button useNow = _useNow = MakeButton(Lang.T("window.use_what_i_am_doing", "Use what I am doing now"), UseCurrent);
+        useNow.TooltipText = Lang.T("window.fills_skill_action_your_character", "Fills in the skill and the action your character is performing right now.");
         what.AddChild(useNow);
         _stepForm.AddChild(what);
 
@@ -301,53 +308,49 @@ public sealed class QueueWindow
         until.AddChild(_levelPick);
         foreach (OptionButton nodes in new[] { _nodePick, _orNode })
         {
-            nodes.AddItem("minor");
-            nodes.AddItem("major");
+            nodes.AddItem(Step.NodeKind("minor", "minor"));
+            nodes.AddItem(Step.NodeKind("major", "major"));
             nodes.ItemSelected += _ => { CapNodes(_amount, _nodePick, Kind); CapNodes(_orAmount, _orNode, OrKind); };
-            nodes.TooltipText = "Minor: the node unlocks the constellation's Knowledge has earned (the ones you already clicked count too).\n"
-                + "Major: one for every few minor ones, as the game gives them; you do not have to click the minor nodes for it.";
+            nodes.TooltipText = Lang.T("window.minor_node_unlocks_constellation_knowledge", "Minor: the node unlocks the constellation's Knowledge has earned (the ones you already clicked count too).\nMajor: one for every few minor ones, as the game gives them; you do not have to click the minor nodes for it.");
         }
         until.AddChild(_nodePick);
-        _eventPick.TooltipText = _orEvent.TooltipText = "The events this constellation can show while it is studied. The step counts the ones seen after it starts.";
+        _eventPick.TooltipText = _orEvent.TooltipText = Lang.T("window.events_constellation_can_show_while", "The events this constellation can show while it is studied. The step counts the ones seen after it starts.");
         until.AddChild(_eventPick);
         foreach (PickList<string> tasks in new[] { _taskPick, _orTask })
         {
             tasks.Control.CustomMinimumSize = new Vector2(400, 0);
             tasks.HintWidth = 150;   // the count ("Easy: 201 / 2,000") stays readable when a long task's words are cut
-            tasks.Control.TooltipText = "The Mastery Guild's tasks of this skill (a fight: of the combat skills). Click and type to search.\n"
-                + "The ones for the chosen target come first. The step is over when the game marks the task complete.";
+            tasks.Control.TooltipText = Lang.T("window.mastery_guild_tasks_skill_fight", "The Mastery Guild's tasks of this skill (a fight: of the combat skills). Click and type to search.\nThe ones for the chosen target come first. The step is over when the game marks the task complete.");
         }
         until.AddChild(_taskPick.Control);
         foreach (PickList<string> tasks in new[] { _taskPick, _orTask })
             tasks.Picked += e =>
             {
                 if (Mastery.Find(e.Key) is { Done: true })
-                    Say("That task is already complete on this character, so a step waiting for it ends at once.");
+                    Say(Lang.T("window.task_already_complete_character_so", "That task is already complete on this character, so a step waiting for it ends at once."));
             };
-        _foodSkill.TooltipText = "The skill that eats this food: the step puts it in that skill's own food box (the fight's, Thieving's, Agility's...).";
+        _foodSkill.TooltipText = Lang.T("window.skill_eats_food_step_puts", "The skill that eats this food: the step puts it in that skill's own food box (the fight's, Thieving's, Agility's...).");
         until.AddChild(_foodSkill);
         until.AddChild(_pseudoNote);
-        _orBox.TooltipText = "Give the step a second goal: it is over when either one is reached\n(e.g. until a Gold Topaz Ring is in the bank, or until 780 Salmon are used up).";
+        _orBox.TooltipText = Lang.T("window.give_step_second_goal_over", "Give the step a second goal: it is over when either one is reached\n(e.g. until a Gold Topaz Ring is in the bank, or until 780 Salmon are used up).");
         _orBox.Toggled += _ => UntilChanged();
         until.AddChild(_orBox);
         until.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
         OfferLanes(LanesOffered());
         _lanePick.TooltipText = _planLanePick.TooltipText =
-            "Lanes are queues of their own that run side by side (with the Multitask mod's slots on).\n"
-            + "Every lane does its steps one after another; e.g. lane 1 cuts logs and burns them, lane 2 fishes and cooks.\n"
-            + "With every step in lane 1 the queue works as one list.";
+            Lang.T("window.lanes_queues_their_own_run", "Lanes are queues of their own that run side by side (with the Multitask mod's slots on).\nEvery lane does its steps one after another; e.g. lane 1 cuts logs and burns them, lane 2 fishes and cooks.\nWith every step in lane 1 the queue works as one list.");
         _lanePick.ItemSelected += i => _planLanePick.Select((int)i);
         _planLanePick.ItemSelected += i => { _lanePick.Select((int)i); _planShown = ""; Replan(); };
         until.AddChild(_lanePick);
-        _addButton = MakeButton("Add step", AddStep);
+        _addButton = MakeButton(Lang.T("window.add_step", "Add step"), AddStep);
         until.AddChild(_addButton);
-        _cancelEdit.TooltipText = "Stop editing: the step stays as it was.";
-        _cancelEdit.Pressed += () => { EndEdit(); Say("Nothing was changed."); };
+        _cancelEdit.TooltipText = Lang.T("window.stop_editing_step_stays_as", "Stop editing: the step stays as it was.");
+        _cancelEdit.Pressed += () => { EndEdit(); Say(Lang.T("window.nothing_was_changed", "Nothing was changed.")); };
         until.AddChild(_cancelEdit);
         _stepForm.AddChild(until);
         // -- the second goal, under the first
         _orRow.AddThemeConstantOverride("separation", 10);
-        Label orLabel = Style.Label("or until", Style.Text);
+        Label orLabel = Style.Label(Lang.T("window.label.or_until", "or until"), Style.Text);
         orLabel.CustomMinimumSize = new Vector2(50, 0);
         _orRow.AddChild(orLabel);
         FillKinds(_orPick, withStops: false);
@@ -373,7 +376,7 @@ public sealed class QueueWindow
             SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 150)
         };
         // Time (0.13.1, asked for on Nexus): how long the step has been running, or took.
-        string[] titles = { "#", "Do", "Until", "State", "Time" };
+        string[] titles = { "#", Lang.T("window.label.do", "Do"), Lang.T("window.column.until", "Until"), Lang.T("window.column.state", "State"), Lang.T("window.column.time", "Time") };
         for (int c = 0; c < titles.Length; c++)
         {
             _table.SetColumnTitle(c, titles[c]);
@@ -387,8 +390,8 @@ public sealed class QueueWindow
         _table.ItemSelected += PaintLaneButton;
         // Right-click on a step: run the queue from it, or edit it (0.13.0).
         _stepMenu = new PopupMenu { Theme = s_theme };
-        _stepMenu.AddItem("Run from here", 0);
-        _stepMenu.AddItem("Edit", 1);
+        _stepMenu.AddItem(Lang.T("window.run_from_here", "Run from here"), 0);
+        _stepMenu.AddItem(Lang.T("window.edit", "Edit"), 1);
         _stepMenu.IdPressed += id => { if (id == 0) RunFromSelected(); else EditSelected(); };
         _table.AddChild(_stepMenu);
         _table.ItemMouseSelected += (position, button) =>
@@ -402,11 +405,9 @@ public sealed class QueueWindow
         // -- the idle action
         var idleRow = new HBoxContainer();
         idleRow.AddThemeConstantOverride("separation", 10);
-        Label idleLabel = Style.Label("When the queue waits or ends, do", Style.Muted);
+        Label idleLabel = Style.Label(Lang.T("window.when_queue_waits_ends_do", "When the queue waits or ends, do"), Style.Muted);
         idleLabel.MouseFilter = Control.MouseFilterEnum.Stop;
-        idleLabel.TooltipText = "Your character never stands still: this runs while every step that is left is waiting\n"
-            + "(for materials, for its skill to be free...) and goes on after the queue has finished.\n"
-            + "It only takes a free slot, never one of your own actions, and stops when a step needs the place.";
+        idleLabel.TooltipText = Lang.T("window.your_character_never_stands_still", "Your character never stands still: this runs while every step that is left is waiting\n(for materials, for its skill to be free...) and goes on after the queue has finished.\nIt only takes a free slot, never one of your own actions, and stops when a step needs the place.");
         idleRow.AddChild(idleLabel);
         _idleSkill.TooltipText = idleLabel.TooltipText;
         _idleSkill.ItemSelected += i => { if (!_syncing) { if (i <= 0) Queue.SetIdle(null); else { FillIdleTargets(null); PickIdle(); } } };
@@ -415,21 +416,16 @@ public sealed class QueueWindow
         _idleTarget.Control.CustomMinimumSize = new Vector2(220, 0);
         idleRow.AddChild(_idleSkill);
         idleRow.AddChild(_idleTarget.Control);
-        Button idleNow = MakeButton("Use what I am doing now", UseCurrentForIdle);
-        idleNow.TooltipText = "Uses the skill and the action your character is performing right now.";
+        Button idleNow = MakeButton(Lang.T("window.use_what_i_am_doing", "Use what I am doing now"), UseCurrentForIdle);
+        idleNow.TooltipText = Lang.T("window.uses_skill_action_your_character", "Uses the skill and the action your character is performing right now.");
         idleRow.AddChild(idleNow);
         body.AddChild(idleRow);
         var optionRow = new HBoxContainer();
         optionRow.AddThemeConstantOverride("separation", 24);
-        _idleAlways.TooltipText = "ON: the idle action above also runs while the queue is paused, finished or not used at all,\n"
-            + "whenever your character does nothing. Press Stop on it in the game and it waits until you start something yourself.\n"
-            + "OFF: it only runs while the queue runs and after the queue has finished.";
+        _idleAlways.TooltipText = Lang.T("window.idle_action_above_also_runs", "ON: the idle action above also runs while the queue is paused, finished or not used at all,\nwhenever your character does nothing. Press Stop on it in the game and it waits until you start something yourself.\nOFF: it only runs while the queue runs and after the queue has finished.");
         _idleAlways.Toggled += on => { if (!_syncing) Queue.SetIdleAlways(on); };
         optionRow.AddChild(_idleAlways);
-        _gameCreate.TooltipText = "ON: on the Smithing, Crafting, Fletching, Runecrafting, Beastcrafting, Cooking and Herblore pages,\n"
-            + "the game's Create button (it then reads \"Add to queue\") puts the recipe at the end of the queue, with the\n"
-            + "stop option you chose there. With nothing left in the queue, it starts the recipe through the queue.\n"
-            + "The \"+ Queue\" button next to it always adds to the queue, even when you lack the materials yet.";
+        _gameCreate.TooltipText = Lang.T("window.smithing_crafting_fletching_runecrafting_beastcrafting", "ON: on the Smithing, Crafting, Fletching, Runecrafting, Beastcrafting, Cooking and Herblore pages,\nthe game's Create button (it then reads \"Add to queue\") puts the recipe at the end of the queue, with the\nstop option you chose there. With nothing left in the queue, it starts the recipe through the queue.\nThe \"+ Queue\" button next to it always adds to the queue, even when you lack the materials yet.");
         _gameCreate.Toggled += on => { if (!_syncing) Queue.SetGameCreate(on); };
         optionRow.AddChild(_gameCreate);
         body.AddChild(optionRow);
@@ -438,20 +434,18 @@ public sealed class QueueWindow
 
         var buttons = new HBoxContainer();
         buttons.AddThemeConstantOverride("separation", 10);
-        buttons.AddChild(Style.Label("Selected step:", Style.Muted));
-        buttons.AddChild(MakeButton("Move up", () => MoveSelected(-1)));
-        buttons.AddChild(MakeButton("Move down", () => MoveSelected(1)));
-        _runFrom = MakeButton("Run from here", RunFromSelected);
-        _runFrom.TooltipText = "The queue goes on from the selected step: the steps before it are skipped this round,\n"
-            + "this step and the ones after it start afresh. In lanes only that lane jumps. A queue that is not running starts from it.\n"
-            + "Also on the right-click menu of a step.";
+        buttons.AddChild(Style.Label(Lang.T("window.selected_step", "Selected step:"), Style.Muted));
+        buttons.AddChild(MakeButton(Lang.T("window.move_up", "Move up"), () => MoveSelected(-1)));
+        buttons.AddChild(MakeButton(Lang.T("window.move_down", "Move down"), () => MoveSelected(1)));
+        _runFrom = MakeButton(Lang.T("window.run_from_here", "Run from here"), RunFromSelected);
+        _runFrom.TooltipText = Lang.T("window.queue_goes_from_selected_step", "The queue goes on from the selected step: the steps before it are skipped this round,\nthis step and the ones after it start afresh. In lanes only that lane jumps. A queue that is not running starts from it.\nAlso on the right-click menu of a step.");
         _runFrom.Disabled = true;
         buttons.AddChild(_runFrom);
-        Button edit = MakeButton("Edit", EditSelected);
-        edit.TooltipText = "Shows the selected step in the form above. Change what you like and press \"Save step\": it stays in its place.";
+        Button edit = MakeButton(Lang.T("window.edit", "Edit"), EditSelected);
+        edit.TooltipText = Lang.T("window.shows_selected_step_form_above", "Shows the selected step in the form above. Change what you like and press \"Save step\": it stays in its place.");
         buttons.AddChild(edit);
-        buttons.AddChild(MakeButton("Remove", () => { int i = SelectedIndex(); if (i >= 0) Queue.RemoveAt(i); }));
-        _laneButton.TooltipText = "Puts the selected step into the next lane (after the last lane it goes back to lane 1).";
+        buttons.AddChild(MakeButton(Lang.T("window.remove", "Remove"), () => { int i = SelectedIndex(); if (i >= 0) Queue.RemoveAt(i); }));
+        _laneButton.TooltipText = Lang.T("window.puts_selected_step_into_next", "Puts the selected step into the next lane (after the last lane it goes back to lane 1).");
         _laneButton.Pressed += NextLane;
         buttons.AddChild(_laneButton);
         buttons.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
@@ -462,11 +456,11 @@ public sealed class QueueWindow
         StyleBoxFlat sideOn = Style.Box(Style.GoodDim, 5, Style.Good, 1, 12, 5);
         _side.AddThemeStyleboxOverride("pressed", sideOn);
         _side.AddThemeStyleboxOverride("hover_pressed", sideOn);
-        _side.TooltipText = "With the Multitask mod's slots switched on, several steps run at the same time (the fish are cooked while more are caught).\nOFF: one step after another, as without Multitask.";
+        _side.TooltipText = Lang.T("window.with_multitask_mod_slots_switched", "With the Multitask mod's slots switched on, several steps run at the same time (the fish are cooked while more are caught).\nOFF: one step after another, as without Multitask.");
         _side.Toggled += pressed => { if (!_syncing) Queue.SetSideBySide(pressed); };
         buttons.AddChild(_side);
         buttons.AddChild(_repeat);
-        buttons.AddChild(MakeButton("Remove all", Queue.Clear));
+        buttons.AddChild(MakeButton(Lang.T("window.remove_all", "Remove all"), Queue.Clear));
         body.AddChild(buttons);
         _laneRepeats.AddThemeConstantOverride("separation", 12);
         _laneRepeats.Alignment = BoxContainer.AlignmentMode.End;
@@ -475,25 +469,22 @@ public sealed class QueueWindow
         // -- the queue's own stop
         var stopRow = new HBoxContainer();
         stopRow.AddThemeConstantOverride("separation", 10);
-        Label stopLabel = Style.Label("Stop the whole queue when", Style.Muted);
+        Label stopLabel = Style.Label(Lang.T("window.stop_whole_queue_when", "Stop the whole queue when"), Style.Muted);
         stopLabel.MouseFilter = Control.MouseFilterEnum.Stop;
-        stopLabel.TooltipText = "Once this is reached, every step stops and the queue ends, also with \"Start over at the end\" on\n"
-            + "and in lanes. The action under \"When the queue waits or ends, do\" then takes over (or the saved queue below).\n"
-            + "E.g. thieve, fish and cook round after round until 1 Bandit Gloves is in the bank, then stop.\n"
-            + "\"at once\" stops in the middle of a step; \"when a round is over\" lets the round finish first (the sale at the end still happens).";
+        stopLabel.TooltipText = Lang.T("window.once_reached_every_step_stops", "Once this is reached, every step stops and the queue ends, also with \"Start over at the end\" on\nand in lanes. The action under \"When the queue waits or ends, do\" then takes over (or the saved queue below).\nE.g. thieve, fish and cook round after round until 1 Bandit Gloves is in the bank, then stop.\n\"at once\" stops in the middle of a step; \"when a round is over\" lets the round finish first (the sale at the end still happens).");
         stopRow.AddChild(stopLabel);
         _stopPick.TooltipText = stopLabel.TooltipText;
-        _stopPick.AddItem("never: the steps decide", NeverId);
-        _stopPick.AddItem("I own this many of an item", (int)Until.Item);
-        _stopPick.AddItem("a skill reaches this level", (int)Until.Level);
-        _stopPick.AddItem("only this many of an item are left", (int)Until.ItemLeft);
-        _stopPick.AddItem("a mastery task is complete", (int)Until.Mastery);
+        _stopPick.AddItem(Lang.T("window.never_steps_decide", "never: the steps decide"), NeverId);
+        _stopPick.AddItem(Lang.T("window.i_own_many_item", "I own this many of an item"), (int)Until.Item);
+        _stopPick.AddItem(Lang.T("window.skill_reaches_level", "a skill reaches this level"), (int)Until.Level);
+        _stopPick.AddItem(Lang.T("window.only_many_item_left", "only this many of an item are left"), (int)Until.ItemLeft);
+        _stopPick.AddItem(Lang.T("window.mastery_task_complete", "a mastery task is complete"), (int)Until.Mastery);
         _stopPick.ItemSelected += _ => { if (_syncing) return; StopKindShown(fresh: true); ApplyStop(fresh: true); };
         stopRow.AddChild(_stopPick);
         _stopAmount.ValueChanged += _ => { if (!_syncing) ApplyStop(); };
         stopRow.AddChild(_stopAmount);
         _stopItem.Control.CustomMinimumSize = new Vector2(240, 0);
-        _stopItem.Control.TooltipText = "Click and type to search.";
+        _stopItem.Control.TooltipText = Lang.T("window.click_type_search", "Click and type to search.");
         _stopItem.Picked += _ => { if (!_syncing) ApplyStop(); };
         stopRow.AddChild(_stopItem.Control);
         _stopLevel.ItemSelected += _ => { if (!_syncing) ApplyStop(); };
@@ -502,14 +493,12 @@ public sealed class QueueWindow
         _stopTask.Control.CustomMinimumSize = new Vector2(300, 0);
         _stopTask.Control.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         _stopTask.HintWidth = 120;
-        _stopTask.Control.TooltipText = "Every skill's Mastery Guild tasks (the skills of this queue first). Click and type to search.";
+        _stopTask.Control.TooltipText = Lang.T("window.every_skill_mastery_guild_tasks", "Every skill's Mastery Guild tasks (the skills of this queue first). Click and type to search.");
         _stopTask.Picked += _ => { if (!_syncing) ApplyStop(); };
         stopRow.AddChild(_stopTask.Control);
-        _stopTiming.AddItem("at once", 0);
-        _stopTiming.AddItem("when a round is over", 1);
-        _stopTiming.TooltipText = "At once: the queue stops the moment this is true, in the middle of a step.\n"
-            + "When a round is over: the queue finishes the round it is in first (in lanes: a lane that is through does not start over),\n"
-            + "so the steps at the end of the round, a sale or an equip, still happen. Also when it is true already as the queue starts.";
+        _stopTiming.AddItem(Lang.T("window.at_once", "at once"), 0);
+        _stopTiming.AddItem(Lang.T("window.when_round_over", "when a round is over"), 1);
+        _stopTiming.TooltipText = Lang.T("window.at_once_queue_stops_moment", "At once: the queue stops the moment this is true, in the middle of a step.\nWhen a round is over: the queue finishes the round it is in first (in lanes: a lane that is through does not start over),\nso the steps at the end of the round, a sale or an equip, still happen. Also when it is true already as the queue starts.");
         _stopTiming.ItemSelected += i =>
         {
             if (_syncing) return;
@@ -524,11 +513,9 @@ public sealed class QueueWindow
         // -- what comes after the queue (0.13.0, by madmousepad)
         var thenRow = new HBoxContainer();
         thenRow.AddThemeConstantOverride("separation", 10);
-        Label thenLabel = Style.Label("When the queue ends, go on with", Style.Muted);
+        Label thenLabel = Style.Label(Lang.T("window.when_queue_ends_go_with", "When the queue ends, go on with"), Style.Muted);
         thenLabel.MouseFilter = Control.MouseFilterEnum.Stop;
-        thenLabel.TooltipText = "A saved queue to start from its first step once this queue has ended: its steps are done\n"
-            + "(\"Start over at the end\" off), or its own stop above was reached. Pausing, emptying or stopping it yourself does not count.\n"
-            + "A queue never starts itself again this way. Nothing: the idle action above takes over, as before.";
+        thenLabel.TooltipText = Lang.T("window.saved_queue_start_from_first", "A saved queue to start from its first step once this queue has ended: its steps are done\n(\"Start over at the end\" off), or its own stop above was reached. Pausing, emptying or stopping it yourself does not count.\nA queue never starts itself again this way. Nothing: the idle action above takes over, as before.");
         thenRow.AddChild(thenLabel);
         _thenPick.TooltipText = thenLabel.TooltipText;
         _thenPick.ItemSelected += i => { if (!_syncing) PickThen((int)i); };
@@ -556,15 +543,15 @@ public sealed class QueueWindow
         _planForm.AddThemeConstantOverride("separation", 8);
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 10);
-        _planKind.AddItem("Make");
-        _planKind.AddItem("Own in total");
-        _planKind.TooltipText = "Make: this many more than you have now.\nOwn in total: until the bank holds this many (what you already have counts).";
+        _planKind.AddItem(Lang.T("window.plan.make", "Make"));
+        _planKind.AddItem(Lang.T("window.own_total", "Own in total"));
+        _planKind.TooltipText = Lang.T("window.make_many_more_than_you", "Make: this many more than you have now.\nOwn in total: until the bank holds this many (what you already have counts).");
         _planKind.ItemSelected += _ => { _planShown = ""; Replan(); };
         row.AddChild(_planKind);
         _planAmount.ValueChanged += _ => Replan();
         row.AddChild(_planAmount);
-        row.AddChild(Style.Label("of", Style.Muted));
-        _planPick.Control.TooltipText = "Every item one of your skills can make or gather. Click and type to search.";
+        row.AddChild(Style.Label(Lang.T("window.plan.of", "of"), Style.Muted));
+        _planPick.Control.TooltipText = Lang.T("window.every_item_one_your_skills", "Every item one of your skills can make or gather. Click and type to search.");
         _planPick.Control.CustomMinimumSize = new Vector2(340, 0);
         _planPick.Picked += _ => { _planShown = ""; Replan(); };
         row.AddChild(_planPick.Control);
@@ -573,11 +560,8 @@ public sealed class QueueWindow
         _planAdd.AddThemeStyleboxOverride("normal", go);
         _planAdd.AddThemeStyleboxOverride("hover", Style.Box(new Color(0.16f, 0.38f, 0.23f), 5, Style.Good, 1, 12, 5));
         _planAdd.Pressed += AddPlan;
-        _planSell.TooltipText = "Adds a last step that sells what the plan made (with \"Make\", what you had before is kept).";
-        _planAll.TooltipText = "Ticked: the bank is not counted. Every material gets its step, for the whole amount, so a queue that\n"
-            + "starts over makes one round's worth each time (nothing is skipped and no surplus piles up).\n"
-            + "Unticked: what the bank already holds is used, and only what is missing is made.\n"
-            + "Ticked by itself while \"Start over at the end\" is on.";
+        _planSell.TooltipText = Lang.T("window.adds_last_step_sells_what", "Adds a last step that sells what the plan made (with \"Make\", what you had before is kept).");
+        _planAll.TooltipText = Lang.T("window.ticked_bank_not_counted_every", "Ticked: the bank is not counted. Every material gets its step, for the whole amount, so a queue that\nstarts over makes one round's worth each time (nothing is skipped and no surplus piles up).\nUnticked: what the bank already holds is used, and only what is missing is made.\nTicked by itself while \"Start over at the end\" is on.");
         _planAll.Toggled += _ => { _planAllSet = true; _planShown = ""; Replan(); };
         row.AddChild(_planAll);
         row.AddChild(_planSell);
@@ -590,7 +574,7 @@ public sealed class QueueWindow
             Columns = 4, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true,
             CustomMinimumSize = new Vector2(0, 184)
         };
-        string[] titles = { "Step", "Until the bank holds", "In the bank", "Takes about" };
+        string[] titles = { Lang.T("window.column.step", "Step"), Lang.T("window.until_bank_holds", "Until the bank holds"), Lang.T("window.bank_3", "In the bank"), Lang.T("window.takes_about", "Takes about") };
         for (int c = 0; c < titles.Length; c++)
         {
             _planTable.SetColumnTitle(c, titles[c]);
@@ -610,15 +594,15 @@ public sealed class QueueWindow
         _savedForm.AddThemeConstantOverride("separation", 8);
         var top = new HBoxContainer();
         top.AddThemeConstantOverride("separation", 10);
-        top.AddChild(Fixed("Name", 50));
+        top.AddChild(Fixed(Lang.T("window.label.name", "Name"), 50));
         _presetName.TextSubmitted += _ => SaveNamed();
         top.AddChild(_presetName);
-        Button save = MakeButton("Save the queue below under this name", SaveNamed);
+        Button save = MakeButton(Lang.T("window.save_queue_below_under_name", "Save the queue below under this name"), SaveNamed);
         StyleBoxFlat go = Style.Box(Style.GoodDim, 5, Style.Good, 1, 12, 5);
         save.AddThemeStyleboxOverride("normal", go);
         save.AddThemeStyleboxOverride("hover", Style.Box(new Color(0.16f, 0.38f, 0.23f), 5, Style.Good, 1, 12, 5));
         top.AddChild(save);
-        Label tip = Style.Label("To switch quickly, use the list at the top of the window.", Style.Muted, 12);
+        Label tip = Style.Label(Lang.T("window.switch_quickly_use_list_at", "To switch quickly, use the list at the top of the window."), Style.Muted, 12);
         tip.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         tip.HorizontalAlignment = HorizontalAlignment.Right;
         tip.ClipText = true;
@@ -630,7 +614,7 @@ public sealed class QueueWindow
             Columns = 3, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true,
             CustomMinimumSize = new Vector2(0, 150)
         };
-        string[] titles = { "Saved queue", "Steps", "What it does" };
+        string[] titles = { Lang.T("window.column.saved_queue", "Saved queue"), Lang.T("window.column.steps", "Steps"), Lang.T("window.what_does", "What it does") };
         for (int c = 0; c < titles.Length; c++)
         {
             _presetTable.SetColumnTitle(c, titles[c]);
@@ -645,26 +629,26 @@ public sealed class QueueWindow
 
         var bottom = new HBoxContainer();
         bottom.AddThemeConstantOverride("separation", 10);
-        Button load = MakeButton("Load", LoadSelected);
-        load.TooltipText = "Puts the selected queue in place of the one below. A double-click does the same.";
+        Button load = MakeButton(Lang.T("window.load", "Load"), LoadSelected);
+        load.TooltipText = Lang.T("window.puts_selected_queue_place_one", "Puts the selected queue in place of the one below. A double-click does the same.");
         bottom.AddChild(load);
         _deletePreset.Pressed += DeleteSelected;
         bottom.AddChild(_deletePreset);
         bottom.AddChild(new VSeparator());
-        Button copy = MakeButton("Copy share code", CopyCode);
-        copy.TooltipText = "Turns the selected saved queue (or, with none selected, the queue below) into a short text and copies it.";
+        Button copy = MakeButton(Lang.T("window.copy_share_code", "Copy share code"), CopyCode);
+        copy.TooltipText = Lang.T("window.turns_selected_saved_queue_with", "Turns the selected saved queue (or, with none selected, the queue below) into a short text and copies it.");
         bottom.AddChild(copy);
-        _code.TooltipText = "A share code somebody gave you. Paste it here and press Import.";
+        _code.TooltipText = Lang.T("window.share_code_somebody_gave_you", "A share code somebody gave you. Paste it here and press Import.");
         bottom.AddChild(_code);
-        Button import = MakeButton("Import", ImportCode);
-        import.TooltipText = "Reads the code in the box (or, when the box is empty, the clipboard) and adds it to your saved queues.";
+        Button import = MakeButton(Lang.T("window.import", "Import"), ImportCode);
+        import.TooltipText = Lang.T("window.reads_code_box_when_box", "Reads the code in the box (or, when the box is empty, the clipboard) and adds it to your saved queues.");
         bottom.AddChild(import);
         _savedForm.AddChild(bottom);
         form.AddChild(_savedForm);
     }
 
     Button _close = null!;
-    static string CloseText => ActionQueueMod.Instance?.Key.With("Close") ?? "Close";
+    static string CloseText => ActionQueueMod.Instance?.Key.With(Lang.T("window.close", "Close")) ?? Lang.T("window.close", "Close");
     /// <summary>The player gave the window another key in the loader's Mods menu.</summary>
     public void KeyChanged() => _close.Text = CloseText;
     /// <summary>For tests: what the Close button says.</summary>
@@ -884,7 +868,7 @@ public sealed class QueueWindow
             {
                 Color = quiet, Size = new Vector2(6, 22), MouseFilter = Control.MouseFilterEnum.Stop,
                 MouseDefaultCursorShape = Control.CursorShape.Hsize,
-                TooltipText = $"Drag to make the {(which == 1 ? "Do" : "Until")} column wider or narrower. Double-click: the normal widths.",
+                TooltipText = Lang.F("window.drag_make_column_wider_narrower", "Drag to make the {column} column wider or narrower. Double-click: the normal widths.", ("column", (which == 1 ? Lang.T("window.label.do", "Do") : Lang.T("window.column.until", "Until")))),
             };
             grip.MouseEntered += () => grip.Color = Style.AccentDim;
             grip.MouseExited += () => grip.Color = quiet;
@@ -981,13 +965,14 @@ public sealed class QueueWindow
 
     public void Show(Game game)
     {
+        FillLanguages();   // (a language file may have been put next to the mod meanwhile)
         if (!ReferenceEquals(_game, game))
         {
             _game = game;
             _skills = Targets.Skills(game);
             _levelSkills = game.LeveledEntities.Select(s => s.DisplayName.Text).ToList();
             Fill(_skillPick, _skills.Select(s => s.Entity.DisplayName.Text).Append(SellChoice).Append(EquipChoice).Append(SwitchChoice));
-            Fill(_idleSkill, _skills.Select(s => s.Entity.DisplayName.Text).Prepend("Nothing"));
+            Fill(_idleSkill, _skills.Select(s => s.Entity.DisplayName.Text).Prepend(Lang.T("window.nothing", "Nothing")));
             // the skills that eat food: the fight first, as the game's own bank lists them
             _foodSkill.Clear();
             _foodSkills.Clear();
@@ -1032,6 +1017,63 @@ public sealed class QueueWindow
         _layer.Visible = true;
     }
 
+    /// <summary>The languages there are (English and the files in lang/); the list shows only when there is a choice.</summary>
+    void FillLanguages()
+    {
+        var all = Lang.Available();
+        _language.Clear();
+        foreach ((string code, string name) in all)
+        {
+            _language.AddItem(name);
+            _language.SetItemMetadata(_language.ItemCount - 1, code);
+        }
+        int at = all.FindIndex(l => l.Code == Lang.Code);
+        _language.Select(at < 0 ? 0 : at);
+        _language.Visible = all.Count > 1;
+    }
+
+    void LanguagePicked(long index)
+    {
+        string code = _language.GetItemMetadata((int)index).AsString();
+        if (code == Lang.Code) return;
+        if (_editing != null)
+        {
+            FillLanguages();
+            _status.Text = Lang.T("window.language.finish_editing", "Save or cancel the step you are editing first, then choose the language.");
+            return;
+        }
+        // (the mod builds a new window in the new words once this one has said so)
+        if (!Lang.Choose(code, out string why))
+        {
+            FillLanguages();
+            _status.Text = Lang.F("window.language.cannot_use", "That language file could not be used: {why}", ("why", why));
+        }
+    }
+
+    /// <summary>For tests: the languages the list offers ("" when it is hidden), and choosing one as a click does.</summary>
+    public List<string> LanguagesShown => _language.Visible ? Enumerable.Range(0, _language.ItemCount).Select(i => _language.GetItemText(i)).ToList() : new List<string>();
+    public void ChooseLanguage(string code)
+    {
+        for (int i = 0; i < _language.ItemCount; i++)
+            if (_language.GetItemMetadata(i).AsString() == code) { _language.Select(i); LanguagePicked(i); }
+    }
+
+    /// <summary>Which of the three pages is open: 0 one step, 1 plan, 2 saved queues.</summary>
+    public int Page => _planMode.ButtonPressed ? 1 : _savedMode.ButtonPressed ? 2 : 0;
+    public void ShowPage(int page) => (page == 1 ? _planMode : page == 2 ? _savedMode : _stepMode).ButtonPressed = true;
+
+    /// <summary>Takes the window out for good: another language was chosen, and a new window is built in its words.</summary>
+    public void Dispose()
+    {
+        Hide();
+        _armToken++;   // (a pending "click again to delete" timer finds it stale and leaves the freed button alone)
+        _disposed = true;
+        Queue.Changed -= Repaint;
+        _layer.QueueFree();
+    }
+
+    bool _disposed;
+
     public void Hide()
     {
         foreach (var pick in new Action[] { _target.Close, _item.Close, _orItem.Close, _idleTarget.Close, _planPick.Close, _stopItem.Close, _taskPick.Close, _orTask.Close, _stopTask.Close }) pick();
@@ -1039,6 +1081,7 @@ public sealed class QueueWindow
         _dragging = false;
         _resizing = null;
         _dividerDragged = 0;
+        if (GodotObject.IsInstanceValid(_stepMenu)) _stepMenu.Hide();
         _layer.Visible = false;
     }
 
@@ -1082,7 +1125,7 @@ public sealed class QueueWindow
         _stopItem.Select(null);
         _stopTask.Select(null);
         _stopLevel.Select(-1);
-        _stopLevel.Text = "Choose a skill";
+        _stopLevel.Text = Lang.T("window.choose_skill", "Choose a skill");
     }
 
     /// <summary>
@@ -1096,7 +1139,7 @@ public sealed class QueueWindow
         {
             _stopShown = ShownKey(null, Queue.StopAtEnd);
             Queue.SetStopWhen(null);
-            Say("The queue has no stop of its own: it ends when its steps are done.");
+            Say(Lang.T("window.queue_has_no_stop_own", "The queue has no stop of its own: it ends when its steps are done."));
             return;
         }
         var goal = new Goal { Until = kind.Value, Amount = _stopAmount.Value };
@@ -1122,15 +1165,15 @@ public sealed class QueueWindow
             Queue.SetStopWhen(null);
             Say(kind switch
             {
-                Until.Level => "Now pick the skill. Until then the queue has no stop of its own.",
-                Until.Mastery => "Now pick the mastery task. Until then the queue has no stop of its own.",
-                _ => "Now pick the item. Until then the queue has no stop of its own.",
+                Until.Level => Lang.T("window.now_pick_skill_until_then", "Now pick the skill. Until then the queue has no stop of its own."),
+                Until.Mastery => Lang.T("window.now_pick_mastery_task_until", "Now pick the mastery task. Until then the queue has no stop of its own."),
+                _ => Lang.T("window.now_pick_item_until_then", "Now pick the item. Until then the queue has no stop of its own."),
             });
             return;
         }
         _stopShown = ShownKey(goal, Queue.StopAtEnd);   // before the queue is told: its change repaints the window
         Queue.SetStopWhen(goal);
-        if (Queue.StopWhen is not { } now || ShownKey(now, Queue.StopAtEnd) != _stopShown) { _stopShown = "?"; Say("That stop could not be taken."); return; }
+        if (Queue.StopWhen is not { } now || ShownKey(now, Queue.StopAtEnd) != _stopShown) { _stopShown = "?"; Say(Lang.T("window.stop_could_not_taken", "That stop could not be taken.")); return; }
         Say(StopSaid(now));
     }
 
@@ -1139,11 +1182,12 @@ public sealed class QueueWindow
     {
         bool atEnd = Queue.StopAtEnd;
         string already = !Queue.StopReachedNow ? ""
-            : atEnd ? (Queue.Running ? " That is true already, so the queue stops when this round is over."
-                                     : " That is true already: started, the queue does one round and then stops.")
-            : Queue.Running ? " That is true already, so the queue stops now."
-            : " That is true already, so the queue will not start until you change it.";
-        return $"The whole queue stops {(atEnd ? "at the end of a round once" : "when")} {Queue.StopText(now)}.{already}";
+            : atEnd ? (Queue.Running ? Lang.T("window.true_already_so_queue_stops_2", " That is true already, so the queue stops when this round is over.")
+                                     : Lang.T("window.true_already_started_queue_does", " That is true already: started, the queue does one round and then stops."))
+            : Queue.Running ? Lang.T("window.true_already_so_queue_stops", " That is true already, so the queue stops now.")
+            : Lang.T("window.true_already_so_queue_will", " That is true already, so the queue will not start until you change it.");
+        return atEnd ? Lang.F("window.stop_said_round_end", "The whole queue stops at the end of a round once {stop}.{already}", ("stop", Queue.StopText(now)), ("already", already))
+            : Lang.F("window.stop_said", "The whole queue stops when {stop}.{already}", ("stop", Queue.StopText(now)), ("already", already));
     }
 
     /// <summary>The "go on with" list: nothing, then the saved queues (made again when they or the choice changed).</summary>
@@ -1156,7 +1200,7 @@ public sealed class QueueWindow
         bool wasSyncing = _syncing;
         _syncing = true;
         _thenPick.Clear();
-        _thenPick.AddItem("Nothing");   // (the tooltip says that the idle action then takes over)
+        _thenPick.AddItem(Lang.T("window.nothing", "Nothing"));   // (the tooltip says that the idle action then takes over)
         _thenPick.SetItemMetadata(0, "");
         foreach (string n in names)
         {
@@ -1169,7 +1213,7 @@ public sealed class QueueWindow
             at = names.FindIndex(n => string.Equals(n, Queue.Then, StringComparison.OrdinalIgnoreCase)) + 1;
             if (at <= 0)
             {
-                _thenPick.AddItem($"{Queue.Then} (no longer saved)");
+                _thenPick.AddItem(Lang.F("window.no_longer_saved", "{then} (no longer saved)", ("then", Queue.Then)));
                 _thenPick.SetItemMetadata(_thenPick.ItemCount - 1, Queue.Then);
                 at = _thenPick.ItemCount - 1;
             }
@@ -1182,9 +1226,9 @@ public sealed class QueueWindow
     {
         string name = index <= 0 || index >= _thenPick.ItemCount ? "" : _thenPick.GetItemMetadata(index).AsString();
         Queue.SetThen(name);
-        Say(name == "" ? "When the queue ends, the idle action takes over."
-            : $"When the queue ends, it goes on with the saved queue '{name}', from its first step."
-              + (string.Equals(name, Queue.Name, StringComparison.OrdinalIgnoreCase) ? " (Not after itself: a queue never starts itself again this way.)" : ""));
+        Say(name == "" ? Lang.T("window.when_queue_ends_idle_action", "When the queue ends, the idle action takes over.")
+            : Lang.F("window.when_queue_ends_goes_with", "When the queue ends, it goes on with the saved queue '{name}', from its first step.", ("name", name))
+              + (string.Equals(name, Queue.Name, StringComparison.OrdinalIgnoreCase) ? Lang.T("window.not_after_itself_queue_never", " (Not after itself: a queue never starts itself again this way.)") : ""));
     }
 
     // test helpers for the stop's timing and the "go on with" list
@@ -1220,8 +1264,8 @@ public sealed class QueueWindow
             if (g.Until is Until.Item or Until.ItemLeft && !_stopItem.Select(g.Subject)) _stopItem.ShowMissing(g.Subject, g.SubjectName);
             int at = _levelSkills.IndexOf(g.Subject);
             if (g.Until == Until.Level && at >= 0) _stopLevel.Select(at);
-            else if (g.Until == Until.Level) _stopLevel.Text = $"{g.SubjectName} (not in this game)";
-            if (g.Until == Until.Mastery && !_stopTask.Select(g.Subject)) _stopTask.ShowMissing(g.Subject, $"{g.SubjectName} (not in this game)");
+            else if (g.Until == Until.Level) _stopLevel.Text = Lang.F("window.not_game_2", "{subjectName} (not in this game)", ("subjectName", g.SubjectName));
+            if (g.Until == Until.Mastery && !_stopTask.Select(g.Subject)) _stopTask.ShowMissing(g.Subject, Lang.F("window.not_game_2", "{subjectName} (not in this game)", ("subjectName", g.SubjectName)));
         }
         _syncing = false;
     }
@@ -1277,7 +1321,7 @@ public sealed class QueueWindow
         _syncing = true;
         _side.ButtonPressed = Queue.SideBySide;
         _syncing = false;
-        _side.Text = Queue.SideBySide ? $"Side by side: {room} at once" : "Side by side: OFF";
+        _side.Text = Queue.SideBySide ? Lang.F("window.side_by_side_at_once", "Side by side: {room} at once", ("room", room)) : Lang.T("window.side_by_side_off", "Side by side: OFF");
         bool lanesShown = room > 1 || Queue.LaneMode;
         _lanePick.Visible = _planLanePick.Visible = _laneButton.Visible = lanesShown;
         if (_lanePick.ItemCount != LanesOffered()) OfferLanes(LanesOffered());
@@ -1300,7 +1344,7 @@ public sealed class QueueWindow
         int keep = Math.Clamp(_lanePick.Selected, 0, count - 1);
         _lanePick.Clear();
         _planLanePick.Clear();
-        for (int lane = 1; lane <= count; lane++) { _lanePick.AddItem($"Lane {lane}"); _planLanePick.AddItem($"Lane {lane}"); }
+        for (int lane = 1; lane <= count; lane++) { _lanePick.AddItem(Lang.F("window.lane", "Lane {lane}", ("lane", lane))); _planLanePick.AddItem(Lang.F("window.lane", "Lane {lane}", ("lane", lane))); }
         _lanePick.Select(keep);
         _planLanePick.Select(keep);
     }
@@ -1312,9 +1356,9 @@ public sealed class QueueWindow
         PaintRoom();
         ActionComponent? active = Targets.Main(_game);
         Target? target = active == null ? null : Targets.Current(active);
-        _now.Text =active == null ? "Your character is doing nothing right now."
-            : target == null ? $"Right now: {active.Entity.DisplayName.Text} (the queue cannot drive this one)"
-            : $"Right now: {active.Entity.DisplayName.Text}: {target.Name}";
+        _now.Text =active == null ? Lang.T("window.your_character_doing_nothing_right", "Your character is doing nothing right now.")
+            : target == null ? Lang.F("window.right_now_queue_cannot_drive", "Right now: {skill} (the queue cannot drive this one)", ("skill", active.Entity.DisplayName.Text))
+            : Lang.F("window.right_now", "Right now: {skill}: {name}", ("skill", active.Entity.DisplayName.Text), ("name", target.Name));
         if (_planForm.Visible) Replan();   // the bank changes while the game runs
     }
 
@@ -1337,9 +1381,9 @@ public sealed class QueueWindow
 
     static string Summary(Preset preset)
     {
-        string text = string.Join("  >  ", preset.Steps.Take(3).Select(s => s.Name));
+        string text = string.Join("  >  ", preset.Steps.Take(3).Select(Queue.Shown));
         if (preset.Steps.Count > 3) text += $"  >  ... (+{preset.Steps.Count - 3})";
-        return preset.Repeat ? text + "   (starts over)" : text;
+        return preset.Repeat ? text + Lang.T("window.starts_over", "   (starts over)") : text;
     }
 
     void PaintSaved()
@@ -1353,7 +1397,8 @@ public sealed class QueueWindow
             TreeItem row = _presetTable.CreateItem(root);
             row.SetMetadata(0, name);
             bool current = name == Queue.Name;
-            row.SetText(0, current ? (Queue.Modified ? name + "   (loaded, changed since)" : name + "   (loaded)") : name);
+            string shown = Queue.Shown(name);
+            row.SetText(0, current ? (Queue.Modified ? shown + Lang.T("window.loaded_changed_since", "   (loaded, changed since)") : shown + Lang.T("window.loaded", "   (loaded)")) : shown);
             row.SetText(1, preset.Steps.Count.ToString());
             row.SetText(2, Summary(preset));
             row.SetCustomColor(0, current ? Style.Good : name == Queue.AutoName ? Style.Muted : Style.Text);
@@ -1365,8 +1410,8 @@ public sealed class QueueWindow
         {
             TreeItem row = _presetTable.CreateItem(root);
             row.SetMetadata(0, "");
-            row.SetText(0, "Nothing saved yet");
-            row.SetText(2, "Build a queue below, type a name above and press Save.");
+            row.SetText(0, Lang.T("window.nothing_saved_yet", "Nothing saved yet"));
+            row.SetText(2, Lang.T("window.build_queue_below_type_name", "Build a queue below, type a name above and press Save."));
             row.SetSelectable(0, false); row.SetSelectable(1, false); row.SetSelectable(2, false);
             for (int c = 0; c < 3; c++) row.SetCustomColor(c, Style.Muted);
         }
@@ -1384,7 +1429,7 @@ public sealed class QueueWindow
     {
         Disarm();
         string? name = SelectedPreset();
-        if (string.IsNullOrEmpty(name)) { Say("Select a saved queue in the list first."); return; }
+        if (string.IsNullOrEmpty(name)) { Say(Lang.T("window.select_saved_queue_list_first", "Select a saved queue in the list first.")); return; }
         Queue.LoadPreset(name, out string message);
         Say(message);
     }
@@ -1392,15 +1437,15 @@ public sealed class QueueWindow
     void DeleteSelected()
     {
         string? name = SelectedPreset();
-        if (string.IsNullOrEmpty(name)) { Say("Select a saved queue in the list first."); return; }
+        if (string.IsNullOrEmpty(name)) { Say(Lang.T("window.select_saved_queue_list_first", "Select a saved queue in the list first.")); return; }
         if (_armedDelete != name)
         {
             // Two clicks, so a slip of the mouse does not throw a queue away.
             _armedDelete = name;
-            _deletePreset.Text = "Really delete?";
+            _deletePreset.Text = Lang.T("window.really_delete", "Really delete?");
             int token = ++_armToken;
-            _tree.CreateTimer(4).Timeout += () => { if (token == _armToken) Disarm(); };
-            Say($"Press Delete again to remove '{name}' for good.");
+            _tree.CreateTimer(4).Timeout += () => { if (!_disposed && token == _armToken) Disarm(); };
+            Say(Lang.F("window.press_delete_again_remove_good", "Press Delete again to remove '{name}' for good.", ("name", name)));
             return;
         }
         Disarm();
@@ -1412,7 +1457,7 @@ public sealed class QueueWindow
     {
         _armToken++;
         _armedDelete = "";
-        _deletePreset.Text = "Delete";
+        _deletePreset.Text = Lang.T("window.delete", "Delete");
     }
 
     void CopyCode()
@@ -1420,10 +1465,11 @@ public sealed class QueueWindow
         string? name = SelectedPreset();
         if (name == "") name = null;
         string? code = Queue.ExportCode(name);
-        if (code == null) { Say("There is nothing to share yet: build or select a queue first."); return; }
+        if (code == null) { Say(Lang.T("window.there_nothing_share_yet_build", "There is nothing to share yet: build or select a queue first.")); return; }
         _code.Text = code;
         try { DisplayServer.ClipboardSet(code); } catch { }
-        Say($"Share code of {(name == null ? "the queue below" : $"'{name}'")} copied ({code.Length} characters). Paste it in a chat; it is also in the box.");
+        Say(name == null ? Lang.F("window.share.copied_below", "Share code of the queue below copied ({length} characters). Paste it in a chat; it is also in the box.", ("length", code.Length))
+            : Lang.F("window.share.copied_saved", "Share code of '{name}' copied ({length} characters). Paste it in a chat; it is also in the box.", ("name", Queue.Shown(name)), ("length", code.Length)));
     }
 
     void ImportCode()
@@ -1461,12 +1507,12 @@ public sealed class QueueWindow
         _quickNames = new List<string>();
         if (Queue.Name == "")
         {
-            _quick.AddItem(Queue.PresetNames.Count == 0 ? "Queue: not saved" : "Queue: not saved (pick one)");
+            _quick.AddItem(Queue.PresetNames.Count == 0 ? Lang.T("window.queue_not_saved", "Queue: not saved") : Lang.T("window.queue_not_saved_pick_one", "Queue: not saved (pick one)"));
             _quickNames.Add("");
         }
         foreach (string name in Queue.PresetNames)
         {
-            _quick.AddItem(name == Queue.Name ? (Queue.Modified ? $"Queue: {name} *" : $"Queue: {name}") : name);
+            _quick.AddItem(name == Queue.Name ? (Queue.Modified ? Lang.F("window.queue_changed", "Queue: {name} *", ("name", Queue.Shown(name))) : Lang.F("window.queue", "Queue: {name}", ("name", Queue.Shown(name)))) : Queue.Shown(name));
             _quickNames.Add(name);
         }
         int at = Queue.Name == "" ? 0 : _quickNames.IndexOf(Queue.Name);
@@ -1498,7 +1544,7 @@ public sealed class QueueWindow
         if (item == null)
         {
             _plan = null;
-            DrawPlan("none", () => { _planNote.Text = "Choose the item you want: click the list and type its name."; });
+            DrawPlan("none", () => { _planNote.Text = Lang.T("window.choose_item_you_want_click", "Choose the item you want: click the list and type its name."); });
             return;
         }
         // In lanes, what other lanes will make is not counted: they run at the same time, not before.
@@ -1518,23 +1564,23 @@ public sealed class QueueWindow
                 row.SetText(0, $"{++number}.  {line.Maker!.Name}");
                 row.SetText(1, $"{line.Need:N0} {line.ItemName}");
                 row.SetText(2, line.Have.ToString("N0"));
-                row.SetText(3, line.Maker.Seconds > 0 ? Planner.Time(line.Seconds) : "cannot be told");
+                row.SetText(3, line.Maker.Seconds > 0 ? Planner.Time(line.Seconds) : Lang.T("window.cannot_told", "cannot be told"));
                 row.SetCustomColor(2, Style.Muted);
                 row.SetCustomColor(3, Style.Muted);
                 if (line.Problem != "")
                 {
-                    row.SetText(3, "locked");
+                    row.SetText(3, Lang.T("window.target.locked", "locked"));
                     row.SetCustomColor(0, Style.Bad);
                     row.SetCustomColor(3, Style.Bad);
-                    for (int c = 0; c < 4; c++) row.SetTooltipText(c, "Locked for now: " + line.Problem + ". The queue skips a step it cannot start.");
+                    for (int c = 0; c < 4; c++) row.SetTooltipText(c, Lang.F("window.plan.locked_skips", "Locked for now: {why}. The queue skips a step it cannot start.", ("why", line.Problem)));
                 }
             }
             foreach (PlanLine line in plan.Covered)
             {
                 // Nothing to gather here: the bank has it. Shown so a missing "mine the ore" step explains itself.
                 TreeItem row = _planTable.CreateItem(root);
-                row.SetText(0, $"No step: enough {line.ItemName} in the bank");
-                row.SetText(1, $"{line.Need:N0} {line.ItemName} needed");
+                row.SetText(0, Lang.F("window.no_step_enough_bank", "No step: enough {itemName} in the bank", ("itemName", line.ItemName)));
+                row.SetText(1, Lang.F("window.needed", "{need:N0} {itemName} needed", ("need", line.Need), ("itemName", line.ItemName)));
                 row.SetText(2, line.Have.ToString("N0"));
                 row.SetText(3, "-");
                 for (int c = 0; c < 4; c++) row.SetCustomColor(c, Style.Muted);
@@ -1542,8 +1588,8 @@ public sealed class QueueWindow
             foreach (PlanLine line in plan.Supply)
             {
                 TreeItem row = _planTable.CreateItem(root);
-                row.SetText(0, line.Problem != "" ? "Bring yourself (its recipe is still locked)" : "Bring yourself (no skill on the queue makes it)");
-                if (line.Problem != "") for (int c = 0; c < 4; c++) row.SetTooltipText(c, "Locked for now: " + line.Problem + ".");
+                row.SetText(0, line.Problem != "" ? Lang.T("window.bring_yourself_recipe_still_locked", "Bring yourself (its recipe is still locked)") : Lang.T("window.bring_yourself_no_skill_queue", "Bring yourself (no skill on the queue makes it)"));
+                if (line.Problem != "") for (int c = 0; c < 4; c++) row.SetTooltipText(c, Lang.F("window.plan.locked", "Locked for now: {why}.", ("why", line.Problem)));
                 row.SetText(1, $"{line.Need:N0} {line.ItemName}");
                 row.SetText(2, line.Have.ToString("N0"));
                 for (int c = 0; c < 3; c++) row.SetCustomColor(c, Style.Accent);
@@ -1552,7 +1598,7 @@ public sealed class QueueWindow
             {
                 // Nothing to do: say why where the steps would be, not only in the small line below.
                 TreeItem row = _planTable.CreateItem(root);
-                row.SetText(0, "No steps needed");
+                row.SetText(0, Lang.T("window.no_steps_needed", "No steps needed"));
                 row.SetText(1, plan.Problem);
                 row.SetCustomColor(0, Style.Accent);
                 row.SetCustomColor(1, Style.Accent);
@@ -1575,16 +1621,16 @@ public sealed class QueueWindow
     static string PlanSummary(PlanResult plan)
     {
         if (plan.Problem != "") return plan.Problem;
-        string text = plan.More ? $"To make {plan.Asked:N0} more (the bank will then hold {plan.Own:N0}): " : "";
-        text += plan.Steps.Count == 1 ? "1 step" : $"{plan.Steps.Count} steps";
+        string text = plan.More ? Lang.F("window.make_more_bank_will_then", "To make {asked:N0} more (the bank will then hold {own:N0}): ", ("asked", plan.Asked), ("own", plan.Own)) : "";
+        text += Lang.P("window.step_count", plan.Steps.Count, "{count} step", "{count} steps");
         int timed = plan.Steps.Count - plan.UnknownTimes;
-        if (timed > 0) text += $", about {Planner.Time(plan.Seconds)} at normal game speed";
-        if (plan.UnknownTimes > 0) text += timed > 0 ? $" plus {plan.UnknownTimes} whose time cannot be told" : ", time cannot be told in advance";
+        if (timed > 0) text += Lang.F("window.about_at_normal_game_speed", ", about {time} at normal game speed", ("time", Planner.Time(plan.Seconds)));
+        if (plan.UnknownTimes > 0) text += timed > 0 ? Lang.F("window.plus_whose_time_cannot_told", " plus {unknownTimes} whose time cannot be told", ("unknownTimes", plan.UnknownTimes)) : Lang.T("window.time_cannot_told_advance", ", time cannot be told in advance");
         text += ".";
-        if (plan.Money.Count > 0) text += "  Costs " + string.Join(", ", plan.Money.Select(m => $"{m.Value:N0} {m.Key}")) + ".";
-        if (plan.Covered.Count > 0) text += "  Grey lines: already in the bank, so no step for them.";
-        if (plan.Supply.Count > 0) text += "  Yellow lines: items you have to bring yourself.";
-        if (plan.Steps.Any(l => l.Problem != "")) text += "  Red lines are still locked.";
+        if (plan.Money.Count > 0) text += Lang.F("window.costs", "  Costs {money}.", ("money", string.Join(", ", plan.Money.Select(m => $"{Lang.N(m.Value)} {m.Key}"))));
+        if (plan.Covered.Count > 0) text += Lang.T("window.grey_lines_already_bank_so", "  Grey lines: already in the bank, so no step for them.");
+        if (plan.Supply.Count > 0) text += Lang.T("window.yellow_lines_items_you_have", "  Yellow lines: items you have to bring yourself.");
+        if (plan.Steps.Any(l => l.Problem != "")) text += Lang.T("window.red_lines_still_locked", "  Red lines are still locked.");
         return text;
     }
 
@@ -1593,11 +1639,12 @@ public sealed class QueueWindow
         // Work the plan out again at this very moment: the bank or the queue may have changed since it was drawn.
         _planShown = "";
         Replan();
-        if (_plan == null || _plan.Steps.Count == 0) { Say(_plan?.Problem is { Length: > 0 } why ? why : "There is nothing to add."); return; }
+        if (_plan == null || _plan.Steps.Count == 0) { Say(_plan?.Problem is { Length: > 0 } why ? why : Lang.T("window.there_nothing_add", "There is nothing to add.")); return; }
         PlanResult plan = _plan;
         int added = Planner.AddToQueue(plan, NewLane, _planSell.ButtonPressed);
         string itemName = plan.Item.DisplayName.GetPluralText(1);
-        Say(plan.More ? $"Plan added: {added} step(s) to make {plan.Asked:N0} more {itemName}." : $"Plan added: {added} step(s) to own {plan.Own:N0} {itemName}.");
+        Say(plan.More ? Lang.P("window.plan_added_more", added, "Plan added: {count} step to make {asked:N0} more {item}.", "Plan added: {count} steps to make {asked:N0} more {item}.", ("asked", plan.Asked), ("item", itemName))
+            : Lang.P("window.plan_added_own", added, "Plan added: {count} step to own {own:N0} {item}.", "Plan added: {count} steps to own {own:N0} {item}.", ("own", plan.Own), ("item", itemName)));
         _planShown = "";
         Replan();   // what was just added now counts as "will be made"
     }
@@ -1756,13 +1803,13 @@ public sealed class QueueWindow
         ActionComponent? active = Targets.Main(_game);
         Target? target = active == null ? null : Targets.Current(active);
         int skill = active == null ? -1 : _skills.FindIndex(s => ReferenceEquals(s.Action, active));
-        if (target == null || skill < 0) { Say("Start an action in the game first, then press this."); return; }
+        if (target == null || skill < 0) { Say(Lang.T("window.start_action_game_first_then", "Start an action in the game first, then press this.")); return; }
         _skillPick.Select(skill);
         FillKinds(_untilPick, withStops: true);
         FillKinds(_orPick, withStops: false);
         FillTargets(Catalog.Key(target));
         UntilChanged();
-        Say($"Filled in: {_skills[skill].Entity.DisplayName.Text}: {target.Name}");
+        Say(Lang.F("window.filled", "Filled in: {skill}: {name}", ("skill", _skills[skill].Entity.DisplayName.Text), ("name", target.Name)));
     }
 
     // ---------------------------------------------------------------- the idle action
@@ -1788,7 +1835,7 @@ public sealed class QueueWindow
         GameEntity entity = _skills[skill].Entity;
         Target target = chosen.Value;
         Queue.SetIdle(new Step { Entity = entity.Id, TargetId = target.Id, Extra = target.Extra, Name = $"{entity.DisplayName.Text}: {target.Name}" });
-        Say($"When the queue waits or ends, your character does: {entity.DisplayName.Text}: {target.Name}.");
+        Say(Lang.F("window.when_queue_waits_ends_your", "When the queue waits or ends, your character does: {skill}: {name}.", ("skill", entity.DisplayName.Text), ("name", target.Name)));
     }
 
     void UseCurrentForIdle()
@@ -1797,7 +1844,7 @@ public sealed class QueueWindow
         ActionComponent? active = Targets.Main(_game);
         Target? target = active == null ? null : Targets.Current(active);
         int skill = active == null ? -1 : _skills.FindIndex(s => ReferenceEquals(s.Action, active));
-        if (target == null || skill < 0) { Say("Start an action in the game first, then press this."); return; }
+        if (target == null || skill < 0) { Say(Lang.T("window.start_action_game_first_then", "Start an action in the game first, then press this.")); return; }
         _syncing = true;
         _idleSkill.Select(skill + 1);
         FillIdleTargets(new Step { TargetId = target.Id, Extra = target.Extra, Name = target.Name });
@@ -1829,8 +1876,8 @@ public sealed class QueueWindow
         _syncing = false;
         string state = idle == null ? "" : Queue.IdleState;
         _idleState.Visible = state != "";
-        _idleState.Text = state == "" ? "" : $"Idle action: {state}";
-        _idleState.AddThemeColorOverride("font_color", state.StartsWith("running") ? Style.Good : state.StartsWith("stopped") || state.StartsWith("cannot") ? Style.Bad : Style.Muted);
+        _idleState.Text = state == "" ? "" : Lang.F("window.idle_action", "Idle action: {state}", ("state", state));
+        _idleState.AddThemeColorOverride("font_color", Queue.IdleTone switch { IdleTone.Good => Style.Good, IdleTone.Bad => Style.Bad, _ => Style.Muted });
     }
 
     /// <summary>For tests: choose the idle action the way the two lists do ("" chooses Nothing).</summary>
@@ -1859,7 +1906,7 @@ public sealed class QueueWindow
         _amount.Value = keep;
         return _item.Select(itemId);
     }
-    public bool SellFaceShown => Selling && _item.Control.Visible && !_target.Control.Visible && _untilLabel.Text == "keep";
+    public bool SellFaceShown => Selling && _item.Control.Visible && !_target.Control.Visible && _keepShown;
     /// <summary>For tests: the Equip and "go to a saved queue" faces, the "or until" row and the astrology goals, as clicks do them.</summary>
     public bool ChooseEquip(string targetId, double keep)
     {
@@ -1877,7 +1924,7 @@ public sealed class QueueWindow
     }
     public List<string> TargetKeys => _target.VisibleKeys;
     public string PseudoNoteShown => _pseudoNote.Visible ? _pseudoNote.Text : "";
-    public bool KeepShown => _amount.Visible && _untilLabel.Text == "keep";
+    public bool KeepShown => _amount.Visible && _keepShown;
     public bool OrShown => _orBox.Visible;
     public void PressOr(bool on) => _orBox.ButtonPressed = on;
     public bool OrRowShown => _orRow.Visible;
@@ -1926,7 +1973,9 @@ public sealed class QueueWindow
     public void PressIdleAlways(bool on) { _idleAlways.ButtonPressed = on; }
     public void PressGameCreate(bool on) { _gameCreate.ButtonPressed = on; }
 
-    const string SellChoice = "Sell from the bank", EquipChoice = "Equip", SwitchChoice = "Go to a saved queue";
+    static string SellChoice => Lang.T("window.choice.sell", "Sell from the bank");
+    static string EquipChoice => Lang.T("window.choice.equip", "Equip");
+    static string SwitchChoice => Lang.T("window.choice.go_to", "Go to a saved queue");
     bool Selling => _skillPick.Selected >= 0 && _skillPick.Selected == _skills.Count;
     bool Equipping => _skillPick.Selected >= 0 && _skillPick.Selected == _skills.Count + 1;
     bool Switching => _skillPick.Selected >= 0 && _skillPick.Selected == _skills.Count + 2;
@@ -1978,7 +2027,8 @@ public sealed class QueueWindow
             // keep; for a food, which skill eats it). Go to a saved queue: which one.
             bool food = equipping && EquipIsFood;
             bool keep = selling || equipping && !EquipIsLoadout && !food;
-            _untilLabel.Text = keep ? "keep" : food ? "for" : "";
+            _untilLabel.Text = keep ? Lang.T("window.label.keep", "keep") : food ? Lang.T("window.label.food_for", "for") : "";
+            _keepShown = keep;
             _foodSkill.Visible = food;
             _item.Control.Visible = selling;
             _amount.Visible = keep;
@@ -1991,19 +2041,20 @@ public sealed class QueueWindow
                 if (_lastKind == Until.ItemLeft) _amountLeft = _amount.Value; else _amountOther = Math.Max(1, _amount.Value);
                 _amount.Value = 0;
             }
-            _amount.TooltipText = selling ? "How many to keep in the bank: 0 sells all of them."
-                : "For arrows, bolts, javelins and other stacks: how many to keep in the bank (0 puts all of them on).\nOther gear is simply put on.";
-            _pseudoNote.Text = switching ? "the queue goes on with this saved queue once every step before it is over (in every lane)"
-                : equipping && EquipIsLoadout ? "switches to this loadout (gear, food, prayers and spells) while the game is open"
-                : food ? (_foodSkill.ItemCount == 0 ? "no skill in this game eats food" : "makes it the food this skill eats, as its own food box does, while the game is open")
-                : equipping ? "puts it on from the bank while the game is open" : "";
+            _amount.TooltipText = selling ? Lang.T("window.how_many_keep_bank_sells", "How many to keep in the bank: 0 sells all of them.")
+                : Lang.T("window.arrows_bolts_javelins_other_stacks", "For arrows, bolts, javelins and other stacks: how many to keep in the bank (0 puts all of them on).\nOther gear is simply put on.");
+            _pseudoNote.Text = switching ? Lang.T("window.queue_goes_with_saved_queue", "the queue goes on with this saved queue once every step before it is over (in every lane)")
+                : equipping && EquipIsLoadout ? Lang.T("window.switches_loadout_gear_food_prayers", "switches to this loadout (gear, food, prayers and spells) while the game is open")
+                : food ? (_foodSkill.ItemCount == 0 ? Lang.T("window.no_skill_game_eats_food", "no skill in this game eats food") : Lang.T("window.makes_food_skill_eats_as", "makes it the food this skill eats, as its own food box does, while the game is open"))
+                : equipping ? Lang.T("window.puts_from_bank_while_game", "puts it on from the bank while the game is open") : "";
             _pseudoNote.Visible = _pseudoNote.Text != "";
             _wasSelling = true;
             return;
         }
         _pseudoNote.Visible = false;
         _foodSkill.Visible = false;
-        _untilLabel.Text = "until";
+        _untilLabel.Text = Lang.T("window.label.until", "until");
+        _keepShown = false;
         _amount.TooltipText = "";
         if (_wasSelling)
         {
@@ -2036,7 +2087,7 @@ public sealed class QueueWindow
         _eventPick.Visible = kind == Until.Event;
         _taskPick.Control.Visible = kind == Until.Mastery;
         FillTasks();
-        _amount.Suffix = kind == Until.Minutes ? " min" : "";
+        _amount.Suffix = kind == Until.Minutes ? Lang.T("window.plan.min", " min") : "";
         _amount.MaxValue = kind == Until.Level ? 999 : 100_000_000;
         if (kind == Until.Level && _amount.Value > 999) _amount.Value = 99;
         if (kind != Until.Nodes) _amount.TooltipText = "";
@@ -2057,7 +2108,7 @@ public sealed class QueueWindow
         _orTask.Control.Visible = kind == Until.Mastery;
         FillTasks();
         _orAmount.MinValue = kind == Until.ItemLeft ? 0 : 1;
-        _orAmount.Suffix = kind == Until.Minutes ? " min" : "";
+        _orAmount.Suffix = kind == Until.Minutes ? Lang.T("window.plan.min", " min") : "";
         _orAmount.MaxValue = kind == Until.Level ? 999 : 100_000_000;
         if (kind == Until.Level && _orAmount.Value > 999) _orAmount.Value = 99;
         _orAmount.TooltipText = "";
@@ -2072,7 +2123,8 @@ public sealed class QueueWindow
         if (most <= 0) return;
         amount.MaxValue = most;
         if (amount.Value > most) amount.Value = most;
-        amount.TooltipText = $"This constellation has {most} {(node.Selected == 1 ? "major" : "minor")} node unlocks in all.";
+        amount.TooltipText = Lang.P("window.constellation_nodes_in_all", most, "This constellation has {count} {kind} node unlock in all.", "This constellation has {count} {kind} node unlocks in all.",
+            ("kind", Step.NodeKind(node.Selected == 1 ? "major" : "minor", "")));
     }
 
     /// <summary>
@@ -2109,7 +2161,7 @@ public sealed class QueueWindow
                 string progress = Mastery.ProgressText(t), text = t.Text;
                 if (first == "" && mine && !t.Done) first = t.Id;
                 entries.Add(new PickEntry<string>(t.Id, text, t.Id,
-                    Group: mine ? $"For {targetName}" : fight ? t.Skill : "Other tasks of this skill",
+                    Group: mine ? Lang.F("window.plan.for", "For {targetName}", ("targetName", targetName)) : fight ? t.Skill : Lang.T("window.other_tasks_skill", "Other tasks of this skill"),
                     Subgroup: mine ? "" : t.Tier,
                     Hint: mine ? $"{(fight ? t.Skill + ", " : "")}{t.Tier}: {progress}" : progress,
                     Tooltip: $"{t.Skill}, {t.Tier}: {text}  ({progress})",
@@ -2161,8 +2213,8 @@ public sealed class QueueWindow
             foreach (var loadout in combat.Loadouts.LoadoutDisplayOrder)
             {
                 string id = Step.LoadoutPrefix + loadout.Data.Id;
-                string hint = !loadout.IsUnlocked ? "locked" : combat.Loadouts.CurrentLoadout == loadout ? "in use" : "";
-                entries.Add(new PickEntry<Target>(id, loadout.Name, new Target(id, loadout.Name, ""), "Loadouts", Hint: hint, Muted: !loadout.IsUnlocked));
+                string hint = !loadout.IsUnlocked ? Lang.T("window.target.locked", "locked") : combat.Loadouts.CurrentLoadout == loadout ? Lang.T("window.loadout.in_use", "in use") : "";
+                entries.Add(new PickEntry<Target>(id, loadout.Name, new Target(id, loadout.Name, ""), Lang.T("window.loadouts", "Loadouts"), Hint: hint, Muted: !loadout.IsUnlocked));
             }
         GamesByMalcs.Melvor2.Entities.Bank.BankEntity? bank = game.Entities.TryGetObjectById("MelvorBase:Bank", out GameEntity? b) ? b as GamesByMalcs.Melvor2.Entities.Bank.BankEntity : null;
         var gear = new List<PickEntry<Target>>();
@@ -2174,8 +2226,8 @@ public sealed class QueueWindow
             {
                 string foodName = item.DisplayName.GetPluralText(1);
                 int have = bank?.Inventory.GetQuantity(item) ?? 0;
-                food.Add(new PickEntry<Target>(FoodKeyPrefix + item.Id, foodName, new Target(item.Id, foodName, ""), "Food (for the skill you pick)", "", item.Icon, null,
-                    have > 0 ? $"{have:N0} in bank" : "", "The step makes it the food the skill picked next to this list eats.", Muted: have <= 0, Keywords: "food"));
+                food.Add(new PickEntry<Target>(FoodKeyPrefix + item.Id, foodName, new Target(item.Id, foodName, ""), Lang.T("window.food_skill_you_pick", "Food (for the skill you pick)"), "", item.Icon, null,
+                    have > 0 ? Lang.F("window.bank_2", "{have:N0} in bank", ("have", have)) : "", Lang.T("window.step_makes_food_skill_picked", "The step makes it the food the skill picked next to this list eats."), Muted: have <= 0, Keywords: "food"));
             }
             if (!item.Capabilities.TryGet<GamesByMalcs.Melvor2.Components.Equipment.EquipmentCapability>(out var equip)) continue;
             string name = item.DisplayName.GetPluralText(1);
@@ -2185,11 +2237,11 @@ public sealed class QueueWindow
                 bool worn = Rares.Worn(game, item);
                 if (owned <= 0 && !worn) continue;   // sold or never found: One Style keeps it in the game until a restart
                 gear.Add(new PickEntry<Target>(item.Id, name, new Target(item.Id, name, ""), equip.Type.DisplayName.Text, "", item.Icon, equip.Type.Icon,
-                    worn ? "worn" : $"{owned:N0} in bank", Rares.Tooltip(item)));
+                    worn ? Lang.T("window.gear.worn", "worn") : Lang.F("window.bank", "{owned:N0} in bank", ("owned", owned)), Rares.Tooltip(item)));
                 continue;
             }
             gear.Add(new PickEntry<Target>(item.Id, name, new Target(item.Id, name, ""), equip.Type.DisplayName.Text, "", item.Icon, equip.Type.Icon,
-                owned > 0 ? $"{owned:N0} in bank" : "", Muted: owned <= 0));
+                owned > 0 ? Lang.F("window.bank", "{owned:N0} in bank", ("owned", owned)) : "", Muted: owned <= 0));
         }
         entries.AddRange(gear.OrderBy(g => g.Group, StringComparer.OrdinalIgnoreCase).ThenBy(g => g.Text, StringComparer.OrdinalIgnoreCase));
         entries.AddRange(food.OrderBy(f => f.Muted).ThenBy(f => f.Text, StringComparer.OrdinalIgnoreCase));
@@ -2200,9 +2252,9 @@ public sealed class QueueWindow
     static List<PickEntry<Target>> SavedQueueEntries()
     {
         var entries = Queue.PresetNames.Where(n => !string.Equals(n, Queue.AutoName, StringComparison.OrdinalIgnoreCase))
-            .Select(n => new PickEntry<Target>(n, n, new Target(n, n, ""), "Saved queues", Hint: $"{Queue.GetPreset(n)!.Steps.Count} step(s)")).ToList();
+            .Select(n => new PickEntry<Target>(n, n, new Target(n, n, ""), Lang.T("window.saved_queues", "Saved queues"), Hint: Lang.P("window.step_count", Queue.GetPreset(n)!.Steps.Count, "{count} step", "{count} steps"))).ToList();
         if (entries.Count == 0)
-            entries.Add(new PickEntry<Target>("", "No saved queues yet: save one under \"Saved queues\" first", new Target("", "", ""), Enabled: false, Muted: true));
+            entries.Add(new PickEntry<Target>("", Lang.T("window.no_saved_queues_yet_save", "No saved queues yet: save one under \"Saved queues\" first"), new Target("", "", ""), Enabled: false, Muted: true));
         return entries;
     }
 
@@ -2212,7 +2264,7 @@ public sealed class QueueWindow
         goal = new Goal { Until = kind, Amount = amount };
         if (kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent)
         {
-            if (item.Selected is not { } counted) { Say("Pick the item to count first."); return false; }
+            if (item.Selected is not { } counted) { Say(Lang.T("window.pick_item_count_first", "Pick the item to count first.")); return false; }
             goal.Subject = counted.Value.Id;
             goal.SubjectName = counted.Value.DisplayName.GetPluralText(1);
         }
@@ -2225,14 +2277,14 @@ public sealed class QueueWindow
             goal.Subject = goal.SubjectName = node.Selected == 1 ? "major" : "minor";
         else if (kind == Until.Event)
         {
-            if (ev.Selected < 0) { Say("This constellation has no events to wait for."); return false; }
+            if (ev.Selected < 0) { Say(Lang.T("window.constellation_has_no_events_wait", "This constellation has no events to wait for.")); return false; }
             goal.Subject = ev.GetItemMetadata(ev.Selected).AsString();
             goal.SubjectName = ev.GetItemText(ev.Selected);
         }
         else if (kind == Until.Mastery)
         {
-            if (task.SelectedKey is not { Length: > 0 } id) { Say("Pick the mastery task first."); return false; }
-            if (Mastery.Find(id) is not { } chosen) { Say("That mastery task is not in this game: pick another one."); return false; }
+            if (task.SelectedKey is not { Length: > 0 } id) { Say(Lang.T("window.pick_mastery_task_first", "Pick the mastery task first.")); return false; }
+            if (Mastery.Find(id) is not { } chosen) { Say(Lang.T("window.mastery_task_not_game_pick", "That mastery task is not in this game: pick another one.")); return false; }
             goal.Subject = id;
             goal.SubjectName = chosen.Text;
             goal.Amount = 1;
@@ -2249,17 +2301,17 @@ public sealed class QueueWindow
     {
         if (Selling)
         {
-            if (_item.Selected is not { } toSell) { Say("Pick the item to sell first."); return; }
+            if (_item.Selected is not { } toSell) { Say(Lang.T("window.pick_item_sell_first", "Pick the item to sell first.")); return; }
             Step sale = Planner.SellStep(toSell.Value, (long)_amount.Value, NewLane);
             Put(sale);
             return;
         }
         if (Equipping)
         {
-            if (_target.Selected is not { Enabled: true } gear || gear.Key == "") { Say("Choose what to equip first."); return; }
+            if (_target.Selected is not { Enabled: true } gear || gear.Key == "") { Say(Lang.T("window.choose_what_equip_first", "Choose what to equip first.")); return; }
             if (EquipIsFood)
             {
-                if (_foodSkill.Selected < 0 || _foodSkill.ItemCount == 0) { Say("Choose the skill that eats this food first."); return; }
+                if (_foodSkill.Selected < 0 || _foodSkill.ItemCount == 0) { Say(Lang.T("window.choose_skill_eats_food_first", "Choose the skill that eats this food first.")); return; }
                 Put(new Step
                 {
                     Entity = Step.EquipEntity, TargetId = gear.Value.Id, Subject = Step.FoodSubject, Lane = NewLane,
@@ -2281,14 +2333,14 @@ public sealed class QueueWindow
         }
         if (Switching)
         {
-            if (_target.Selected is not { Enabled: true } saved || saved.Key == "") { Say("Save a queue under \"Saved queues\" first, then choose it here."); return; }
+            if (_target.Selected is not { Enabled: true } saved || saved.Key == "") { Say(Lang.T("window.save_queue_under_saved_queues", "Save a queue under \"Saved queues\" first, then choose it here.")); return; }
             var go = new Step { Entity = Step.SwitchEntity, TargetId = saved.Value.Id, Name = $"Go to saved queue: {saved.Value.Id}", Lane = NewLane };
             if (_editing != null) { Put(go); return; }
             Queue.Add(go);
-            Say($"Added: {go.Name}. When every step before it is over, the queue goes on with '{saved.Value.Id}'.");
+            Say(Lang.F("window.added_when_every_step_before", "Added: {name}. When every step before it is over, the queue goes on with '{queue}'.", ("name", Queue.Shown(go)), ("queue", saved.Value.Id)));
             return;
         }
-        if (_skillPick.Selected < 0 || _target.Selected is not { } chosen) { Say("Choose what to do first."); return; }
+        if (_skillPick.Selected < 0 || _target.Selected is not { } chosen) { Say(Lang.T("window.choose_what_do_first", "Choose what to do first.")); return; }
         GameEntity entity = _skills[_skillPick.Selected].Entity;
         Target target = chosen.Value;
         var step = new Step
@@ -2328,15 +2380,16 @@ public sealed class QueueWindow
         _laneRepeatsShown = shown;
         foreach (Node child in _laneRepeats.GetChildren()) child.QueueFree();
         if (!show) return;
-        _laneRepeats.AddChild(Style.Label("Lanes that start over:", Style.Muted));
+        _laneRepeats.AddChild(Style.Label(Lang.T("window.lanes_start_over", "Lanes that start over:"), Style.Muted));
         foreach (int lane in lanes)
         {
             var box = new CheckBox
             {
-                Text = $"Lane {lane}", ButtonPressed = Queue.LaneRepeats(lane),
-                TooltipText = "Ticked: this lane starts over by itself whenever its last step is done.\nUnticked: it runs once and then stays finished; the other lanes go on.",
+                Text = Lang.F("window.lane", "Lane {lane}", ("lane", lane)), ButtonPressed = Queue.LaneRepeats(lane),
+                TooltipText = Lang.T("window.ticked_lane_starts_over_by", "Ticked: this lane starts over by itself whenever its last step is done.\nUnticked: it runs once and then stays finished; the other lanes go on."),
             };
             int which = lane;
+            box.SetMeta("lane", lane);
             box.Toggled += on => { if (!_syncing) Queue.SetLaneRepeat(which, on); };
             _laneRepeats.AddChild(box);
         }
@@ -2346,7 +2399,7 @@ public sealed class QueueWindow
     public List<string> LaneRepeatBoxes => _laneRepeats.Visible ? _laneRepeats.GetChildren().OfType<CheckBox>().Select(b => $"{b.Text}:{(b.ButtonPressed ? "on" : "off")}").ToList() : new List<string>();
     public void PressLaneRepeat(int lane)
     {
-        foreach (CheckBox b in _laneRepeats.GetChildren().OfType<CheckBox>()) if (b.Text == $"Lane {lane}") b.ButtonPressed = !b.ButtonPressed;
+        foreach (CheckBox b in _laneRepeats.GetChildren().OfType<CheckBox>()) if (b.GetMeta("lane").AsInt32() == lane) b.ButtonPressed = !b.ButtonPressed;
     }
 
     /// <summary>A new step goes at the end; a step being edited goes back in its place.</summary>
@@ -2357,12 +2410,12 @@ public sealed class QueueWindow
         {
             Queue.ReplaceAt(at, step);
             EndEdit();
-            Say($"Step {at + 1} changed: {step.Name}, {step.Goal}.");
+            Say(Lang.F("window.step_changed", "Step {number} changed: {name}, {goal}.", ("number", at + 1), ("name", Queue.Shown(step)), ("goal", step.Goal)));
             return;
         }
         EndEdit();
         Queue.Add(step);
-        Say($"Added: {step.Name}, {step.Goal}.");
+        Say(Lang.F("window.added", "Added: {name}, {goal}.", ("name", Queue.Shown(step)), ("goal", step.Goal)));
     }
 
     void EndEdit()
@@ -2370,7 +2423,7 @@ public sealed class QueueWindow
         _editing = null;
         // a food step edited for a skill this game does not have left the skill list empty: the next food gets the first skill
         if (_foodSkill.Selected < 0 && _foodSkill.ItemCount > 0) _foodSkill.Select(0);
-        _addButton.Text = "Add step";
+        _addButton.Text = Lang.T("window.add_step", "Add step");
         _cancelEdit.Visible = false;
     }
 
@@ -2378,7 +2431,7 @@ public sealed class QueueWindow
     void EditSelected()
     {
         int index = SelectedIndex();
-        if (index < 0 || index >= Queue.Steps.Count) { Say("Select a step in the list first, then press Edit."); return; }
+        if (index < 0 || index >= Queue.Steps.Count) { Say(Lang.T("window.select_step_list_first_then_2", "Select a step in the list first, then press Edit.")); return; }
         Step s = Queue.Steps[index];
         int skill = s.Entity switch
         {
@@ -2387,7 +2440,7 @@ public sealed class QueueWindow
             Step.SwitchEntity => _skills.Count + 2,
             _ => _skills.FindIndex(x => x.Entity.Id == s.Entity),
         };
-        if (skill < 0) { Say("This step's skill is not on the list here, so it cannot be edited (remove it and add it again)."); return; }
+        if (skill < 0) { Say(Lang.T("window.step_skill_not_list_here", "This step's skill is not on the list here, so it cannot be edited (remove it and add it again).")); return; }
         ShowStepForm();
         _skillPick.Select(skill);
         FillKinds(_untilPick, withStops: true);
@@ -2396,7 +2449,7 @@ public sealed class QueueWindow
         FillTargets(wantKey, suggest: false);
         // Equip for an item (or loadout) this game does not have: shown as missing, not swapped for the list's first entry
         // (saving then asks for a choice instead of quietly turning the step into another one).
-        if (Equipping && _target.SelectedKey != wantKey) _target.ShowMissing(wantKey, $"{s.Name} (not in this game)");
+        if (Equipping && _target.SelectedKey != wantKey) _target.ShowMissing(wantKey, Lang.F("window.not_game", "{name} (not in this game)", ("name", s.Name)));
         string foodNote = "";
         if (s.IsFood)
         {
@@ -2407,8 +2460,8 @@ public sealed class QueueWindow
                 if (_foodSkill.GetItemMetadata(i).AsString() == s.Extra) { _foodSkill.Select(i); break; }
             if (_foodSkill.Selected < 0)
             {
-                _foodSkill.Text = "Choose a skill";
-                foodNote = $" {(s.SubjectName != "" ? s.SubjectName : s.Extra)} does not eat food in this game: pick the skill for it.";
+                _foodSkill.Text = Lang.T("window.choose_skill", "Choose a skill");
+                foodNote = Lang.F("window.does_not_eat_food_game", " {skill} does not eat food in this game: pick the skill for it.", ("skill", (s.SubjectName != "" ? s.SubjectName : s.Extra)));
             }
         }
         if (Selling) _item.Select(s.TargetId);
@@ -2434,9 +2487,9 @@ public sealed class QueueWindow
         if (_lanePick.Visible) _lanePick.Select(Math.Clamp(s.Lane, 1, _lanePick.ItemCount) - 1);
         if (_mode.Visible) _mode.ButtonPressed = !string.IsNullOrEmpty(s.Mode);
         _editing = s;
-        _addButton.Text = $"Save step {index + 1}";
+        _addButton.Text = Lang.F("window.save_step", "Save step {number}", ("number", index + 1));
         _cancelEdit.Visible = true;
-        Say($"Editing step {index + 1}: change it above and press \"Save step {index + 1}\" (or Cancel).{foodNote}");
+        Say(Lang.F("window.editing_step_change_above_press", "Editing step {number}: change it above and press \"Save step {number}\" (or Cancel).{foodNote}", ("number", index + 1), ("foodNote", foodNote)));
     }
 
     /// <summary>Puts a goal's item, skill, node kind or event back into its pickers.</summary>
@@ -2459,7 +2512,7 @@ public sealed class QueueWindow
                     if (ev.GetItemMetadata(i).AsString() == g.Subject) { ev.Select(i); break; }
                 break;
             case Until.Mastery:
-                if (!task.Select(g.Subject)) task.ShowMissing(g.Subject, g.SubjectName + " (not in this list)");
+                if (!task.Select(g.Subject)) task.ShowMissing(g.Subject, g.SubjectName + Lang.T("window.not_list", " (not in this list)"));
                 break;
         }
     }
@@ -2489,10 +2542,10 @@ public sealed class QueueWindow
     void NextLane()
     {
         int index = SelectedIndex();
-        if (index < 0 || index >= Queue.Steps.Count) { Say("Select a step first."); return; }
+        if (index < 0 || index >= Queue.Steps.Count) { Say(Lang.T("window.select_step_first", "Select a step first.")); return; }
         int lane = Math.Clamp(Queue.Steps[index].Lane, 1, Queue.MaxLanes) % LanesOffered() + 1;
         Queue.SetLane(index, lane);
-        Say($"Step {index + 1} is now in lane {lane}.");
+        Say(Lang.F("window.step_now_lane", "Step {number} is now in lane {lane}.", ("number", index + 1), ("lane", lane)));
         SelectRow(index);
     }
 
@@ -2505,13 +2558,13 @@ public sealed class QueueWindow
     /// </summary>
     static (string Text, string Tip) TimeOf(Step step, bool waitingNewRound)
     {
-        string lastTime = step.LastSeconds >= 1 ? $"\nLast time it took {Queue.Duration(step.LastSeconds)}." : "";
+        string lastTime = step.LastSeconds >= 1 ? Lang.F("window.nlast_time_took", "\nLast time it took {duration}.", ("duration", Queue.Duration(step.LastSeconds))) : "";
         if (Queue.Running && step.Run == RunState.Running)
-            return (Queue.Duration(step.Seconds), $"Running for {Queue.Duration(step.Seconds)} (waiting and pauses do not count).{lastTime}");
+            return (Queue.Duration(step.Seconds), Lang.F("window.running_waiting_pauses_do_not", "Running for {duration} (waiting and pauses do not count).{lastTime}", ("duration", Queue.Duration(step.Seconds)), ("lastTime", lastTime)));
         if (step.Seconds >= 1 && step.Run == RunState.Done)
-            return (Queue.Duration(step.Seconds), step.State.StartsWith("done") ? $"It took {Queue.Duration(step.Seconds)}." : $"It ran for {Queue.Duration(step.Seconds)} before it stopped.");
-        if (step.Seconds >= 1) return (Queue.Duration(step.Seconds), $"It has run for {Queue.Duration(step.Seconds)} so far.");
-        if (waitingNewRound && step.LastSeconds >= 1) return ($"({Queue.Duration(step.LastSeconds)})", $"Last time it took {Queue.Duration(step.LastSeconds)}.");
+            return (Queue.Duration(step.Seconds), step.Status == StepStatus.Done ? Lang.F("window.took", "It took {duration}.", ("duration", Queue.Duration(step.Seconds))) : Lang.F("window.ran_before_stopped", "It ran for {duration} before it stopped.", ("duration", Queue.Duration(step.Seconds))));
+        if (step.Seconds >= 1) return (Queue.Duration(step.Seconds), Lang.F("window.has_run_so_far", "It has run for {duration} so far.", ("duration", Queue.Duration(step.Seconds))));
+        if (waitingNewRound && step.LastSeconds >= 1) return ($"({Queue.Duration(step.LastSeconds)})", Lang.F("window.last_time_took", "Last time it took {duration}.", ("duration", Queue.Duration(step.LastSeconds))));
         return ("", "");
     }
 
@@ -2523,7 +2576,7 @@ public sealed class QueueWindow
     void RunFromSelected()
     {
         int index = SelectedIndex();
-        if (index < 0 || index >= Queue.Steps.Count) { Say("Select a step in the list first, then press \"Run from here\"."); return; }
+        if (index < 0 || index >= Queue.Steps.Count) { Say(Lang.T("window.select_step_list_first_then", "Select a step in the list first, then press \"Run from here\".")); return; }
         if (Queue.RunFrom(index)) SelectRow(index);
     }
 
@@ -2552,7 +2605,7 @@ public sealed class QueueWindow
     {
         int index = SelectedIndex();
         if (_runFrom != null) _runFrom.Disabled = index < 0 || index >= Queue.Steps.Count;
-        _laneButton.Text = index >= 0 && index < Queue.Steps.Count ? $"Lane {Math.Clamp(Queue.Steps[index].Lane, 1, Queue.MaxLanes)} > {Math.Clamp(Queue.Steps[index].Lane, 1, Queue.MaxLanes) % LanesOffered() + 1}" : "Change lane";
+        _laneButton.Text = index >= 0 && index < Queue.Steps.Count ? Lang.F("window.lane_2", "Lane {lane} > {next}", ("lane", Math.Clamp(Queue.Steps[index].Lane, 1, Queue.MaxLanes)), ("next", Math.Clamp(Queue.Steps[index].Lane, 1, Queue.MaxLanes) % LanesOffered() + 1)) : Lang.T("window.change_lane", "Change lane");
     }
 
     void MoveSelected(int by)
@@ -2585,8 +2638,8 @@ public sealed class QueueWindow
                 heading.SetMetadata(0, -1);
                 var mine = Queue.Steps.Where(st => Math.Clamp(st.Lane, 1, Queue.MaxLanes) == lane).ToList();
                 Step? at = mine.FirstOrDefault(st => st.Run != RunState.Done);
-                heading.SetText(1, $"Lane {lane}");
-                heading.SetText(3, !Queue.Running ? $"{mine.Count} step(s)" : at == null ? "finished" : $"at step {Queue.Steps.IndexOf(at) + 1}");
+                heading.SetText(1, Lang.F("window.lane", "Lane {lane}", ("lane", lane)));
+                heading.SetText(3, !Queue.Running ? Lang.P("window.step_count", mine.Count, "{count} step", "{count} steps") : at == null ? Lang.T("window.finished", "finished") : Lang.F("window.at_step", "at step {number}", ("number", Queue.Steps.IndexOf(at) + 1)));
                 for (int c = 0; c < _table.Columns; c++) { heading.SetCustomColor(c, Style.Accent); heading.SetSelectable(c, false); }
                 headings[lane] = heading;
             }
@@ -2598,15 +2651,15 @@ public sealed class QueueWindow
             TreeItem row = _table.CreateItem(laneMode ? headings[Math.Clamp(step.Lane, 1, Queue.MaxLanes)] : root);
             row.SetMetadata(0, i);
             row.SetText(0, (i + 1).ToString());
-            row.SetText(1, step.Name);
+            row.SetText(1, Queue.Shown(step));
             row.SetText(2, step.Goal);
             // Waiting for its turn in a new round: how it ended last time stays in view ("last time: done: out of runes").
             bool last = step.State == "" && step.LastResult != "" && (Queue.Running || Queue.Paused);
-            string state = last ? $"last time: {step.LastResult}" : step.State;
+            string state = last ? Lang.F("window.last_time", "last time: {lastResult}", ("lastResult", step.LastResult)) : step.State;
             row.SetText(3, state);
             // (once it runs again, the tooltip still says how it ended the last time)
-            row.SetTooltipText(3, !last && Queue.Running && step.LastResult != "" && step.State != step.LastResult ? $"{state}\nlast time: {step.LastResult}" : state);
-            row.SetTooltipText(1, step.Name);
+            row.SetTooltipText(3, !last && Queue.Running && step.LastResult != "" && step.State != step.LastResult ? Lang.F("window.nlast_time", "{state}\nlast time: {lastResult}", ("state", state), ("lastResult", step.LastResult)) : state);
+            row.SetTooltipText(1, Queue.Shown(step));
             row.SetTooltipText(2, step.Goal);
             // Time: what the step has run so far (waiting does not count), what it took, or in brackets what it took last time
             (string time, string timeTip) = TimeOf(step, (Queue.Running || Queue.Paused) && step.Run is RunState.Idle or RunState.Waiting);
@@ -2615,7 +2668,7 @@ public sealed class QueueWindow
             row.SetTextAlignment(4, HorizontalAlignment.Right);
             row.SetCustomColor(4, current ? Style.Good : Style.Muted);
             row.SetCustomColor(0, Style.Muted);
-            row.SetCustomColor(3, step.State.StartsWith("skipped") ? Style.Bad : current ? Style.Good : waiting ? Style.Accent : Style.Muted);
+            row.SetCustomColor(3, step.Status == StepStatus.Skipped ? Style.Bad : current ? Style.Good : waiting ? Style.Accent : Style.Muted);
             if (current)
                 for (int c = 0; c < _table.Columns; c++) row.SetCustomBgColor(c, new Color(Style.GoodDim, 0.55f));
         }
@@ -2623,12 +2676,12 @@ public sealed class QueueWindow
         else PaintLaneButton();
         Callable.From(PlaceDividers).CallDeferred();   // (a scroll bar that came or went moves the column borders)
 
-        _run.Text = Queue.Running ? "Pause" : "Start the queue";
+        _run.Text = Queue.Running ? Lang.T("window.pause", "Pause") : Lang.T("window.start_queue", "Start the queue");
         if (_editing != null && !Queue.Steps.Contains(_editing)) EndEdit();   // the step being edited is gone (removed, another queue)
         _syncing = true;
         _repeat.ButtonPressed = Queue.Repeat;
         _syncing = false;
-        _repeat.Text = Queue.Repeat ? "Start over at the end: ON" : "Start over at the end: OFF";
+        _repeat.Text = Queue.Repeat ? Lang.T("window.start_over_at_end", "Start over at the end: ON") : Lang.T("window.start_over_at_end_off", "Start over at the end: OFF");
         PaintLaneRepeats();
         PaintRoom();
         _syncing = true;

@@ -107,16 +107,16 @@ public static class Share
         stopAtEnd = false;
         problem = "";
         code = new string((code ?? "").Where(c => !char.IsWhiteSpace(c)).ToArray());
-        if (code.Length == 0) { problem = "There is no code to read. Paste one into the box first."; return false; }
-        if (code.Length > MaxCodeLength) { problem = "That text is too long to be a share code."; return false; }
+        if (code.Length == 0) { problem = Lang.T("share.there_no_code_read_paste", "There is no code to read. Paste one into the box first."); return false; }
+        if (code.Length > MaxCodeLength) { problem = Lang.T("share.text_too_long_share_code", "That text is too long to be a share code."); return false; }
         string prefix = new[] { Prefix4, Prefix3, Prefix2 }.FirstOrDefault(p => code.StartsWith(p, StringComparison.Ordinal)) ?? Prefix;
         if (!code.StartsWith(prefix, StringComparison.Ordinal))
         {
             // "AQ5:..." and later: made by a newer Action Queue than this one.
             int colon = code.IndexOf(':');
             problem = colon > 2 && colon <= 6 && code.StartsWith("AQ", StringComparison.Ordinal) && code[2..colon].All(char.IsDigit)
-                ? "That code was made by a newer version of Action Queue. Update the mod to read it."
-                : $"That is not an Action Queue share code (it must start with {Prefix}, {Prefix2}, {Prefix3} or {Prefix4}).";
+                ? Lang.T("share.code_was_made_by_newer", "That code was made by a newer version of Action Queue. Update the mod to read it.")
+                : Lang.F("share.not_action_queue_share_code", "That is not an Action Queue share code (it must start with {prefix}, {prefix2}, {prefix3} or {prefix4}).", ("prefix", Prefix), ("prefix2", Prefix2), ("prefix3", Prefix3), ("prefix4", Prefix4));
             return false;
         }
 
@@ -133,24 +133,24 @@ public static class Share
             while ((read = deflate.Read(chunk, 0, chunk.Length)) > 0)
             {
                 unpacked.Write(chunk, 0, read);
-                if (unpacked.Length > MaxUnpackedBytes) { problem = "That code unpacks to far more than a queue can be."; return false; }
+                if (unpacked.Length > MaxUnpackedBytes) { problem = Lang.T("share.code_unpacks_far_more_than", "That code unpacks to far more than a queue can be."); return false; }
             }
             packed = JsonSerializer.Deserialize<Packed>(unpacked.ToArray());
         }
         catch (Exception)
         {
-            problem = "That code is damaged (part of it may be missing). Copy it again in full.";
+            problem = Lang.T("share.code_damaged_part_may_missing", "That code is damaged (part of it may be missing). Copy it again in full.");
             return false;
         }
-        if (packed?.S == null || packed.S.Count == 0) { problem = "That code holds no steps."; return false; }
-        if (packed.S.Count > MaxSteps) { problem = $"That code holds more than {MaxSteps} steps."; return false; }
+        if (packed?.S == null || packed.S.Count == 0) { problem = Lang.T("share.code_holds_no_steps", "That code holds no steps."); return false; }
+        if (packed.S.Count > MaxSteps) { problem = Lang.F("share.code_holds_more_than_steps", "That code holds more than {maxSteps} steps.", ("maxSteps", MaxSteps)); return false; }
 
         foreach (PackedStep s in packed.S)
         {
             if (s == null || string.IsNullOrWhiteSpace(s.E) || string.IsNullOrWhiteSpace(s.T) || !Sensible(s.U, s.A)
                 || s.L < 0 || s.L > Queue.MaxLanes || s.O != null && (!Sensible(s.O.U, s.O.A) || s.O.U == (int)Until.Stops))
             {
-                problem = "That code holds a step that makes no sense, so none of it was taken.";
+                problem = Lang.T("share.code_holds_step_makes_no", "That code holds a step that makes no sense, so none of it was taken.");
                 steps.Clear();
                 return false;
             }
@@ -166,7 +166,7 @@ public static class Share
             if (!Sensible(w.U, w.A) || !Queue.StopKind((Until)w.U) || string.IsNullOrWhiteSpace(w.J)
                 || Queue.CleanStop(new Goal { Until = (Until)w.U, Amount = w.A, Subject = w.J, SubjectName = w.K ?? "" }) == null)
             {
-                problem = "That code holds a stop for the queue that makes no sense, so none of it was taken.";
+                problem = Lang.T("share.code_holds_stop_queue_makes", "That code holds a stop for the queue that makes no sense, so none of it was taken.");
                 steps.Clear();
                 return false;
             }

@@ -36,6 +36,26 @@ public sealed record Target(string Id, string Name, string Extra = "");
 /// </summary>
 public static class Targets
 {
+    /// <summary>
+    /// The words of this file (0.14.0). Action Queue gives them its language (Lang.F); Multitask and Phone
+    /// Screen, which build this file too, keep the English. A text is a whole sentence with named places: {item}, {amount:N0}.
+    /// </summary>
+    public static Func<string, string, (string Name, object? Value)[], string> Say = English;
+
+    internal static string W(string id, string en, params (string Name, object? Value)[] args) => Say(id, en, args);
+
+    static string English(string id, string en, (string Name, object? Value)[] args)
+    {
+        if (args.Length == 0) return en;
+        return System.Text.RegularExpressions.Regex.Replace(en, @"\{([A-Za-z_][A-Za-z0-9_]*)(:[^{}]*)?\}", m =>
+        {
+            foreach ((string Name, object? Value) a in args)
+                if (a.Name == m.Groups[1].Value)
+                    return a.Value is IFormattable f && m.Groups[2].Success ? f.ToString(m.Groups[2].Value[1..], null) : a.Value?.ToString() ?? "";
+            return m.Value;
+        });
+    }
+
     public const string Dungeon = "dungeon";
     /// <summary>A combat target that is not one fixed monster but "whatever this slayer master's task is".</summary>
     public const string Slayer = "slayer";
@@ -170,14 +190,19 @@ public static class Targets
     /// Stops whatever is running and starts this target. Returns false, with a reason, when the game does not
     /// allow it right now (level or other requirement not met, materials missing, target no longer exists).
     /// </summary>
+    /// <summary>True while <see cref="Start"/> stops everything to start its own target: the stops are not the player's doing.</summary>
+    [ThreadStatic] public static bool Starting;
+
     public static bool Start(Game game, ActionComponent action, Target target, out string problem)
     {
         problem = "";
         if (!Allowed(action, target, out problem)) return false;
-        game.ActionManager.TryStopActive(force: true);
+        Starting = true;
+        try { game.ActionManager.TryStopActive(force: true); }
+        finally { Starting = false; }
         Select(action, target);
         if (IsDoing(action, target)) return true;
-        problem = target.Extra == Slayer ? "this slayer master has no task to give right now" : "it could not be started (materials missing?)";
+        problem = target.Extra == Slayer ? Targets.W("targets.slayer_master_has_no_task", "this slayer master has no task to give right now") : Targets.W("targets.could_not_started_materials_missing", "it could not be started (materials missing?)");
         return false;
     }
 
@@ -205,7 +230,7 @@ public static class Targets
                 if (other.IsStarted && !running.Contains(other)) running.Insert(at++, other);
         }
         if (IsDoing(action, target)) return true;
-        problem = target.Extra == Slayer ? "this slayer master has no task to give right now" : "it could not be started (materials missing?)";
+        problem = target.Extra == Slayer ? Targets.W("targets.slayer_master_has_no_task", "this slayer master has no task to give right now") : Targets.W("targets.could_not_started_materials_missing", "it could not be started (materials missing?)");
         return false;
     }
 
@@ -435,8 +460,8 @@ public static class Targets
     /// <summary>The game's own requirement check for a target; nothing is started here.</summary>
     static bool Allowed(ActionComponent action, Target target, out string problem, bool materials = true)
     {
-        const string locked = "its requirements are not met yet";
-        problem = "it no longer exists in the game";
+        string locked = W("targets.requirements_not_met", "its requirements are not met yet");
+        problem = Targets.W("targets.no_longer_exists_game", "it no longer exists in the game");
 
         // Two skills need a choice the player makes on the skill's own page; the queue does not make it for them.
         if (action is HuntingActionComponent hunting)
@@ -446,7 +471,7 @@ public static class Targets
             // A trap is needed unless the animal is hunted without one; the queue picks one the bank holds itself.
             problem = !animal.Animal.Requirements.AreMet ? Missing(animal.Animal.Requirements)
                 : materials && !animal.TraplessEnabled && HeldTrap(hunting, animal) == null
-                    ? $"no trap for it in the bank (it needs {TrapNames(animal)})" : "";
+                    ? Targets.W("targets.no_trap_bank_needs", "no trap for it in the bank (it needs {trapNames})", ("trapNames", TrapNames(animal))) : "";
             return problem == "";
         }
         if (action is CombatActionComponent && target.Extra == Slayer)
@@ -455,9 +480,9 @@ public static class Targets
             if (master == null) return false;
             Enemy? task = master.CurrentTask;
             CombatArea? taskArea = task == null ? null : master.GetCurrentTaskArea(task);
-            problem = !master.Data.UnlockRequirements.AreMet ? "this slayer master is not unlocked yet"
-                : taskArea != null && !taskArea.UnlockRequirements.AreMet ? $"the task monster's area ({taskArea.DisplayName.Text}) is not unlocked yet"
-                : task != null && !task.Requirements.AreMet ? $"the task monster ({task.DisplayName.Text}) cannot be fought yet" : "";
+            problem = !master.Data.UnlockRequirements.AreMet ? Targets.W("targets.slayer_master_not_unlocked_yet", "this slayer master is not unlocked yet")
+                : taskArea != null && !taskArea.UnlockRequirements.AreMet ? Targets.W("targets.task_monster_area_not_unlocked", "the task monster's area ({area}) is not unlocked yet", ("area", taskArea.DisplayName.Text))
+                : task != null && !task.Requirements.AreMet ? Targets.W("targets.task_monster_cannot_fought_yet", "the task monster ({monster}) cannot be fought yet", ("monster", task.DisplayName.Text)) : "";
             return problem == "";
         }
         if (action is AgilityActionComponent agility)
@@ -465,7 +490,7 @@ public static class Targets
             ActiveAgilityCourse? course = agility.Courses.FirstOrDefault(c => c.Key.Id == target.Id).Value;
             if (course == null) return false;
             problem = !course.Course.Requirements.AreMet ? Missing(course.Course.Requirements)
-                : course.SelectedPath == null ? "choose a path for it on the Agility page first" : "";
+                : course.SelectedPath == null ? Targets.W("targets.choose_path_agility_page_first", "choose a path for it on the Agility page first") : "";
             return problem == "";
         }
 
@@ -512,7 +537,7 @@ public static class Targets
     /// Conditions marked IsOr belong with the one before them, as in the game's ConditionGroup; a met group is left out.</summary>
     public static string Missing(ConditionGroup needs)
     {
-        const string locked = "its requirements are not met yet";
+        string locked = W("targets.requirements_not_met", "its requirements are not met yet");
         var parts = new List<string>();
         try
         {
@@ -525,11 +550,11 @@ public static class Targets
                 i = end;
                 if (group.Any(c => c.IsMet)) continue;
                 var words = group.Select(Words).Where(w => w != "").Distinct().ToList();
-                if (words.Count > 0 && !parts.Contains(string.Join(" or ", words))) parts.Add(string.Join(" or ", words));
+                if (words.Count > 0 && !parts.Contains(string.Join(Targets.W("targets.or", " or "), words))) parts.Add(string.Join(Targets.W("targets.or", " or "), words));
             }
         }
         catch (Exception) { return locked; }
-        return parts.Count == 0 ? locked : "needs " + string.Join(", ", parts);
+        return parts.Count == 0 ? locked : Targets.W("targets.needs", "needs {what}", ("what", string.Join(", ", parts)));
     }
 
     /// <summary>A condition's description without the game's markup ([b], [color], icons).</summary>
@@ -624,7 +649,7 @@ public static class Targets
     }
 
     static string TrapNames(ActiveHuntingAnimal animal) =>
-        animal.CompatibleTraps.Count == 0 ? "a trap" : string.Join(" or ", animal.CompatibleTraps.Select(t => t.DisplayName.GetPluralText(1)));
+        animal.CompatibleTraps.Count == 0 ? Targets.W("targets.trap", "a trap") : string.Join(Targets.W("targets.or", " or "), animal.CompatibleTraps.Select(t => t.DisplayName.GetPluralText(1)));
 
     static ActiveHuntingAnimal? Animal(HuntingActionComponent hunting, string id) =>
         hunting.Locations.Values.SelectMany(l => l.Animals).FirstOrDefault(a => a.Animal.Id == id);

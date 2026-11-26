@@ -61,11 +61,20 @@ public sealed class Goal : IGoal
 
     public Goal Copy() => new() { Until = Until, Amount = Amount, Subject = Subject, SubjectName = SubjectName };
     public bool SameAs(Goal? other) => other != null && other.Until == Until && other.Amount == Amount && other.Subject == Subject;
-    public string Text => Step.GoalText(Until, Amount, SubjectName, Subject);
+    [JsonIgnore] public string Text => Step.GoalText(Until, Amount, SubjectName, Subject);
 }
 
 /// <summary>Idle: not started yet. Waiting: its turn has come but it cannot run right now. Done: over (also when skipped).</summary>
 public enum RunState { Idle, Running, Waiting, Done }
+
+/// <summary>
+/// What a step's <see cref="Step.State"/> means (0.14.0). The words can be in any language, so the queue and the window
+/// decide by this, never by the words.
+/// </summary>
+public enum StepStatus { None, Running, Waiting, Paused, Done, Skipped, Stopped, NotTaken }
+
+/// <summary>How the window colours what the idle action is up to (0.14.0: not read from the words).</summary>
+public enum IdleTone { Plain, Good, Bad }
 
 /// <summary>One line of the queue: do this, until that.</summary>
 public sealed class Step : IGoal
@@ -109,8 +118,12 @@ public sealed class Step : IGoal
     /// <summary>A step that is not an action: it takes no place, is over at once, and waits for the steps before it.</summary>
     [JsonIgnore] public bool IsInstant => IsSell || IsEquip || IsSwitch;
 
-    /// <summary>What happened to this step in the current run (not saved).</summary>
+    /// <summary>What happened to this step in the current run, in words (not saved).</summary>
     public string State = "";
+    /// <summary>What <see cref="State"/> means (0.14.0): the queue decides by this, never by the words.</summary>
+    internal StepStatus Status;
+    /// <summary>A running step's progress alone ("1,234 / 5,000 Oak Logs"), for the one-line headline (not saved).</summary>
+    internal string Detail = "";
     /// <summary>How this step last ended ("done: out of runes"), still shown while it waits for its turn in the next round (not saved).</summary>
     internal string LastResult = "";
     /// <summary>How long the step ran the last time it ended (its Seconds then), shown while it waits for its turn in the next round (not saved).</summary>
@@ -134,27 +147,37 @@ public sealed class Step : IGoal
     long IGoal.SeenAtStart { get => SeenAtStart; set => SeenAtStart = value; }
     int IGoal.OwnedAtStart { get => OwnedAtStart; set => OwnedAtStart = value; }
 
-    public string Goal => IsSell ? (Amount <= 0 ? "sell all of them" : $"sell all but {Amount:N0}")
-        : IsSwitch ? "and go on with it"
-        : IsFood ? $"as the food for {(SubjectName != "" ? SubjectName : Extra)}"
-        : IsEquip ?(TargetId.StartsWith(LoadoutPrefix, StringComparison.Ordinal) ? "switch to this loadout" : Subject != "stack" ? "put it on"
-                     : Amount <= 0 ? "put all of them on" : $"put them on, keep {Amount:N0} in the bank")
-        : GoalText(Until, Amount, SubjectName, Subject) + (Or == null ? "" : ", or " + Or.Text);
+    [JsonIgnore] public string Goal => IsSell ? (Amount <= 0 ? Lang.T("goal.sell_all", "sell all of them") : Lang.F("goal.sell_all_but", "sell all but {amount:N0}", ("amount", Amount)))
+        : IsSwitch ? Lang.T("goal.go_on_with_it", "and go on with it")
+        : IsFood ? Lang.F("goal.as_food_for", "as the food for {skill}", ("skill", SubjectName != "" ? SubjectName : Extra))
+        : IsEquip ?(TargetId.StartsWith(LoadoutPrefix, StringComparison.Ordinal) ? Lang.T("goal.switch_loadout", "switch to this loadout") : Subject != "stack" ? Lang.T("goal.put_it_on", "put it on")
+                     : Amount <= 0 ? Lang.T("goal.put_all_on", "put all of them on") : Lang.F("goal.put_on_keep", "put them on, keep {amount:N0} in the bank", ("amount", Amount)))
+        : Or == null ? GoalText(Until, Amount, SubjectName, Subject)
+        : Lang.F("goal.or", "{goal}, or {second}", ("goal", GoalText(Until, Amount, SubjectName, Subject)), ("second", Or.Text));
 
     public static string GoalText(Until until, double amount, string subjectName, string subject = "") => until switch
     {
-        Until.Item => $"until {amount:N0} {subjectName} in the bank",
-        Until.Made => $"until {amount:N0} more {subjectName} are made",
-        Until.ItemLeft => amount <= 0 ? $"until no {subjectName} is left in the bank" : $"until only {amount:N0} {subjectName} are left in the bank",
-        Until.Level => $"until {subjectName} level {amount:0}",
-        Until.Minutes => $"for {amount:0.#} minute(s)",
-        Until.Times => amount == 1 ? "once" : $"{amount:N0} times",
-        Until.Spent => $"until {amount:N0} {subjectName} are used up",
-        Until.Nodes => $"until {amount:N0} {subjectName} node unlocks are earned",
-        Until.Event => amount == 1 ? $"until {subjectName} is seen" : $"until {subjectName} is seen {amount:N0} times",
-        Until.Mastery => $"until the mastery task \"{Mastery.NameOf(subject, subjectName)}\" is complete",
-        Until.FoodRunsOut => "until the food runs out",
-        _ => "until it stops by itself",
+        Until.Item => Lang.F("goal.item", "until {amount:N0} {item} in the bank", ("amount", amount), ("item", subjectName)),
+        Until.Made => Lang.F("goal.made", "until {amount:N0} more {item} are made", ("amount", amount), ("item", subjectName)),
+        Until.ItemLeft => amount <= 0 ? Lang.F("goal.item_left_none", "until no {item} is left in the bank", ("item", subjectName))
+            : Lang.F("goal.item_left", "until only {amount:N0} {item} are left in the bank", ("amount", amount), ("item", subjectName)),
+        Until.Level => Lang.F("goal.level", "until {skill} level {amount:0}", ("skill", subjectName), ("amount", amount)),
+        Until.Minutes => Lang.P("goal.minutes", amount, "for {count:0.#} minute", "for {count:0.#} minutes"),
+        Until.Times => Lang.P("goal.times", amount, "once", "{count:N0} times"),
+        Until.Spent => Lang.F("goal.spent", "until {amount:N0} {item} are used up", ("amount", amount), ("item", subjectName)),
+        Until.Nodes => Lang.P("goal.nodes", amount, "until {count:N0} {kind} node unlock is earned", "until {count:N0} {kind} node unlocks are earned", ("kind", NodeKind(subject, subjectName))),
+        Until.Event => Lang.P("goal.event", amount, "until {event} is seen", "until {event} is seen {count:N0} times", ("event", subjectName)),
+        Until.Mastery => Lang.F("goal.mastery", "until the mastery task \"{task}\" is complete", ("task", Mastery.NameOf(subject, subjectName))),
+        Until.FoodRunsOut => Lang.T("goal.food_runs_out", "until the food runs out"),
+        _ => Lang.T("goal.stops_by_itself", "until it stops by itself"),
+    };
+
+    /// <summary>"minor" / "major" node unlocks in the language in use (the step keeps the English word as its value).</summary>
+    public static string NodeKind(string subject, string subjectName) => subject switch
+    {
+        "major" => Lang.T("goal.node_kind.major", "major"),
+        "minor" => Lang.T("goal.node_kind.minor", "minor"),
+        _ => subjectName,
     };
 }
 
@@ -239,6 +262,8 @@ public static class Queue
     {
         public RunState Run { get; set; }
         public string State { get; set; } = "";
+        /// <summary>What State means (0.14.0; None in a snapshot from before, whose State is English words).</summary>
+        public StepStatus Status { get; set; }
         public bool Ran { get; set; }
         public double Seconds { get; set; }
         /// <summary>"Make N more" / "N times" / "use up N": what was counted so far.</summary>
@@ -254,6 +279,44 @@ public static class Queue
 
     /// <summary>Where the queue that was on screen goes when another one is loaded over unsaved changes.</summary>
     public const string AutoName = "Unsaved queue (auto)";
+
+    /// <summary>
+    /// A saved queue's name as the window shows it: the queue that keeps unsaved steps is saved under an English name
+    /// (it is a key in queue.json), shown in the language in use.
+    /// </summary>
+    public static string Shown(string queueName) =>
+        string.Equals(queueName, AutoName, StringComparison.OrdinalIgnoreCase) ? Lang.T("queue.auto_name", "Unsaved queue (auto)") : queueName;
+
+    /// <summary>
+    /// A step's name as the window shows it. Sell, equip and "go to" steps keep an English word before the item's name
+    /// in saves and share codes ("Sell: Oak Logs"): that word is shown in the language in use.
+    /// </summary>
+    public static string Shown(Step step) => ShownName(step.Name);
+
+    /// <summary>A target's or step's saved English words ("Sell: ", "Dungeon: ", "Slayer tasks of ...") in the language in use.</summary>
+    public static string ShownName(string name)
+    {
+        if (Lang.IsEnglish) return name;
+        // a fight step's name starts with the skill ("Combat: Dungeon: Chicken Coop")
+        int colon = name.IndexOf(": ", StringComparison.Ordinal);
+        if (colon > 0 && Shown1(name[(colon + 2)..]) is { } rest && !name.StartsWith("Sell: ", StringComparison.Ordinal)
+            && !name.StartsWith("Equip: ", StringComparison.Ordinal) && !name.StartsWith("Loadout: ", StringComparison.Ordinal))
+            return name[..(colon + 2)] + rest;
+        return Shown1(name) ?? name;
+    }
+
+    static string? Shown1(string name)
+    {
+        string? After(string english) => name.StartsWith(english, StringComparison.Ordinal) ? name[english.Length..] : null;
+        if (After("Sell: ") is { } sell) return Lang.F("step.name.sell", "Sell: {item}", ("item", sell));
+        if (After("Equip: ") is { } equip) return Lang.F("step.name.equip", "Equip: {item}", ("item", equip));
+        if (After("Loadout: ") is { } loadout) return Lang.F("step.name.loadout", "Loadout: {loadout}", ("loadout", loadout));
+        if (After("Go to saved queue: ") is { } go) return Lang.F("step.name.go_to", "Go to saved queue: {queue}", ("queue", go));
+        if (After("Dungeon: ") is { } dungeon) return Lang.F("step.name.dungeon", "Dungeon: {dungeon}", ("dungeon", dungeon));
+        var slayer = System.Text.RegularExpressions.Regex.Match(name, @"^Slayer tasks of (.+)  \(follows the task\)$");
+        if (slayer.Success) return Lang.F("step.name.slayer", "Slayer tasks of {master}  (follows the task)", ("master", slayer.Groups[1].Value));
+        return null;
+    }
 
     public static string Dir = "";
     public static Action<string> Log { get; set; } = _ => { };
@@ -280,7 +343,7 @@ public static class Queue
     }
 
     /// <summary>Why an item step cannot find its item: a rare drop that is gone was sold (or otherwise lost).</summary>
-    static string NoItem(string id) => Rares.IsDropId(id) ? "skipped: this rare item is no longer owned" : "skipped: this item is not in the game";
+    static string NoItem(string id) => Rares.IsDropId(id) ? Lang.T("queue.skipped_rare_item_no_longer", "skipped: this rare item is no longer owned") : Lang.T("queue.skipped_item_not_game", "skipped: this item is not in the game");
 
     static bool s_ranThisRound;
     /// <summary>
@@ -382,10 +445,10 @@ public static class Queue
     /// <summary>What the queue's stop waits for, in words ("you have 1 Bandit Gloves in the bank").</summary>
     public static string StopText(Goal g) => g.Until switch
     {
-        Until.Item => $"you have {g.Amount:N0} {g.SubjectName} in the bank",
-        Until.Level => $"{g.SubjectName} reaches level {g.Amount:0}",
-        Until.ItemLeft => g.Amount <= 0 ? $"no {g.SubjectName} is left in the bank" : $"only {g.Amount:N0} {g.SubjectName} are left in the bank",
-        Until.Mastery => $"the mastery task \"{Mastery.NameOf(g.Subject, g.SubjectName)}\" is complete",
+        Until.Item => Lang.F("queue.you_have_bank", "you have {amount:N0} {subjectName} in the bank", ("amount", g.Amount), ("subjectName", g.SubjectName)),
+        Until.Level => Lang.F("queue.reaches_level", "{subjectName} reaches level {amount:0}", ("subjectName", g.SubjectName), ("amount", g.Amount)),
+        Until.ItemLeft => g.Amount <= 0 ? Lang.F("queue.no_left_bank", "no {subjectName} is left in the bank", ("subjectName", g.SubjectName)) : Lang.F("queue.only_left_bank", "only {amount:N0} {subjectName} are left in the bank", ("amount", g.Amount), ("subjectName", g.SubjectName)),
+        Until.Mastery => Lang.F("queue.mastery_task_complete", "the mastery task \"{task}\" is complete", ("task", Mastery.NameOf(g.Subject, g.SubjectName))),
         _ => g.Text,
     };
 
@@ -461,10 +524,10 @@ public static class Queue
         {
             if (s.Run == RunState.Running && Targets.Find(game, s.Entity) is { } action && StepDoing(action, s))
             {
-                if (HandsOff(action)) { fightLeft = true; s.State = "the queue's stop was reached: the fight ends when the game is open"; continue; }
+                if (HandsOff(action)) { fightLeft = true; Say(s, StepStatus.Stopped, Lang.T("queue.queue_stop_was_reached_fight", "the queue's stop was reached: the fight ends when the game is open")); continue; }
                 StopAction(action);
             }
-            if (s.Run is RunState.Running or RunState.Waiting) s.State = "stopped: the queue's stop was reached";
+            if (s.Run is RunState.Running or RunState.Waiting) Say(s, StepStatus.Stopped, Lang.T("queue.stopped_queue_stop_was_reached", "stopped: the queue's stop was reached"));
             s.Run = RunState.Done;
         }
         if (fightLeft)
@@ -474,7 +537,9 @@ public static class Queue
             return;
         }
         s_stopPending = false;
-        string why = $"The queue stopped{(StopAtEnd ? " at the end of the round" : "")}: {(StopWhen is { } g ? StopText(g) : "its stop was reached")} (the queue's stop).";
+        string stop = StopWhen is { } g ? StopText(g) : Lang.T("queue.stop_was_reached", "its stop was reached");
+        string why = StopAtEnd ? Lang.F("queue.stopped_at_round_end", "The queue stopped at the end of the round: {stop} (the queue's stop).", ("stop", stop))
+            : Lang.F("queue.stopped_by_its_stop", "The queue stopped: {stop} (the queue's stop).", ("stop", stop));
         EndRun(game, why);
     }
 
@@ -483,7 +548,7 @@ public static class Queue
     /// the queue ends, go on with" (and it is not this very queue), the queue goes on with that one from its first step;
     /// otherwise it finishes and the idle action takes over (as the player's own from then on).
     /// </summary>
-    static void EndRun(Game game, string why)
+    static void EndRun(Game game, string why, string? whyGoingOn = null)
     {
         string then = Then;
         string missing = "";
@@ -495,14 +560,13 @@ public static class Queue
                 SwitchNow(then);
                 if (Running && string.Equals(Name, then, StringComparison.OrdinalIgnoreCase))
                 {
-                    // ("so it stopped" would read oddly right before "going on")
-                    const string Stopped = ", so it stopped.";
-                    Note = $"{(why.EndsWith(Stopped, StringComparison.Ordinal) ? why[..^Stopped.Length] + "." : why)} Going on with the saved queue '{Name}'.";
+                    // ("so it stopped" would read oddly right before "going on": whyGoingOn says it without that)
+                    Note = Lang.F("queue.going_with_saved_queue", "{why} Going on with the saved queue '{name}'.", ("why", whyGoingOn ?? why), ("name", Shown(Name)));
                     return;
                 }
                 if (!Running) { RaiseChanged(); return; }   // (SwitchNow ended it: queues that only go to each other)
             }
-            else missing = $" The saved queue '{then}' to go on with no longer exists (or is empty).";
+            else missing = Lang.F("queue.saved_queue_go_with_no", " The saved queue '{then}' to go on with no longer exists (or is empty).", ("then", then));
         }
         s_idleOwned = false;   // a real finish: the idle action keeps going, as the player's own from now on
         Finish(why + missing);
@@ -534,6 +598,8 @@ public static class Queue
     public static int Index { get; private set; }
     /// <summary>The last thing worth telling the player (why it paused, that it finished...).</summary>
     public static string Note { get; private set; } = "";
+    /// <summary>Another language was chosen: the last message, written in the old one, is not shown any more.</summary>
+    internal static void ForgetNote() { Note = ""; RaiseChanged(); }
     public static event Action? Changed;
 
     const string CombatId = "MelvorBase:Combat";
@@ -614,6 +680,8 @@ public static class Queue
     public static Step? Idle { get; private set; }
     /// <summary>What the "while idle" action is up to, for the window ("" when there is nothing to say).</summary>
     public static string IdleState { get; private set; } = "";
+    /// <summary>How the window colours <see cref="IdleState"/> (0.14.0).</summary>
+    internal static IdleTone IdleTone { get; private set; }
     /// <summary>True while the idle action runs because the queue started it (so the queue may stop it again).</summary>
     static bool s_idleOwned, s_idleBlocked, s_idleRanOut;
     static double s_idleRetryAt, s_idleGrewAt;
@@ -663,7 +731,7 @@ public static class Queue
         Idle = saved?.Idle is { Entity: not "", TargetId: not "" } idle ? idle : null;
         IdleAlways = saved?.IdleAlways ?? false;
         GameCreate = saved?.GameCreate ?? false;
-        IdleState = "";
+        IdleSays("");
         s_idleOwned = s_idleBlocked = s_idleRanOut = false;
         s_idleNotBefore = s_clock + SettleAfterLoad;
         s_runningBefore = new HashSet<string>();
@@ -726,7 +794,7 @@ public static class Queue
             Locked = Targets.MultitaskLocked(),
         Progress = Steps.Select(s => new StepSnapshot
         {
-            Run = s.Run, State = s.State, Ran = s.Ran, Seconds = s.Seconds,
+            Run = s.Run, State = s.State, Status = s.Status, Ran = s.Ran, Seconds = s.Seconds,
             // a paused step keeps what it had counted at the pause; a live one counts on until now
             Count = Running && s.Ran && s.Run is RunState.Running or RunState.Waiting ? Counter(s) : s.CountBefore,
             OwnedBase = s.OwnedAtStart + (s.CountGains && s.Ran ? Gained(s) - s.GainedAtStart : 0),
@@ -761,9 +829,11 @@ public static class Queue
             StepSnapshot p = snap.Progress[i];
             s.Run = p.Run;
             s.State = p.State;
+            s.Status = p.Status != StepStatus.None ? p.Status : StatusOf(p.State);   // (before 0.14.0 only the English words were saved)
+            s.Detail = "";
             s.Ran = p.Ran;
             s.Seconds = p.Seconds;
-            s.SecondsBefore = s.Run != RunState.Done && (s.State == "paused" || !s.Ran) ? p.Seconds : 0;
+            s.SecondsBefore = s.Run != RunState.Done && (s.Status == StepStatus.Paused || !s.Ran) ? p.Seconds : 0;
             if (s.Run == RunState.Done) { s.LastResult = s.State; s.LastSeconds = s.Seconds; }
             s.CountBefore = p.Count;
             s.OwnedAtStart = (int)Math.Min(int.MaxValue, p.OwnedBase);
@@ -883,7 +953,7 @@ public static class Queue
         if (index < 0 || index >= Steps.Count) return;
         StopOwn(Steps[index]);
         Steps.RemoveAt(index);
-        if (Steps.Count == 0) Finish("The queue is empty.");
+        if (Steps.Count == 0) Finish(Lang.T("queue.queue_empty", "The queue is empty."));
         else if (Running) SetIndex();
         else if (index < Index) Index--;
         Save();
@@ -927,7 +997,7 @@ public static class Queue
         Step step = Steps[index];
         if (LaneOf(step) == lane) return;
         step.Lane = lane;
-        if (Running && step.Run == RunState.Waiting) { step.Run = RunState.Idle; step.State = ""; }
+        if (Running && step.Run == RunState.Waiting) { step.Run = RunState.Idle; Say(step, StepStatus.None, ""); }
         if (step.Ran) s_laneRan.Add(lane);
         if (Running) LineUpAgain();
         Trace($"{Number(step)}: now in lane {lane}");
@@ -948,7 +1018,7 @@ public static class Queue
             Step s = Steps[i];
             if (s.Run != RunState.Waiting) continue;
             bool behind = laneMode ? Head(LaneOf(s)) != s : Steps.Take(i).Any(o => o.Run == RunState.Idle);
-            if (behind) { s.Run = RunState.Idle; s.State = ""; }
+            if (behind) { s.Run = RunState.Idle; Say(s, StepStatus.None, ""); }
         }
         SetIndex();
     }
@@ -962,7 +1032,7 @@ public static class Queue
         StopAtEnd = false;
         s_stopPending = false;
         Name = "";
-        Finish(Running ? "The queue was emptied, so what it had started was stopped." : "");
+        Finish(Running ? Lang.T("queue.queue_was_emptied_so_what", "The queue was emptied, so what it had started was stopped.") : "");
         Save();
         RaiseChanged();
     }
@@ -980,7 +1050,7 @@ public static class Queue
         {
             StopIdle();
             Idle = idle == null ? null : new Step { Entity = idle.Entity, TargetId = idle.TargetId, Extra = idle.Extra, Name = idle.Name };
-            IdleState = "";
+            IdleSays("");
             s_idleBlocked = s_idleRanOut = false;
             s_idleRetryAt = 0;
             Trace(Idle == null ? "while idle: nothing" : $"while idle: {Idle.Name}");
@@ -997,7 +1067,7 @@ public static class Queue
         IdleAlways = on;
         s_idleBlocked = false;
         s_idleRetryAt = 0;
-        IdleState = "";
+        IdleSays("");
         if (!on && !Running) StopIdle();   // switched off: an idle action it started goes too
         Trace(on ? "idle action: also when the queue is not running" : "idle action: only while the queue runs");
         Save();
@@ -1028,17 +1098,18 @@ public static class Queue
         Save();
         int number = Steps.Count;
         Trace($"added from the game's page: {Number(step)}");
-        if (wasRunning) { RaiseChanged(); return $"added as step {number}: {step.Name}, {step.Goal}."; }
+        if (wasRunning) { RaiseChanged(); return Lang.F("queue.added_as_step_2", "added as step {number}: {name}, {goal}.", ("number", number), ("name", Shown(step)), ("goal", step.Goal)); }
         if (left)
         {
             RaiseChanged();
-            return $"added as step {number}: {step.Name}, {step.Goal}. The queue is not running: press Start in its window ({ActionQueueMod.Instance?.Key.Spoken ?? "F6"}).";
+            return ActionQueueMod.Instance?.Key.Label is "" ? Lang.F("queue.added_not_running_menu", "added as step {number}: {name}, {goal}. The queue is not running: press Start in its window (in the Mods menu).", ("number", number), ("name", Shown(step)), ("goal", step.Goal))
+                : Lang.F("queue.added_not_running_key", "added as step {number}: {name}, {goal}. The queue is not running: press Start in its window ({key}).", ("number", number), ("name", Shown(step)), ("goal", step.Goal), ("key", ActionQueueMod.Instance?.Key.Label ?? "F6"));
         }
         // Nothing else to do: run it now. The finished steps stay finished (they are not done again).
         s_resume = Steps.Count > 1;
         Start();
-        if (!Running) return $"added as step {number}: {step.Name}, {step.Goal}. {Note}";
-        return $"started {step.Name}, {step.Goal} (step {number}). Add more and they follow it.";
+        if (!Running) return Lang.F("queue.added_as_step", "added as step {number}: {name}, {goal}. {note}", ("number", number), ("name", Shown(step)), ("goal", step.Goal), ("note", Note));
+        return Lang.F("queue.started_step_add_more_they", "started {name}, {goal} (step {number}). Add more and they follow it.", ("name", Shown(step)), ("goal", step.Goal), ("number", number));
     }
 
     /// <summary>The game is starting up or has just computed offline progress: the idle action waits a few seconds.</summary>
@@ -1064,6 +1135,7 @@ public static class Queue
             action.Stopped += (_, _) =>
             {
                 if (!ReferenceEquals(game, s_game) || game.Flags.IsOffline) return;
+                if (StoppedToStartAnother()) { lock (s_bumped) s_bumped[id] = Environment.TickCount64; return; }
                 if (!StoppedByHand()) return;
                 lock (s_handStops) s_handStops[id] = Environment.TickCount64;
             };
@@ -1076,6 +1148,47 @@ public static class Queue
     /// (Only button handlers count: picking a trap the bank has none of also stops hunting from the screen, but that
     /// is the game giving up, not the player pressing Stop.)
     /// </summary>
+    /// <summary>
+    /// True when the game stops this action because another one is starting ("stop everything to start something
+    /// else"), and it is not the queue's own start (0.14.0).
+    /// </summary>
+    static bool StoppedToStartAnother()
+    {
+        if (Targets.Starting) return false;
+        foreach (StackFrame frame in new StackTrace(1, false).GetFrames())
+        {
+            MethodBase? method = frame.GetMethod();
+            if (method?.DeclaringType == typeof(ActiveActionManager) && method.Name.StartsWith("TryStopActive", StringComparison.Ordinal)) return true;
+            if (method?.DeclaringType == typeof(Game) && method.Name == nameof(Game.PropagateTick)) return false;
+        }
+        return false;
+    }
+
+    /// <summary>Skills the game stopped to start another action, and when (they are taken within five seconds).</summary>
+    static readonly Dictionary<string, long> s_bumped = new();
+
+    static bool TakeBumped(string entityId)
+    {
+        lock (s_bumped)
+        {
+            if (!s_bumped.Remove(entityId, out long at)) return false;
+            return Targets.OnMainThread && Environment.TickCount64 - at < 5000;
+        }
+    }
+
+    /// <summary>
+    /// The room left beside the queue's running steps (this one counted): Multitask's slots less the steps and every
+    /// other action, the ones Multitask keeps for the player and the ones running now (it may not have looked yet).
+    /// </summary>
+    static int RoomBeside(Game game)
+    {
+        var queue = Steps.Where(s => s.Run == RunState.Running).Select(s => s.Entity).ToHashSet();
+        var others = new HashSet<string>(Targets.PlayerKept() ?? new HashSet<string>());
+        foreach (ActionComponent a in game.ActionManager.ActiveActions) others.Add(a.Entity.Id);
+        others.ExceptWith(queue);
+        return Capacity() - queue.Count - others.Count;
+    }
+
     static bool StoppedByHand()
     {
         bool screen = false;
@@ -1136,14 +1249,15 @@ public static class Queue
     public static bool SavePreset(string? name, out string message)
     {
         name = Share.CleanName(name);
-        if (name == "") { message = "Type a name for the queue first."; return false; }
-        if (Steps.Count == 0) { message = "There are no steps to save. Add some first."; return false; }
+        if (name == "") { message = Lang.T("queue.type_name_queue_first", "Type a name for the queue first."); return false; }
+        if (Steps.Count == 0) { message = Lang.T("queue.there_no_steps_save_add", "There are no steps to save. Add some first."); return false; }
         bool replaced = s_presets.ContainsKey(name);
         s_presets[name] = Current();
         s_emptyVisited.Clear();   // (a queue saved again may do something now)
         Name = s_presets.Keys.First(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase));
         Save();
-        message = replaced ? $"Saved over '{Name}' ({Steps.Count} step(s))." : $"Saved as '{Name}' ({Steps.Count} step(s)).";
+        message = replaced ? Lang.P("queue.saved_over", Steps.Count, "Saved over '{name}' ({count} step).", "Saved over '{name}' ({count} steps).", ("name", Shown(Name)))
+            : Lang.P("queue.saved_as", Steps.Count, "Saved as '{name}' ({count} step).", "Saved as '{name}' ({count} steps).", ("name", Shown(Name)));
         RaiseChanged();
         return true;
     }
@@ -1157,7 +1271,7 @@ public static class Queue
     /// <param name="byQueue">The queue itself goes on with this saved queue ("go to a saved queue", "go on with"), not the player.</param>
     static bool LoadPresetCore(string name, out string message, bool byQueue)
     {
-        if (!s_presets.TryGetValue(name, out Preset? preset)) { message = "That saved queue no longer exists."; return false; }
+        if (!s_presets.TryGetValue(name, out Preset? preset)) { message = Lang.T("queue.saved_queue_no_longer_exists", "That saved queue no longer exists."); return false; }
         bool wasRunning = Running;
         bool kept = false;
         if (Steps.Count > 0 && (Name == "" || Modified) && !string.Equals(name, AutoName, StringComparison.OrdinalIgnoreCase))
@@ -1182,18 +1296,20 @@ public static class Queue
         Running = wasRunning && Steps.Count > 0;
         Note = "";
         Save();
-        message = $"Loaded '{Name}' ({Steps.Count} step(s))" + (Running ? ", and it goes on running from its first step." : ".")
-            + (kept ? $" What was here before is kept as '{AutoName}'." : "");
+        message = (Running ? Lang.P("queue.loaded_running", Steps.Count, "Loaded '{name}' ({count} step), and it goes on running from its first step.",
+                                    "Loaded '{name}' ({count} steps), and it goes on running from its first step.", ("name", Shown(Name)))
+                           : Lang.P("queue.loaded", Steps.Count, "Loaded '{name}' ({count} step).", "Loaded '{name}' ({count} steps).", ("name", Shown(Name))))
+            + (kept ? Lang.F("queue.what_was_here_before_kept", " What was here before is kept as '{autoName}'.", ("autoName", Shown(AutoName))) : "");
         RaiseChanged();
         return true;
     }
 
     public static bool DeletePreset(string name, out string message)
     {
-        if (!s_presets.Remove(name)) { message = "That saved queue no longer exists."; return false; }
+        if (!s_presets.Remove(name)) { message = Lang.T("queue.saved_queue_no_longer_exists", "That saved queue no longer exists."); return false; }
         if (string.Equals(Name, name, StringComparison.OrdinalIgnoreCase)) Name = "";
         Save();
-        message = $"Deleted the saved queue '{name}'. The steps on screen are untouched.";
+        message = Lang.F("queue.deleted_saved_queue_steps_screen", "Deleted the saved queue '{name}'. The steps on screen are untouched.", ("name", name));
         RaiseChanged();
         return true;
     }
@@ -1246,12 +1362,14 @@ public static class Queue
                 Until.Mastery => Mastery.Find(kept.Subject) == null,
                 _ => ItemOf(s_game, kept.Subject) == null,
             };
-            stopNote = $" Its own stop: the whole queue stops {(s_presets[unique].StopAtEnd ? "at the end of a round once" : "when")} {StopText(kept)}"
-                + (missing ? $". Your game has no {kept.SubjectName}, so change that stop before you run it." : ".");
+            stopNote = s_presets[unique].StopAtEnd
+                ? Lang.F("queue.imported_stop_round_end", " Its own stop: the whole queue stops at the end of a round once {stop}", ("stop", StopText(kept)))
+                : Lang.F("queue.imported_stop", " Its own stop: the whole queue stops when {stop}", ("stop", StopText(kept)))
+                + (missing ? Lang.F("queue.your_game_has_no_so", ". Your game has no {subjectName}, so change that stop before you run it.", ("subjectName", kept.SubjectName)) : ".");
         }
-        message = $"Imported '{unique}': {steps.Count} step(s)"
-            + (known == steps.Count ? "." : $", {steps.Count - known} of them for things your game does not have (those will be skipped).")
-            + stopNote + " Select it and press Load to use it.";
+        message = Lang.P("queue.imported", steps.Count, "Imported '{name}': {count} step", "Imported '{name}': {count} steps", ("name", unique))
+            + (known == steps.Count ? "." : Lang.F("queue.them_things_your_game_does", ", {unknown} of them for things your game does not have (those will be skipped).", ("unknown", steps.Count - known)))
+            + stopNote + Lang.T("queue.select_press_load_use", " Select it and press Load to use it.");
         RaiseChanged();
         return true;
     }
@@ -1260,11 +1378,11 @@ public static class Queue
 
     public static void Start()
     {
-        if (Steps.Count == 0) { Note = "Add a step first."; RaiseChanged(); return; }
+        if (Steps.Count == 0) { Note = Lang.T("queue.add_step_first", "Add a step first."); RaiseChanged(); return; }
         // (A stop looked at when a round is over lets the queue start: it ends after this round.)
         if (s_game != null && !StopAtEnd && StopReached(s_game))
         {
-            Note = $"Nothing to do: {StopText(StopWhen!)} already, and that is the queue's stop. Change or remove the stop to run the queue.";
+            Note = Lang.F("queue.nothing_do_already_queue_stop", "Nothing to do: {stopText} already, and that is the queue's stop. Change or remove the stop to run the queue.", ("stopText", StopText(StopWhen!)));
             Trace("not started: the queue's stop is already reached");
             RaiseChanged();
             return;
@@ -1276,8 +1394,8 @@ public static class Queue
         {
             if (!resume) { s.LastResult = ""; s.LastSeconds = 0; }
             if (resume && s.Run == RunState.Done) continue;
-            if (s.State != "paused") ClearCounts(s);              // "make N more" / "N times" carry on after a pause, else count afresh
-            s.State = "";
+            if (s.Status != StepStatus.Paused) ClearCounts(s);    // "make N more" / "N times" carry on after a pause, else count afresh
+            Say(s, StepStatus.None, "");
             s.Run = RunState.Idle;
             s.Ran = false;
             s.Seconds = s.SecondsBefore;   // (0, or what it had run before a pause: shown and saved at once)
@@ -1300,7 +1418,7 @@ public static class Queue
         if (!IdleAlways) s_idleOwned = false;
         s_idleBlocked = s_idleRanOut = false;
         s_idleRetryAt = 0;
-        IdleState = "";
+        IdleSays("");
         Trace($"started at step {Index + 1} of {Steps.Count}, up to {Lanes} at once: " + string.Join(" | ", Steps.Select(s => $"{s.Name} {s.Goal}")));
         RaiseChanged();
     }
@@ -1335,13 +1453,13 @@ public static class Queue
         foreach (Step s in Steps.Where(s => s.Run is RunState.Running or RunState.Waiting
                      || s.Run == RunState.Idle && (s.Ran || s.SecondsBefore > 0 || Goals(s).Any(g => g.CountBefore > 0))))
         {
-            s.State = "paused";
+            Say(s, StepStatus.Paused, Lang.T("state.paused", "paused"));
             if (s.Ran) KeepCounts(s);   // keep what "make N more" / "N times" has already counted
         }
         // Like the steps' own actions, an idle action that runs keeps running: the player decides from here.
         // With "also when the queue is not running" it stays the queue's own, and goes on as such.
         if (!IdleAlways) s_idleOwned = false;
-        IdleState = "";
+        IdleSays("");
         Note = why;
         Publish();
         RaiseChanged();
@@ -1351,7 +1469,7 @@ public static class Queue
     {
         if (Running) Trace($"ended: {why}");
         StopIdle();   // emptied or cut short: the idle action the queue started goes with it (a real finish lets go of it first)
-        IdleState = "";
+        IdleSays("");
         Running = false;
         s_resume = false;
         Index = 0;
@@ -1361,9 +1479,55 @@ public static class Queue
 
     static string Number(Step step) => $"step {Steps.IndexOf(step) + 1} '{step.Name}' ({step.Goal})";
 
-    static void End(Step step, string state)
+    /// <summary>What a step shows in its State column, and what that means (the queue only ever looks at the meaning).</summary>
+    static void Say(Step step, StepStatus status, string text, string detail = "")
     {
-        step.State = state;
+        step.Status = status;
+        step.State = text;
+        step.Detail = detail;
+        if (text != "" && Lang.IsEnglish && StatusOf(text) != status) StatusMismatches.Enqueue($"step: {status} written as '{text}'");
+    }
+
+    /// <summary>
+    /// What English state words mean: a snapshot saved before 0.14.0 holds only the words. It is also the check that
+    /// every state the queue writes in English starts with the word of its meaning (<see cref="StatusMismatches"/>).
+    /// </summary>
+    internal static StepStatus StatusOf(string words)
+    {
+        bool Starts(string w) => words.StartsWith(w, StringComparison.Ordinal);
+        return words == "" ? StepStatus.None
+            : Starts("running") ? StepStatus.Running
+            : words == "paused" ? StepStatus.Paused
+            : Starts("done") ? StepStatus.Done
+            : Starts("skipped") ? StepStatus.Skipped
+            : Starts("stopped") || Starts("the queue's stop was reached") ? StepStatus.Stopped
+            : Starts("not taken") ? StepStatus.NotTaken
+            : Starts("waiting") || Starts("waits") ? StepStatus.Waiting
+            : StepStatus.None;
+    }
+
+    /// <summary>What the English words of the idle action's state stood for in the window's colours before 0.14.0.</summary>
+    internal static IdleTone ToneOf(string words) =>
+        words.StartsWith("running", StringComparison.Ordinal) ? IdleTone.Good
+        : words.StartsWith("stopped", StringComparison.Ordinal) || words.StartsWith("cannot", StringComparison.Ordinal) ? IdleTone.Bad
+        : IdleTone.Plain;
+
+    /// <summary>
+    /// For tests: states written with a meaning their English words do not carry (it stays empty when every place that
+    /// writes one says what it means). Looked at only while the words are English.
+    /// </summary>
+    public static readonly System.Collections.Concurrent.ConcurrentQueue<string> StatusMismatches = new();
+
+    static void IdleSays(string text, IdleTone tone = IdleTone.Plain)
+    {
+        IdleState = text;
+        IdleTone = tone;
+        if (text != "" && Lang.IsEnglish && ToneOf(text) != tone) StatusMismatches.Enqueue($"idle: {tone} written as '{text}'");
+    }
+
+    static void End(Step step, StepStatus status, string state)
+    {
+        Say(step, status, state);
         step.LastResult = state;
         step.LastSeconds = step.Seconds;
         step.Run = RunState.Done;
@@ -1385,12 +1549,12 @@ public static class Queue
             string before = IdleState;
             bool owned = s_idleOwned, blocked = s_idleBlocked;
             try { KeepIdleOutside(game); }
-            catch (Exception e) { Log("The idle action failed: " + e.Message); IdleState = "failed (see the log)"; }
+            catch (Exception e) { Log("The idle action failed: " + e.Message); IdleSays(Lang.T("queue.failed_see_log", "failed (see the log)")); }
             Publish();
             if (IdleState != before || owned != s_idleOwned || blocked != s_idleBlocked) RaiseChanged();
             return;
         }
-        if (Steps.Count == 0) { Finish("The queue is empty."); RaiseChanged(); return; }
+        if (Steps.Count == 0) { Finish(Lang.T("queue.queue_empty", "The queue is empty.")); RaiseChanged(); return; }
 
         // The queue's own stop ("stop the whole queue when ..."): looked at first, so nothing more is started once it is reached.
         if (StopCheck(game)) return;
@@ -1402,7 +1566,7 @@ public static class Queue
             s_died = false;
             s_idleOwned = false;
             s_idleBlocked = true;
-            IdleState = "stopped: your character died (it starts again when you start the queue)";
+            IdleSays(Lang.T("queue.stopped_your_character_died_starts", "stopped: your character died (it starts again when you start the queue)"), IdleTone.Bad);
             Trace("while idle: the character died, the fight is not started again");
         }
 
@@ -1427,7 +1591,7 @@ public static class Queue
                 if (StopAtEnd && StopReached(game)) continue;
                 if (!s_laneRan.Remove(lane)) continue;
                 if (s_workedThisRound) s_emptyVisited.Clear();   // this lane did something: queues that follow it are not going round for nothing
-                foreach (Step s in mine) { s.State = ""; s.Run = RunState.Idle; s.Ran = false; s.Seconds = s.RetryAt = s.GrewAt = 0; s.Pile = 0; ClearCounts(s); }
+                foreach (Step s in mine) { Say(s, StepStatus.None, ""); s.Run = RunState.Idle; s.Ran = false; s.Seconds = s.RetryAt = s.GrewAt = 0; s.Pile = 0; ClearCounts(s); }
                 Trace($"lane {lane} starts over");
             }
 
@@ -1476,7 +1640,7 @@ public static class Queue
             // Going on with another saved queue ends this queue's round: its own stop, looked at when a round is over, comes first.
             if (StopAtEnd && StopReached(game))
             {
-                if (s_switchFrom is { } from) from.State = from.LastResult = $"not taken: the queue's stop was reached, so it does not go on with '{to}'";
+                if (s_switchFrom is { } from) { Say(from, StepStatus.NotTaken, Lang.F("queue.not_taken_queue_stop_was", "not taken: the queue's stop was reached, so it does not go on with '{queue}'", ("queue", to))); from.LastResult = from.State; }
                 StopForGood(game);
                 Publish();
                 RaiseChanged();
@@ -1498,16 +1662,17 @@ public static class Queue
                 if (s_workedThisRound) s_emptyVisited.Clear();   // this round did something: queues that follow it are not going round for nothing
                 s_ranThisRound = false;
                 s_workedThisRound = false;
-                foreach (Step s in Steps) { s.State = ""; s.Run = RunState.Idle; s.Ran = false; s.Seconds = s.RetryAt = s.GrewAt = 0; s.Pile = 0; ClearCounts(s); }
+                foreach (Step s in Steps) { Say(s, StepStatus.None, ""); s.Run = RunState.Idle; s.Ran = false; s.Seconds = s.RetryAt = s.GrewAt = 0; s.Pile = 0; ClearCounts(s); }
             }
-            else EndRun(game, s_ranThisRound ? "The queue has finished." : "Nothing in the queue could be done, so it stopped.");
+            else if (s_ranThisRound) EndRun(game, Lang.T("queue.queue_has_finished", "The queue has finished."));
+            else EndRun(game, Lang.T("queue.nothing_queue_could_done_so", "Nothing in the queue could be done, so it stopped."), Lang.T("queue.nothing_queue_could_done", "Nothing in the queue could be done."));
         }
 
         // 4. Every step that is left waits: the idle action takes a free slot meanwhile (or makes room again).
         if (Running)
         {
             try { KeepIdle(game); }
-            catch (Exception e) { Log("The idle action failed: " + e.Message); IdleState = "failed (see the log)"; }
+            catch (Exception e) { Log("The idle action failed: " + e.Message); IdleSays(Lang.T("queue.failed_see_log", "failed (see the log)")); }
         }
         if (Running) SetIndex();
         Publish();
@@ -1520,7 +1685,7 @@ public static class Queue
         catch (Exception e)
         {
             Log($"Step '{step.Name}' failed: {e.Message}");
-            End(step, "skipped: an error occurred (see the log)");
+            End(step, StepStatus.Skipped, Lang.T("queue.skipped_error_occurred_see_log", "skipped: an error occurred (see the log)"));
         }
     }
 
@@ -1606,31 +1771,31 @@ public static class Queue
         return Capacity() - used;
     }
 
-    /// <summary>Why the idle action may not run right now while the queue runs, or "" when it may.</summary>
-    static string IdleBlocker(Game game, ActionComponent action, Target target, bool doing)
+    /// <summary>Why the idle action may not run right now while the queue runs ("" when the queue is at work), or null when it may.</summary>
+    static string? IdleBlocker(Game game, ActionComponent action, Target target, bool doing)
     {
         if (s_idleBlocked) return IdleState;
         int running = Steps.Count(s => s.Run == RunState.Running);
         if (!Steps.Any(s => s.Run is RunState.Waiting or RunState.Idle) || running >= Lanes) return "";   // the queue is at work
-        if (Steps.Any(s => s.Run == RunState.Running && s.Entity == action.Entity.Id)) return "not now: a step is using this skill";
-        if (action.IsStarted && !doing) return "not now: this skill is doing something else";
+        if (Steps.Any(s => s.Run == RunState.Running && s.Entity == action.Entity.Id)) return Lang.T("queue.not_now_step_using_skill", "not now: a step is using this skill");
+        if (action.IsStarted && !doing) return Lang.T("queue.not_now_skill_doing_something", "not now: this skill is doing something else");
         HashSet<string> uses = Targets.Ingredients(action, target);
         if (uses.Count > 0)
             foreach (Step step in Steps.Where(s => s.Run != RunState.Done))
                 if (Targets.Find(game, step.Entity) is { } stepAction
                     && Targets.Ingredients(stepAction, new Target(step.TargetId, step.Name, step.Extra)).Overlaps(uses))
-                    return "not now: it would use up what a step of the queue needs";
+                    return Lang.T("queue.not_now_would_use_up", "not now: it would use up what a step of the queue needs");
         int free = FreeSlots(game) + (s_idleOwned && doing ? 1 : 0);
-        if (free <= 0) return "not now: no free slot (switch on a Multitask slot for it)";
-        return "ok";
+        if (free <= 0) return Lang.T("queue.not_now_no_free_slot", "not now: no free slot (switch on a Multitask slot for it)");
+        return null;
     }
 
     /// <summary>While the queue runs: start the idle action when every step left is waiting, stop it when a step needs the place.</summary>
     static void KeepIdle(Game game)
     {
-        if (Idle == null) { IdleState = ""; return; }
+        if (Idle == null) { IdleSays(""); return; }
         ActionComponent? action = Targets.Find(game, Idle.Entity);
-        if (action == null) { IdleState = "this skill is not in the game"; return; }
+        if (action == null) { IdleSays(Lang.T("queue.skill_not_game", "this skill is not in the game")); return; }
         Target target = IdleTarget(Idle);
         bool doing = Targets.IsDoing(action, target);
         StopIdleFightWithoutAmmo(game, action, ref doing);
@@ -1640,7 +1805,7 @@ public static class Queue
             if (TakeHandStop(Idle.Entity))
             {
                 s_idleBlocked = true;
-                IdleState = "stopped by you; it comes back when you start the queue again";
+                IdleSays(Lang.T("queue.stopped_by_you_comes_back", "stopped by you; it comes back when you start the queue again"), IdleTone.Bad);
                 Trace($"while idle: {Idle.Name} was stopped with the game's button, it is not started again in this run");
             }
             else if (Targets.Batches(game, action, target) == 0)
@@ -1656,12 +1821,12 @@ public static class Queue
                 // Not out of anything: the player stopped it or started something by hand, or the bank is full.
                 // Starting it again would fight them.
                 s_idleBlocked = true;
-                IdleState = "stopped (by you, or the bank is full); it comes back when you start the queue again";
+                IdleSays(Lang.T("queue.stopped_by_you_bank_full", "stopped (by you, or the bank is full); it comes back when you start the queue again"), IdleTone.Bad);
                 Trace($"while idle: {Idle.Name} was stopped, it is not started again in this run");
             }
         }
-        string why = IdleBlocker(game, action, target, doing);
-        if (why != "ok")
+        string? why = IdleBlocker(game, action, target, doing);
+        if (why != null)
         {
             if (s_idleOwned && doing && !HandsOff(action))
             {
@@ -1669,10 +1834,10 @@ public static class Queue
                 s_idleOwned = false;
                 Trace($"while idle: stopped {Idle.Name} ({(why == "" ? "the queue is at work again" : why)})");
             }
-            if (!s_idleBlocked) IdleState = why;
+            if (!s_idleBlocked) IdleSays(why);
             return;
         }
-        if (doing) { IdleState = s_idleOwned ? "running now" : "running now (started by you)"; return; }
+        if (doing) { IdleSays(s_idleOwned ? Lang.T("queue.running_now", "running now") : Lang.T("queue.running_now_started_by_you", "running now (started by you)"), IdleTone.Good); return; }
         TryStartIdle(game, action, target);
     }
 
@@ -1696,7 +1861,7 @@ public static class Queue
         StopAction(action);
         s_idleOwned = false;
         doing = false;
-        IdleState = $"stopped: {why}";
+        IdleSays(Lang.F("idle.stopped", "stopped: {why}", ("why", why)), IdleTone.Bad);
         Trace($"while idle: stopped {Idle?.Name} ({why})");
     }
 
@@ -1704,36 +1869,36 @@ public static class Queue
     {
         if (s_clock < s_idleRetryAt) return;
         s_idleRetryAt = s_clock + RetrySeconds;
-        if (!Targets.CanStart(action, target, out string problem)) { IdleState = "cannot start: " + problem; return; }
-        if (HandsOff(action)) { IdleState = "waits for the game to be open (a fight)"; return; }
+        if (!Targets.CanStart(action, target, out string problem)) { IdleSays(Lang.F("idle.cannot_start", "cannot start: {why}", ("why", problem)), IdleTone.Bad); return; }
+        if (HandsOff(action)) { IdleSays(Lang.T("queue.waits_game_open_fight", "waits for the game to be open (a fight)")); return; }
         if (action is CombatActionComponent && CannotAttack(game) is { Length: > 0 } cannot)
         {
-            IdleState = $"not started: {cannot} (it starts once you can fight again)";
+            IdleSays(Lang.F("queue.not_started_starts_once_you", "not started: {cannot} (it starts once you can fight again)", ("cannot", cannot)));
             return;
         }
         long batches = Targets.Batches(game, action, target);
         if (batches == 0)
         {
             if (!s_idleRanOut) { s_idleRanOut = true; s_idlePile = 0; s_idleGrewAt = s_clock; }
-            IdleState = "waiting: its materials have run out";
+            IdleSays(Lang.T("queue.waiting_materials_have_run_out", "waiting: its materials have run out"));
             return;
         }
         if (s_idleRanOut && batches < PileSize)
         {
             if (batches > s_idlePile) s_idleGrewAt = s_clock;
             s_idlePile = batches;
-            if (s_clock - s_idleGrewAt < SettleSeconds) { IdleState = $"waiting: collecting materials ({batches}/{PileSize})"; return; }
+            if (s_clock - s_idleGrewAt < SettleSeconds) { IdleSays(Lang.F("queue.waiting_collecting_materials", "waiting: collecting materials ({batches}/{pileSize})", ("batches", batches), ("pileSize", PileSize))); return; }
         }
         bool others = game.ActionManager.ActiveActions.Count > 0;
         if (!(others ? Targets.StartBeside(game, action, target, out problem) : Targets.Start(game, action, target, out problem)))
         {
-            IdleState = "cannot start: " + problem;
+            IdleSays(Lang.F("idle.cannot_start", "cannot start: {why}", ("why", problem)), IdleTone.Bad);
             return;
         }
         s_idleOwned = true;
         s_idleRanOut = false;
         s_idlePile = 0;
-        IdleState = "running now";
+        IdleSays(Lang.T("queue.running_now", "running now"), IdleTone.Good);
         Trace($"while idle: started {Idle!.Name}{(others ? " beside what runs" : "")}");
     }
 
@@ -1753,11 +1918,11 @@ public static class Queue
         if (!IdleAlways || Idle == null)
         {
             lock (s_handStops) s_handStops.Clear();
-            if (!s_idleOwned) IdleState = "";
+            if (!s_idleOwned) IdleSays("");
             return;
         }
         ActionComponent? action = Targets.Find(game, Idle.Entity);
-        if (action == null) { IdleState = "this skill is not in the game"; return; }
+        if (action == null) { IdleSays(Lang.T("queue.skill_not_game", "this skill is not in the game")); return; }
         Target target = IdleTarget(Idle);
         bool doing = Targets.IsDoing(action, target);
         StopIdleFightWithoutAmmo(game, action, ref doing);
@@ -1770,21 +1935,21 @@ public static class Queue
         {
             s_idleOwned = false;
             s_idleBlocked = true;
-            IdleState = "waiting: you stopped an action, so it starts again after your next action of your own";
+            IdleSays(Lang.T("queue.waiting_you_stopped_action_so", "waiting: you stopped an action, so it starts again after your next action of your own"));
             Trace("idle (queue not running): the player stopped an action, the idle action waits");
         }
         if (died && Idle.Entity == "MelvorBase:Combat")
         {
             s_idleOwned = false;
             s_idleBlocked = true;
-            IdleState = "waiting: your character died; it starts again after your next action of your own";
+            IdleSays(Lang.T("queue.waiting_your_character_died_starts", "waiting: your character died; it starts again after your next action of your own"));
             Trace("idle (queue not running): the character died, the fight is not started again");
         }
         // The player started something new by hand: a block is lifted (the idle action waits for that to end).
         if (s_idleBlocked && runningNow.Any(k => k != idleKey && !before.Contains(k)))
         {
             s_idleBlocked = false;
-            IdleState = "";
+            IdleSays("");
         }
 
         if (s_idleOwned && !doing)
@@ -1801,15 +1966,15 @@ public static class Queue
             {
                 // Not out of anything and nothing else took its place: the bank is full, or the game stopped it.
                 s_idleBlocked = true;
-                IdleState = "stopped (the bank may be full); it starts again after your next action of your own";
+                IdleSays(Lang.T("queue.stopped_bank_may_full_starts", "stopped (the bank may be full); it starts again after your next action of your own"), IdleTone.Bad);
                 Trace($"idle (queue not running): {Idle.Name} stopped, it is not started again for now");
             }
         }
-        if (doing) { IdleState = s_idleOwned ? "running now" : "running now (started by you)"; return; }
+        if (doing) { IdleSays(s_idleOwned ? Lang.T("queue.running_now", "running now") : Lang.T("queue.running_now_started_by_you", "running now (started by you)"), IdleTone.Good); return; }
         if (s_idleBlocked) return;
-        if (s_clock < s_idleNotBefore) { IdleState = "starting in a moment"; return; }
-        if (game.ActionManager.ActiveActions.Count > 0) { IdleState = "waits until your character does nothing"; return; }
-        if (FreeSlots(game) <= 0) { IdleState = "waits: Multitask keeps the place for one of your actions"; return; }
+        if (s_clock < s_idleNotBefore) { IdleSays(Lang.T("queue.starting_moment", "starting in a moment")); return; }
+        if (game.ActionManager.ActiveActions.Count > 0) { IdleSays(Lang.T("queue.waits_until_your_character_does", "waits until your character does nothing")); return; }
+        if (FreeSlots(game) <= 0) { IdleSays(Lang.T("queue.waits_multitask_keeps_place_one", "waits: Multitask keeps the place for one of your actions")); return; }
         TryStartIdle(game, action, target);
     }
 
@@ -1822,7 +1987,7 @@ public static class Queue
         if (action != null && HandsOff(action)) return;   // an idle fight is not ended offline
         s_idleOwned = false;
         if (action != null && Targets.IsDoing(action, IdleTarget(Idle))) StopAction(action);
-        IdleState = "made room for a step";
+        IdleSays(Lang.T("queue.made_room_step", "made room for a step"));
         Trace($"while idle: stopped {Idle.Name} to make room for {Number(step)}");
     }
 
@@ -1834,28 +1999,29 @@ public static class Queue
         if (action == null) return;
         Target target = IdleTarget(Idle);
         string Tell(string text) { Note = $"{Note} {text}"; Trace("after the end: " + text); return text; }
-        if (Targets.IsDoing(action, target)) { Tell($"{Idle.Name} goes on (your idle action)."); return; }
+        string idle = Idle.Name;
+        if (Targets.IsDoing(action, target)) { Tell(Lang.F("idle.end.goes_on", "{idle} goes on (your idle action).", ("idle", idle))); return; }
         if (s_idleBlocked) return;
-        if (action.IsStarted) { Tell($"{Idle.Name} was not started: that skill is doing something else."); return; }
-        if (FreeSlots(game) <= 0) { Tell($"{Idle.Name} was not started: there is no free slot for it."); return; }
-        if (!Targets.CanStart(action, target, out string problem)) { Tell($"{Idle.Name} was not started: {problem}."); return; }
-        if (HandsOff(action)) { Tell($"{Idle.Name} was not started while the game was closed (a fight waits for the game to be open)."); return; }
-        if (action is CombatActionComponent && CannotAttack(game) is { Length: > 0 } cannot) { Tell($"{Idle.Name} was not started: {cannot}."); return; }
-        if (Targets.Batches(game, action, target) == 0) { Tell($"{Idle.Name} was not started: its materials have run out."); return; }
+        if (action.IsStarted) { Tell(Lang.F("idle.end.skill_busy", "{idle} was not started: that skill is doing something else.", ("idle", idle))); return; }
+        if (FreeSlots(game) <= 0) { Tell(Lang.F("idle.end.no_slot", "{idle} was not started: there is no free slot for it.", ("idle", idle))); return; }
+        if (!Targets.CanStart(action, target, out string problem)) { Tell(Lang.F("idle.end.not_started", "{idle} was not started: {why}.", ("idle", idle), ("why", problem))); return; }
+        if (HandsOff(action)) { Tell(Lang.F("idle.end.game_closed", "{idle} was not started while the game was closed (a fight waits for the game to be open).", ("idle", idle))); return; }
+        if (action is CombatActionComponent && CannotAttack(game) is { Length: > 0 } cannot) { Tell(Lang.F("idle.end.not_started", "{idle} was not started: {why}.", ("idle", idle), ("why", cannot))); return; }
+        if (Targets.Batches(game, action, target) == 0) { Tell(Lang.F("idle.end.no_materials", "{idle} was not started: its materials have run out.", ("idle", idle))); return; }
         bool others = game.ActionManager.ActiveActions.Count > 0;
         if (others ? Targets.StartBeside(game, action, target, out problem) : Targets.Start(game, action, target, out problem))
-            Tell($"Now doing your idle action: {Idle.Name}.");
-        else Tell($"{Idle.Name} was not started: {problem}.");
+            Tell(Lang.F("idle.end.now_doing", "Now doing your idle action: {idle}.", ("idle", idle)));
+        else Tell(Lang.F("idle.end.not_started", "{idle} was not started: {why}.", ("idle", idle), ("why", problem)));
     }
 
     static string WaitingText(Step step) =>
-        EarlierAtWork(step) ? "waiting: for materials from an earlier step" : "waiting: for materials (still being gathered)";
+        EarlierAtWork(step) ? Lang.T("queue.waiting_materials_from_earlier_step", "waiting: for materials from an earlier step") : Lang.T("queue.waiting_materials_still_being_gathered", "waiting: for materials (still being gathered)");
 
     static void Wait(Step step, string why)
     {
         if (step.Run != RunState.Waiting) Trace($"{Number(step)}: {why}");
         step.Run = RunState.Waiting;
-        step.State = why;
+        Say(step, StepStatus.Waiting, why);
     }
 
     static void Begin(Game game, Step step)
@@ -1867,23 +2033,23 @@ public static class Queue
         // player and its notice would react to it right there. Such a step waits until the game is back.
         if (!Targets.OnMainThread && step.Entity == CombatId)
         {
-            if (step.Run != RunState.Waiting) { step.Run = RunState.Waiting; step.State = "waits for the game to be open (a fight)"; }
+            if (step.Run != RunState.Waiting) { step.Run = RunState.Waiting; Say(step, StepStatus.Waiting, Lang.T("queue.waits_game_open_fight", "waits for the game to be open (a fight)")); }
             return;
         }
         ActionComponent? action = Targets.Find(game, step.Entity);
-        if (action == null) { End(step, "skipped: this skill is not in the game"); return; }
+        if (action == null) { End(step, StepStatus.Skipped, Lang.T("queue.skipped_skill_not_game", "skipped: this skill is not in the game")); return; }
         // A fight the player could not take part in (no ammo for the weapon, no runes for the spell) is not started:
         // the character would only stand there while the monster hits. With "start over" on, the fight that ended
         // for that reason is not started again and again either: a round where nothing could start ends the queue.
         if (action is CombatActionComponent && CannotAttack(game) is { Length: > 0 } cannot)
         {
-            End(step, "skipped: " + cannot);
+            End(step, StepStatus.Skipped, Lang.F("state.skipped_because", "skipped: {why}", ("why", cannot)));
             return;
         }
         // "Until this mastery task is complete" for a task this game does not have (another version): never reached.
         if (step.Until == Until.Mastery && Mastery.Find(step.Subject) == null)
         {
-            End(step, $"skipped: the mastery task \"{step.SubjectName}\" is not in this game");
+            End(step, StepStatus.Skipped, Lang.F("queue.skipped_mastery_task_not_game", "skipped: the mastery task \"{subjectName}\" is not in this game", ("subjectName", step.SubjectName)));
             return;
         }
         if (step.Or is { Until: Until.Mastery } orTask && Mastery.Find(orTask.Subject) == null && !step.Ran)
@@ -1891,22 +2057,22 @@ public static class Queue
         // "Until the food runs out" for a skill that eats nothing (no food slot): never reached.
         if (step.Until == Until.FoodRunsOut && FoodSlot(game, step.Entity) == null)
         {
-            End(step, $"skipped: {action.Entity.DisplayName.Text} has no food to run out of");
+            End(step, StepStatus.Skipped, Lang.F("queue.skipped_has_no_food_run", "skipped: {skill} has no food to run out of", ("skill", action.Entity.DisplayName.Text)));
             return;
         }
         if (!step.Ran && Goals(step).FirstOrDefault(g => ReadsTheGame(g) && Reached(game, step, g)) is { } already)
         {
             // Not needed: say what was found, so "it never mined" explains itself.
-            End(step, already.Until switch
+            End(step, StepStatus.Done, already.Until switch
             {
-                Until.Item => $"done: the bank already holds {Owned(game, already):N0} {already.SubjectName}, nothing to do",
-                Until.ItemLeft => $"done: already only {Owned(game, already):N0} {already.SubjectName} left, nothing to do",
-                Until.Nodes => $"done: {Nodes(game, step, already):N0} {already.SubjectName} node unlocks are already earned (of {MostNodes(game, step.TargetId, already.Subject == "major"):N0}), nothing to do",
-                Until.Mastery => "done: that mastery task is already complete, nothing to do",
+                Until.Item => Lang.F("queue.done_bank_already_holds_nothing", "done: the bank already holds {owned:N0} {subjectName}, nothing to do", ("owned", Owned(game, already)), ("subjectName", already.SubjectName)),
+                Until.ItemLeft => Lang.F("queue.done_already_only_left_nothing", "done: already only {owned:N0} {subjectName} left, nothing to do", ("owned", Owned(game, already)), ("subjectName", already.SubjectName)),
+                Until.Nodes => Lang.F("queue.done_node_unlocks_already_earned", "done: {nodes:N0} {subjectName} node unlocks are already earned (of {mostNodes:N0}), nothing to do", ("nodes", Nodes(game, step, already)), ("subjectName", already.SubjectName), ("mostNodes", MostNodes(game, step.TargetId, already.Subject == "major"))),
+                Until.Mastery => Lang.T("queue.done_mastery_task_already_complete", "done: that mastery task is already complete, nothing to do"),
                 Until.FoodRunsOut => FoodSlot(game, step.Entity)?.SelectedFood?.Item is { } food
-                    ? $"done: no {food.DisplayName.GetPluralText(2)} left in the bank (its food), nothing to do"
-                    : "done: no food is selected for it, nothing to do",
-                _ => $"done: {already.SubjectName} is already level {Level(game, already)}, nothing to do",
+                    ? Lang.F("queue.done_no_left_bank_food", "done: no {food} left in the bank (its food), nothing to do", ("food", food.DisplayName.GetPluralText(2)))
+                    : Lang.T("queue.done_no_food_selected_nothing", "done: no food is selected for it, nothing to do"),
+                _ => Lang.F("queue.done_already_level_nothing_do", "done: {subjectName} is already level {level}, nothing to do", ("subjectName", already.SubjectName), ("level", Level(game, already))),
             });
             return;
         }
@@ -1919,13 +2085,13 @@ public static class Queue
         if (earlier)
         {
             // An earlier step, or something running beside, may yet provide what this one lacks: wait instead of giving up.
-            if (!Targets.CanStart(action, target, out problem)) { Wait(step, "waiting: " + problem); return; }
+            if (!Targets.CanStart(action, target, out problem)) { Wait(step, Lang.F("state.waiting_because", "waiting: {why}", ("why", problem))); return; }
             long batches = Targets.Batches(game, action, target);
             if (batches > step.Pile) step.GrewAt = s_clock;
             step.Pile = batches;
             if (batches == 0) { Wait(step, WaitingText(step)); return; }
             // Starting for every single fish would have the game report "action stopped" each time: work in piles.
-            if (batches < PileSize && s_clock - step.GrewAt < SettleSeconds) { Wait(step, $"waiting: collecting materials ({batches}/{PileSize})"); return; }
+            if (batches < PileSize && s_clock - step.GrewAt < SettleSeconds) { Wait(step, Lang.F("queue.waiting_collecting_materials", "waiting: collecting materials ({batches}/{pileSize})", ("batches", batches), ("pileSize", PileSize))); return; }
         }
 
         bool othersAtWork = Steps.Any(s => s != step && s.Run == RunState.Running);
@@ -1933,7 +2099,7 @@ public static class Queue
         // Multitask slot the step waits until the game is back.
         if (FightKeptOffline(game) && !(Capacity() > 1 && FreeSlots(game) > 0))
         {
-            Wait(step, "waits for the game to be open (a fight is running)");
+            Wait(step, Lang.T("queue.waits_game_open_fight_running", "waits for the game to be open (a fight is running)"));
             return;
         }
         // With Multitask's room, what the player keeps running in another skill (a fight beside the queue's smithing)
@@ -1952,8 +2118,9 @@ public static class Queue
         bool started = othersAtWork ?Targets.StartBeside(game, action, target, out problem) : Targets.Start(game, action, target, out problem);
         if (!started)
         {
-            if (earlier) Wait(step, "waiting: " + problem);
-            else End(step, step.Ran ? "done (it stopped by itself)" : "skipped: " + problem);
+            if (earlier) Wait(step, Lang.F("state.waiting_because", "waiting: {why}", ("why", problem)));
+            else if (step.Ran) End(step, StepStatus.Done, Lang.T("queue.done_stopped_by_itself", "done (it stopped by itself)"));
+            else End(step, StepStatus.Skipped, Lang.F("state.skipped_because", "skipped: {why}", ("why", problem)));
             return;
         }
         if (!step.Ran)
@@ -1965,7 +2132,7 @@ public static class Queue
         step.Ran = true;
         step.Run = RunState.Running;
         step.Following = Targets.Current(action)?.Id ?? "";
-        step.State = "running";
+        Say(step, StepStatus.Running, Lang.T("state.running", "running"));
         s_ranThisRound = true;
         s_workedThisRound = true;
         s_laneRan.Add(LaneOf(step));
@@ -1979,18 +2146,18 @@ public static class Queue
     /// </summary>
     static void Sell(Game game, Step step)
     {
-        if (EarlierAtWork(step)) { Wait(step, "waiting: for the steps before it to finish"); return; }
+        if (EarlierAtWork(step)) { Wait(step, Lang.T("queue.waiting_steps_before_finish", "waiting: for the steps before it to finish")); return; }
         string name = step.SubjectName != "" ? step.SubjectName : step.Name;
-        if (Bank(game) is not { } bank) { End(step, "skipped: this item is not in the game"); return; }
-        if (ItemOf(game, step.TargetId) is not { } item) { End(step, NoItem(step.TargetId)); return; }
+        if (Bank(game) is not { } bank) { End(step, StepStatus.Skipped, Lang.T("queue.skipped_item_not_game", "skipped: this item is not in the game")); return; }
+        if (ItemOf(game, step.TargetId) is not { } item) { End(step, StepStatus.Skipped, NoItem(step.TargetId)); return; }
         var stacks = bank.Inventory.Stacks.Where(st => st.Item == item && !st.IsPlaceholder && st.Quantity > 0).ToList();
-        if (stacks.Any(st => st.IsLocked)) { End(step, $"skipped: {name} is locked in your bank"); return; }
+        if (stacks.Any(st => st.IsLocked)) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_locked_your_bank", "skipped: {name} is locked in your bank", ("name", name))); return; }
         long owned = stacks.Sum(st => (long)st.Quantity), keep = (long)Math.Max(0, Math.Floor(step.Amount));
         // A rare drop that was sold stays in the game until it restarts: it is gone all the same.
-        if (owned == 0 && Rares.Is(item) && !Rares.Owned(game, item)) { End(step, NoItem(step.TargetId)); return; }
-        if (owned <= keep) { End(step, $"done: nothing to sell (the bank holds {owned:N0})"); return; }
+        if (owned == 0 && Rares.Is(item) && !Rares.Owned(game, item)) { End(step, StepStatus.Skipped, NoItem(step.TargetId)); return; }
+        if (owned <= keep) { End(step, StepStatus.Done, Lang.F("queue.done_nothing_sell_bank_holds", "done: nothing to sell (the bank holds {owned:N0})", ("owned", owned))); return; }
         long sold = 0, paid = 0;
-        string currency = "gold";
+        string currency = Lang.T("sell.currency_gold", "gold");
         void OnSold(object? _, ItemSoldEventArgs e) { sold += e.Quantity; paid += e.CurrencyGain.Quantity; currency = e.CurrencyGain.Currency.DisplayName.Text; }
         bank.ItemSales.ItemSold += OnSold;
         try
@@ -2001,7 +2168,7 @@ public static class Queue
         }
         finally { bank.ItemSales.ItemSold -= OnSold; }
         if (sold > 0) { step.Ran = true; s_ranThisRound = true; s_workedThisRound = true; s_laneRan.Add(LaneOf(step)); }
-        End(step, sold > 0 ? $"done: sold {sold:N0} for {paid:N0} {currency}" : "done: the game sold nothing");
+        End(step, StepStatus.Done, sold > 0 ? Lang.F("queue.done_sold", "done: sold {sold:N0} for {paid:N0} {currency}", ("sold", sold), ("paid", paid), ("currency", currency)) : Lang.T("queue.done_game_sold_nothing", "done: the game sold nothing"));
     }
 
     /// <summary>
@@ -2011,50 +2178,52 @@ public static class Queue
     /// </summary>
     static void Equip(Game game, Step step)
     {
-        if (EarlierAtWork(step)) { Wait(step, "waiting: for the steps before it to finish"); return; }
+        if (EarlierAtWork(step)) { Wait(step, Lang.T("queue.waiting_steps_before_finish", "waiting: for the steps before it to finish")); return; }
         // Gear (and a loadout's food, prayers and spells) is only changed while the game is open, like a fight.
         if (!Targets.OnMainThread)
         {
-            string later = step.IsFood ? "waits for the game to be open (food)" : "waits for the game to be open (equipment)";
-            if (step.State != later) { step.Run = RunState.Waiting; step.State = later; Trace($"{Number(step)}: {later}"); }
+            string later = step.IsFood ? Lang.T("queue.waits_game_open_food", "waits for the game to be open (food)") : Lang.T("queue.waits_game_open_equipment", "waits for the game to be open (equipment)");
+            if (step.State != later) { step.Run = RunState.Waiting; Say(step, StepStatus.Waiting, later); Trace($"{Number(step)}: {later}"); }
             return;
         }
         if (step.IsFood) { EquipFood(game, step); return; }
-        if (!game.Entities.TryGetObjectById(CombatId, out GameEntity? e) || e is not CombatEntity combat) { End(step, "skipped: this game has no equipment"); return; }
+        if (!game.Entities.TryGetObjectById(CombatId, out GameEntity? e) || e is not CombatEntity combat) { End(step, StepStatus.Skipped, Lang.T("queue.skipped_game_has_no_equipment", "skipped: this game has no equipment")); return; }
         if (step.TargetId.StartsWith(Step.LoadoutPrefix, StringComparison.Ordinal))
         {
             string id = step.TargetId[Step.LoadoutPrefix.Length..];
             var loadout = combat.Loadouts.ActiveLoadouts.Values.FirstOrDefault(l => l.Data.Id == id);
-            if (loadout == null) { End(step, "skipped: this loadout is not in the game"); return; }
-            if (!loadout.IsUnlocked) { End(step, $"skipped: the loadout '{loadout.Name}' is locked"); return; }
-            if (combat.Loadouts.CurrentLoadout == loadout) { End(step, $"done: '{loadout.Name}' is already in use"); return; }
+            if (loadout == null) { End(step, StepStatus.Skipped, Lang.T("queue.skipped_loadout_not_game", "skipped: this loadout is not in the game")); return; }
+            if (!loadout.IsUnlocked) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_loadout_locked", "skipped: the loadout '{name}' is locked", ("name", loadout.Name))); return; }
+            if (combat.Loadouts.CurrentLoadout == loadout) { End(step, StepStatus.Done, Lang.F("queue.done_already_use", "done: '{name}' is already in use", ("name", loadout.Name))); return; }
             combat.Loadouts.SwapToLoadout(loadout.Data);
             bool swapped = combat.Loadouts.CurrentLoadout == loadout;
             if (swapped) { step.Ran = true; s_ranThisRound = true; s_laneRan.Add(LaneOf(step)); }
-            End(step, swapped ? $"done: switched to '{loadout.Name}'" : "skipped: the game did not switch the loadout");
+            if (swapped) End(step, StepStatus.Done, Lang.F("queue.done_switched", "done: switched to '{name}'", ("name", loadout.Name)));
+            else End(step, StepStatus.Skipped, Lang.T("queue.skipped_game_did_not_switch", "skipped: the game did not switch the loadout"));
             return;
         }
-        if (ItemOf(game, step.TargetId) is not { } item) { End(step, NoItem(step.TargetId)); return; }
+        if (ItemOf(game, step.TargetId) is not { } item) { End(step, StepStatus.Skipped, NoItem(step.TargetId)); return; }
         string name = item.DisplayName.GetPluralText(2);
-        if (!item.Capabilities.TryGet<GamesByMalcs.Melvor2.Components.Equipment.EquipmentCapability>(out var equip)) { End(step, $"skipped: {name} cannot be equipped"); return; }
+        if (!item.Capabilities.TryGet<GamesByMalcs.Melvor2.Components.Equipment.EquipmentCapability>(out var equip)) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_cannot_equipped", "skipped: {name} cannot be equipped", ("name", name))); return; }
         int have = Bank(game)?.Inventory.GetQuantity(item) ?? 0;
         bool stack = equip.CanEquipQuantity;
-        if (!stack && combat.Equipment.IsItemEquipped(item)) { End(step, $"done: {item.DisplayName.GetPluralText(1)} is already equipped"); return; }
+        if (!stack && combat.Equipment.IsItemEquipped(item)) { End(step, StepStatus.Done, Lang.F("queue.done_already_equipped", "done: {item} is already equipped", ("item", item.DisplayName.GetPluralText(1)))); return; }
         long keep = (long)Math.Max(0, Math.Floor(step.Amount));
         int quantity = stack ? (int)Math.Max(0, have - keep) : Math.Min(1, have);
-        if (quantity <= 0 && have <= 0 && Rares.Is(item)) { End(step, NoItem(step.TargetId)); return; }   // (sold, but still in the game until it restarts)
-        if (quantity <= 0) { End(step, have <= 0 ? $"skipped: no {name} in the bank" : $"done: nothing to equip (the bank holds {have:N0}, {keep:N0} are kept)"); return; }
-        if (!equip.Requirements.AreMet) { End(step, $"skipped: {name} need {Targets.Missing(equip.Requirements)}"); return; }
+        if (quantity <= 0 && have <= 0 && Rares.Is(item)) { End(step, StepStatus.Skipped, NoItem(step.TargetId)); return; }   // (sold, but still in the game until it restarts)
+        if (quantity <= 0 && have <= 0) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_no_bank", "skipped: no {name} in the bank", ("name", name))); return; }
+        if (quantity <= 0) { End(step, StepStatus.Done, Lang.F("queue.done_nothing_equip_bank_holds", "done: nothing to equip (the bank holds {have:N0}, {keep:N0} are kept)", ("have", have), ("keep", keep))); return; }
+        if (!equip.Requirements.AreMet) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_cannot_equipped_yet", "skipped: {name} cannot be equipped yet ({missing})", ("name", name), ("missing", Targets.Missing(equip.Requirements)))); return; }
         var slots = combat.Equipment.GetAvailableSlotsForItem(item);
-        if (slots.Count == 0) { End(step, $"skipped: there is no free slot for {name}"); return; }
+        if (slots.Count == 0) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_there_no_free_slot", "skipped: there is no free slot for {name}", ("name", name))); return; }
         // A stack that is already on is topped up in its own slot; otherwise an empty slot of its kind first (a second ring).
         var slot = slots.FirstOrDefault(a => !a.Slot.IsEmpty && a.Slot.Equipped.Item == item) ?? slots.FirstOrDefault(a => a.Slot.IsEmpty) ?? slots[0];
         int before = combat.Equipment.GetEquippedQuantity(item);
         combat.ItemEquipping.EquipItem(item, quantity, slot.Slot.Slot);
         int after = combat.Equipment.GetEquippedQuantity(item);
         if (after > before) { step.Ran = true; s_ranThisRound = true; s_laneRan.Add(LaneOf(step)); }
-        End(step, after > before ? (stack ? $"done: equipped {after - before:N0} {name} ({after:N0} on now)" : $"done: equipped {item.DisplayName.GetPluralText(1)}")
-                                 : $"skipped: the game did not equip {name}");
+        if (after > before) End(step, StepStatus.Done, stack ? Lang.F("queue.done_equipped_now", "done: equipped {added:N0} {name} ({after:N0} on now)", ("added", after - before), ("name", name), ("after", after)) : Lang.F("queue.done_equipped", "done: equipped {item}", ("item", item.DisplayName.GetPluralText(1))));
+        else End(step, StepStatus.Skipped, Lang.F("queue.skipped_game_did_not_equip", "skipped: the game did not equip {name}", ("name", name)));
     }
 
     // ---------------------------------------------------------------- food (0.13.0, by madmousepad)
@@ -2083,10 +2252,10 @@ public static class Queue
     /// <summary>"12 Shrimp left" / "no food selected", for the State column.</summary>
     static string FoodText(Game game, Step step)
     {
-        if (FoodSlot(game, step.Entity) is not { } slot) return "no food slot";
-        if (slot.SelectedFood?.Item is not { } item) return "no food selected";
+        if (FoodSlot(game, step.Entity) is not { } slot) return Lang.T("queue.no_food_slot", "no food slot");
+        if (slot.SelectedFood?.Item is not { } item) return Lang.T("queue.no_food_selected", "no food selected");
         int left = slot.Inventory.GetQuantity(item);
-        return $"{left:N0} {item.DisplayName.GetPluralText(left)} left";
+        return Lang.F("queue.left", "{left:N0} {item} left", ("left", left), ("item", item.DisplayName.GetPluralText(left)));
     }
 
     /// <summary>
@@ -2095,17 +2264,18 @@ public static class Queue
     /// </summary>
     static void EquipFood(Game game, Step step)
     {
-        if (ItemOf(game, step.TargetId) is not { } item) { End(step, NoItem(step.TargetId)); return; }
+        if (ItemOf(game, step.TargetId) is not { } item) { End(step, StepStatus.Skipped, NoItem(step.TargetId)); return; }
         string name = item.DisplayName.GetPluralText(2), skill = step.SubjectName != "" ? step.SubjectName : step.Extra;
-        if (!item.Capabilities.TryGet<FoodCapability>(out _)) { End(step, $"skipped: {name} are not food"); return; }
-        if (FoodSlot(game, step.Extra) is not { } slot) { End(step, $"skipped: {skill} eats no food in this game"); return; }
+        if (!item.Capabilities.TryGet<FoodCapability>(out _)) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_not_food", "skipped: {name} are not food", ("name", name))); return; }
+        if (FoodSlot(game, step.Extra) is not { } slot) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_eats_no_food_game", "skipped: {skill} eats no food in this game", ("skill", skill))); return; }
         int have = slot.Inventory.GetQuantity(item);
-        if (slot.SelectedFood?.Item == item) { End(step, $"done: {skill} already eats {name} ({have:N0} in the bank)"); return; }
-        if (have <= 0) { End(step, $"skipped: no {name} in the bank"); return; }
+        if (slot.SelectedFood?.Item == item) { End(step, StepStatus.Done, Lang.F("queue.done_already_eats_bank", "done: {skill} already eats {name} ({have:N0} in the bank)", ("skill", skill), ("name", name), ("have", have))); return; }
+        if (have <= 0) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_no_bank", "skipped: no {name} in the bank", ("name", name))); return; }
         slot.SelectFood(item);
         bool selected = slot.SelectedFood?.Item == item;
         if (selected) { step.Ran = true; s_ranThisRound = true; s_laneRan.Add(LaneOf(step)); }
-        End(step, selected ? $"done: {skill} now eats {name} ({have:N0} in the bank)" : $"skipped: the game did not give {skill} the {name}");
+        if (selected) End(step, StepStatus.Done, Lang.F("queue.done_now_eats_bank", "done: {skill} now eats {name} ({have:N0} in the bank)", ("skill", skill), ("name", name), ("have", have)));
+        else End(step, StepStatus.Skipped, Lang.F("queue.skipped_game_did_not_give", "skipped: the game did not give {skill} the {name}", ("skill", skill), ("name", name)));
     }
 
     // ---------------------------------------------------------------- "run from here" (0.13.0, by madmousepad)
@@ -2124,7 +2294,7 @@ public static class Queue
         int lane = LaneOf(target);
         if (!wasRunning && !StopAtEnd && StopReached(s_game))
         {
-            Note = $"Nothing to do: {StopText(StopWhen!)} already, and that is the queue's stop. Change or remove the stop to run the queue.";
+            Note = Lang.F("queue.nothing_do_already_queue_stop", "Nothing to do: {stopText} already, and that is the queue's stop. Change or remove the stop to run the queue.", ("stopText", StopText(StopWhen!)));
             RaiseChanged();
             return false;
         }
@@ -2138,7 +2308,7 @@ public static class Queue
             {
                 // Not running: the other lanes of a paused queue carry on where they were (Start resumes them); those of
                 // a finished or new one start from their beginning, as with Start.
-                if (!wasRunning && !paused) { s.Run = RunState.Idle; s.State = ""; }
+                if (!wasRunning && !paused) { s.Run = RunState.Idle; Say(s, StepStatus.None, ""); }
                 continue;
             }
             if (i < index && s.Run == RunState.Done && (wasRunning || paused)) continue;   // over already this round
@@ -2147,13 +2317,13 @@ public static class Queue
             s_cannotAttack.Remove(s);
             if (i < index)
             {
-                if (s.Run != RunState.Done || !wasRunning) s.State = $"skipped: the queue went on from step {index + 1}";
+                if (s.Run != RunState.Done || !wasRunning) Say(s, StepStatus.Skipped, Lang.F("queue.skipped_queue_went_from_step", "skipped: the queue went on from step {number}", ("number", index + 1)));
                 s.Run = RunState.Done;
             }
             else
             {
                 s.Run = RunState.Idle;
-                s.State = "";
+                Say(s, StepStatus.None, "");
                 s.Ran = false;
                 ClearCounts(s);
             }
@@ -2168,7 +2338,7 @@ public static class Queue
             s_resume = true;
             Start();
             if (!Running) return false;
-            Note = $"Started from step {index + 1}: {target.Name}.";
+            Note = Lang.F("queue.started_from_step", "Started from step {number}: {name}.", ("number", index + 1), ("name", ShownName(target.Name)));
             RaiseChanged();
             return true;
         }
@@ -2178,7 +2348,7 @@ public static class Queue
         s_workedThisRound = s_ranThisRound;
         s_emptyVisited.Clear();   // the player chose where the queue goes on: a fresh start for queues going round
         SetIndex();
-        Note = $"Went on from step {index + 1}: {target.Name}.";
+        Note = Lang.F("queue.went_from_step", "Went on from step {number}: {name}.", ("number", index + 1), ("name", ShownName(target.Name)));
         Publish();
         RaiseChanged();
         return true;
@@ -2191,7 +2361,7 @@ public static class Queue
     static void StopPausedAction(Step s)
     {
         // (only a step that was running: a waiting one never started its action, what runs in its skill is somebody else's)
-        if (s_game == null || Running || s.State != "paused" || s.Run != RunState.Running) return;
+        if (s_game == null || Running || s.Status != StepStatus.Paused || s.Run != RunState.Running) return;
         if (Targets.Find(s_game, s.Entity) is { } action && StepDoing(action, s)) StopAction(action);
     }
 
@@ -2213,19 +2383,19 @@ public static class Queue
     /// </summary>
     static void SwitchTo(Game game, Step step)
     {
-        if (EarlierAtWork(step)) { Wait(step, "waiting: for the steps before it to finish"); return; }
+        if (EarlierAtWork(step)) { Wait(step, Lang.T("queue.waiting_steps_before_finish", "waiting: for the steps before it to finish")); return; }
         // In lanes: every other lane is through first (also a lane whose steps have not started yet).
         if (LaneMode && Steps.Any(s => LaneOf(s) != LaneOf(step) && s.Run != RunState.Done))
         {
-            Wait(step, "waiting: for the other lanes to finish");
+            Wait(step, Lang.T("queue.waiting_other_lanes_finish", "waiting: for the other lanes to finish"));
             return;
         }
         if (GetPreset(step.TargetId) == null || string.Equals(step.TargetId, AutoName, StringComparison.OrdinalIgnoreCase))
         {
-            End(step, $"skipped: there is no saved queue called '{step.TargetId}'");
+            End(step, StepStatus.Skipped, Lang.F("queue.skipped_there_no_saved_queue", "skipped: there is no saved queue called '{targetId}'", ("targetId", step.TargetId)));
             return;
         }
-        End(step, $"done: going on with '{step.TargetId}'");
+        End(step, StepStatus.Done, Lang.F("queue.done_going_with", "done: going on with '{targetId}'", ("targetId", step.TargetId)));
         s_switchTo = step.TargetId;
         s_switchFrom = step;
     }
@@ -2244,30 +2414,48 @@ public static class Queue
                 s_emptyVisited.Clear();
                 string saved = s_presets.Keys.FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase)) ?? name;
                 Finish(string.Equals(Name, saved, StringComparison.OrdinalIgnoreCase)
-                    ? $"The queue stopped: nothing in '{saved}' could be done, and it goes back to itself."
-                    : $"The queue stopped: it came back to '{saved}' with nothing done in between.");
+                    ? Lang.F("queue.queue_stopped_nothing_could_done", "The queue stopped: nothing in '{saved}' could be done, and it goes back to itself.", ("saved", saved))
+                    : Lang.F("queue.queue_stopped_came_back_with", "The queue stopped: it came back to '{saved}' with nothing done in between.", ("saved", saved)));
                 return;
             }
         }
-        string from = Name == "" ? "the queue" : $"'{Name}'";
+        string from = Name;
         if (!LoadPresetCore(name, out string message, byQueue: true)) { Finish(message); return; }
-        Note = $"{from} went on with the saved queue '{Name}'.";
+        Note = from == "" ? Lang.F("queue.went_on_with_saved", "the queue went on with the saved queue '{name}'.", ("name", Shown(Name)))
+            : Lang.F("queue.went_on_from_saved", "'{from}' went on with the saved queue '{name}'.", ("from", Shown(from)), ("name", Shown(Name)));
         Trace($"went on with the saved queue '{Name}' ({Steps.Count} step(s)): {message}");
     }
 
     static void Watch(Game game, Step step, double seconds)
     {
         ActionComponent? action = Targets.Find(game, step.Entity);
-        if (action == null) { End(step, "skipped: this skill is not in the game"); return; }
+        if (action == null) { End(step, StepStatus.Skipped, Lang.T("queue.skipped_skill_not_game", "skipped: this skill is not in the game")); return; }
         // A fight step is looked at again when the game is back; the time it fights meanwhile still counts (Time column, "for N minutes").
         if (HandsOff(action)) { if (StepDoing(action, step)) step.Seconds += seconds; return; }
         var wanted = new Target(step.TargetId, step.Name, step.Extra);
         Target? now = Targets.Current(action);
         if (now == null)
         {
-            if (s_died) { s_died = false; Pause("Your character died, so the queue is paused."); return; }
+            if (s_died && step.Entity == CombatId) { s_died = false; Pause(Lang.T("queue.your_character_died_so_queue", "Your character died, so the queue is paused.")); return; }
             // It stopped just as the goal was reached (the last materials made the last of it): that is a finish.
-            if (Reached(game, step)) { End(step, DoneText(game, step)); return; }
+            if (Reached(game, step)) { End(step, StepStatus.Done, DoneText(game, step)); return; }
+            // Stopped with the game's own Stop button: the player is done with this step. It leaves the queue
+            // (with "start over at the end" on it is only skipped this round) and the queue goes on.
+            if (TakeHandStop(step.Entity)) { StoppedByPlayer(step); return; }
+            // With Multitask's room (0.14.0): the game stopped this step to start an action of the player's in another
+            // skill (it stops everything when an action starts; Multitask leaves the queue's steps to the queue). When
+            // there is room for both, the step goes on beside it instead of the whole queue pausing: a fight started by
+            // hand again after a death, next to the queue's runecrafting.
+            if (Targets.OnMainThread && TakeBumped(step.Entity) && Capacity() > 1)
+            {
+                ActionComponent? theirs = game.ActionManager.ActiveActions.LastOrDefault(a => a.Entity.Id != step.Entity
+                    && !Steps.Any(s => s.Run == RunState.Running && s.Entity == a.Entity.Id) && !(s_idleOwned && Idle?.Entity == a.Entity.Id));
+                if (theirs != null && RoomBeside(game) >= 0 && Targets.StartBeside(game, action, wanted, out _))
+                {
+                    Trace($"{Number(step)}: the game stopped it to start {theirs.Entity.DisplayName.Text} (yours); there is room for both, so it goes on beside it");
+                    return;
+                }
+            }
             // Did the player start something else? Actions kept running by Multitask, and the queue's own
             // other steps, do not count.
             ActionComponent? main = Targets.Main(game);
@@ -2276,14 +2464,11 @@ public static class Queue
             // and right after a restart Multitask has not said yet which of the running actions are its own.)
             if (Targets.OnMainThread && main != null && !idleOfOurs && !Steps.Any(s => s.Run == RunState.Running && s.Entity == main.Entity.Id))
             {
-                Pause("You started something else, so the queue is paused.");
+                Pause(Lang.T("queue.you_started_something_else_so", "You started something else, so the queue is paused."));
                 return;
             }
-            // Stopped with the game's own Stop button: the player is done with this step. It leaves the queue
-            // (with "start over at the end" on it is only skipped this round) and the queue goes on.
-            if (TakeHandStop(step.Entity)) { StoppedByPlayer(step); return; }
             // A fight the game ended because the player could not attack any more (out of ammo, out of runes): say why.
-            if (action is CombatActionComponent && CannotAttack(game) is { Length: > 0 } cannot) { End(step, "done: " + cannot); return; }
+            if (action is CombatActionComponent && CannotAttack(game) is { Length: > 0 } cannot) { End(step, StepStatus.Done, Lang.F("state.done_because", "done: {why}", ("why", cannot))); return; }
             // It stopped by itself. Out of materials while an earlier step, or something running beside it, is
             // still making them: wait for more instead of calling the step done.
             if (Targets.Batches(game, action, wanted) == 0 && MoreComing(game, step, action, wanted))
@@ -2293,8 +2478,8 @@ public static class Queue
                 Wait(step, WaitingText(step));
                 return;
             }
-            End(step, action is HuntingActionComponent && Targets.Batches(game, action, wanted) == 0
-                ? "done: out of traps (it stopped by itself)" : "done (it stopped by itself)");
+            End(step, StepStatus.Done, action is HuntingActionComponent && Targets.Batches(game, action, wanted) == 0
+                ? Lang.T("queue.done_out_traps_stopped_by", "done: out of traps (it stopped by itself)") : Lang.T("queue.done_stopped_by_itself", "done (it stopped by itself)"));
             return;
         }
         if (!Targets.IsDoing(action, wanted))
@@ -2305,11 +2490,11 @@ public static class Queue
                 bool others = Steps.Any(s => s != step && s.Run == RunState.Running);
                 if (others ? Targets.StartBeside(game, action, wanted, out string problem) : Targets.Start(game, action, wanted, out problem))
                     step.Following = Targets.Current(action)?.Id ?? "";
-                else End(step, "done: " + problem);
+                else End(step, StepStatus.Done, Lang.F("state.done_because", "done: {why}", ("why", problem)));
                 return;
             }
             // Offline it is not the player: the step is looked at again when the game is back.
-            if (Targets.OnMainThread) Pause("You changed what this skill is doing, so the queue is paused.");
+            if (Targets.OnMainThread) Pause(Lang.T("queue.you_changed_what_skill_doing", "You changed what this skill is doing, so the queue is paused."));
             return;
         }
         step.Following = now.Id;
@@ -2320,7 +2505,7 @@ public static class Queue
             // Only this step's own action is stopped: everything else that runs goes on.
             string done = DoneText(game, step);   // (before the stop: the count it read is the one that ended it)
             if (!action.TryStop()) action.TryStop(force: true);
-            End(step, done);
+            End(step, StepStatus.Done, done);
             return;
         }
         // A fight the player can no longer take part in (no ammo left for the weapon, not enough runes for the spell)
@@ -2334,12 +2519,13 @@ public static class Queue
             {
                 s_cannotAttack.Remove(step);
                 if (!action.TryStop()) action.TryStop(force: true);
-                End(step, "done: " + why);
+                End(step, StepStatus.Done, Lang.F("state.done_because", "done: {why}", ("why", why)));
                 return;
             }
         }
         else s_cannotAttack.Remove(step);
-        step.State = "running  " + Progress(game, step);
+        string progress = Progress(game, step);
+        Say(step, StepStatus.Running, Lang.F("state.running_progress", "running  {progress}", ("progress", progress)), progress);
     }
 
     static readonly Dictionary<Step, double> s_cannotAttack = new(ReferenceEqualityComparer.Instance);
@@ -2355,13 +2541,13 @@ public static class Queue
         try
         {
             var weapon = combat.Equipment.CurrentWeapon.Weapon;
-            if (weapon.RequiredAmmoType is { } ammo && !combat.Equipment.IsAmmoEquipped(ammo)) return "out of ammo";
+            if (weapon.RequiredAmmoType is { } ammo && !combat.Equipment.IsAmmoEquipped(ammo)) return Lang.T("queue.out_ammo", "out of ammo");
             if (combat.Player.GetSelectedStance(weapon.Type).CombatStyle.UsesSpells)
             {
                 var spell = combat.MagicSpells.SelectedSpell;
-                if (spell == null) return "no spell picked";
+                if (spell == null) return Lang.T("queue.no_spell_picked", "no spell picked");
                 if (spell.RuneStats.RuneCosts.Values.Any(v => combat.MagicSpells.Inventory.GetQuantity(v.Value.Item) < v.Value.Quantity))
-                    return "out of runes";
+                    return Lang.T("queue.out_runes", "out of runes");
             }
         }
         catch { }   // (a game version that reads differently: the fight goes on as before)
@@ -2378,12 +2564,12 @@ public static class Queue
         Trace($"{Number(step)}: stopped with the game's button, taken out of the queue");
         Steps.Remove(step);
         Save();
-        string told = $"You stopped '{step.Name}', so it was taken out of the queue.";
-        if (othersLeft || Repeat && Steps.Count > 0) { Note = told + " The queue goes on."; return; }
+        string told = Lang.F("queue.you_stopped_so_was_taken", "You stopped '{name}', so it was taken out of the queue.", ("name", Shown(step)));
+        if (othersLeft || Repeat && Steps.Count > 0) { Note = told + Lang.T("queue.queue_goes", " The queue goes on."); return; }
         // That was the last thing to do: the queue ends here, and the idle action does not jump in right away.
-        Finish(told + " Nothing is left to do.");
+        Finish(told + Lang.T("queue.nothing_left_do", " Nothing is left to do."));
         s_idleBlocked = true;
-        IdleState = "not started: you stopped the last step";
+        IdleSays(Lang.T("queue.not_started_you_stopped_last", "not started: you stopped the last step"));
     }
 
     static BankEntity? Bank(Game game) => game.Entities.TryGetObjectById("MelvorBase:Bank", out GameEntity? e) ? e as BankEntity : null;
@@ -2611,8 +2797,8 @@ public static class Queue
 
     /// <summary>"done" with the reason when the step's second goal ended it (the first one is the plain "done").</summary>
     static string DoneText(Game game, Step step) =>
-        step.Until == Until.FoodRunsOut && Reached(game, step, step) ? "done: the food ran out"
-        : step.Or != null && !Reached(game, step, step) && Reached(game, step, step.Or) ? $"done: {Progress(game, step, step.Or)} ({step.Or.Text})" : "done";
+        step.Until == Until.FoodRunsOut && Reached(game, step, step) ? Lang.T("queue.done_food_ran_out", "done: the food ran out")
+        : step.Or != null && !Reached(game, step, step) && Reached(game, step, step.Or) ? Lang.F("queue.done_2", "done: {progress} ({second})", ("progress", Progress(game, step, step.Or)), ("second", step.Or.Text)) : Lang.T("state.done", "done");
 
     static string Clock(double seconds) => Duration(seconds);
 
@@ -2624,20 +2810,29 @@ public static class Queue
     }
 
     static string Progress(Game game, Step step) =>
-        step.Or == null ? Progress(game, step, step) : $"{Progress(game, step, step)}  |  or  {Progress(game, step, step.Or)}";
+        step.Or == null ? Progress(game, step, step) : Lang.F("queue.or", "{progress}  |  or  {progress2}", ("progress", Progress(game, step, step)), ("progress2", Progress(game, step, step.Or)));
 
     static string Progress(Game game, Step step, IGoal g) => g.Until switch
     {
         Until.Item => $"{Counted(game, step, g):N0} / {g.Amount:N0}" + (step.Or != null ? $" {g.SubjectName}" : ""),
-        Until.ItemLeft => $"{Owned(game, g):N0} {(step.Or != null ? g.SubjectName + " " : "")}left, stops at {g.Amount:N0}",
-        Until.Level => $"{(step.Or != null ? g.SubjectName + " " : "")}level {Level(game, g)} / {g.Amount:0}",
+        Until.ItemLeft => step.Or != null
+            ? Lang.F("progress.item_left_named", "{owned:N0} {item} left, stops at {amount:N0}", ("owned", Owned(game, g)), ("item", g.SubjectName), ("amount", g.Amount))
+            : Lang.F("progress.item_left", "{owned:N0} left, stops at {amount:N0}", ("owned", Owned(game, g)), ("amount", g.Amount)),
+        Until.Level => step.Or != null
+            ? Lang.F("progress.level_named", "{skill} level {level} / {amount:0}", ("skill", g.SubjectName), ("level", Level(game, g)), ("amount", g.Amount))
+            : Lang.F("progress.level", "level {level} / {amount:0}", ("level", Level(game, g)), ("amount", g.Amount)),
         Until.Minutes => $"{Clock(step.Seconds)} / {Clock(g.Amount * 60)}",
-        Until.Made => $"{Made(step, g):N0} / {g.Amount:N0} {(step.Or != null ? g.SubjectName + " " : "")}made",
-        Until.Times => $"{Times(step, g):N0} / {g.Amount:N0} times",
-        Until.Spent => $"{Spent(step, g):N0} / {g.Amount:N0} {(step.Or != null ? g.SubjectName + " " : "")}used up",
-        Until.Nodes => $"{Nodes(game, step, g):N0} / {g.Amount:N0} {g.SubjectName} nodes",
+        Until.Made => step.Or != null
+            ? Lang.F("progress.made_named", "{made:N0} / {amount:N0} {item} made", ("made", Made(step, g)), ("amount", g.Amount), ("item", g.SubjectName))
+            : Lang.F("progress.made", "{made:N0} / {amount:N0} made", ("made", Made(step, g)), ("amount", g.Amount)),
+        Until.Times => Lang.P("progress.times", g.Amount, "{times:N0} / {count:N0} time", "{times:N0} / {count:N0} times", ("times", Times(step, g))),
+        Until.Spent => step.Or != null
+            ? Lang.F("progress.spent_named", "{spent:N0} / {amount:N0} {item} used up", ("spent", Spent(step, g)), ("amount", g.Amount), ("item", g.SubjectName))
+            : Lang.F("progress.spent", "{spent:N0} / {amount:N0} used up", ("spent", Spent(step, g)), ("amount", g.Amount)),
+        Until.Nodes => Lang.P("progress.nodes", g.Amount, "{nodes:N0} / {count:N0} {kind} node", "{nodes:N0} / {count:N0} {kind} nodes",
+            ("nodes", Nodes(game, step, g)), ("kind", Step.NodeKind(g.Subject, g.SubjectName))),
         Until.Event => $"{g.SubjectName} {Seen(step, g):N0} / {g.Amount:N0}",
-        Until.Mastery => Mastery.Find(g.Subject) is { } task ? $"mastery task {Mastery.ProgressText(task)}" : "mastery task not in this game",
+        Until.Mastery => Mastery.Find(g.Subject) is { } task ? Lang.F("queue.mastery_task", "mastery task {progressText}", ("progressText", Mastery.ProgressText(task))) : Lang.T("queue.mastery_task_not_game", "mastery task not in this game"),
         Until.FoodRunsOut => FoodText(game, step),
         _ => Clock(step.Seconds),
     };
@@ -2649,10 +2844,13 @@ public static class Queue
         {
             if (!Running) return "";
             var atWork = Steps.Where(s => s.Run == RunState.Running).ToList();
-            string meanwhile = s_idleOwned && Idle != null ? $"   (meanwhile: {Idle.Name})" : "";
-            if (atWork.Count == 0) return Index < Steps.Count ? $"Queue {Index + 1}/{Steps.Count}: {Steps[Index].Name}  -  {Steps[Index].State}{meanwhile}" : "";
-            if (atWork.Count == 1) return $"Queue {Steps.IndexOf(atWork[0]) + 1}/{Steps.Count}: {atWork[0].Name}  -  {atWork[0].State}{meanwhile}";
-            return "Queue: " + string.Join("   +   ", atWork.Select(s => $"{s.Name} - {s.State.Replace("running  ", "")}")) + meanwhile;
+            string meanwhile = s_idleOwned && Idle != null ? Lang.F("headline.meanwhile", "   (meanwhile: {name})", ("name", Shown(Idle))) : "";
+            if (atWork.Count == 0) return Index < Steps.Count ? Lang.F("headline.one", "Queue {number}/{total}: {step}  -  {state}{meanwhile}",
+                ("number", Index + 1), ("total", Steps.Count), ("step", Shown(Steps[Index])), ("state", Steps[Index].State), ("meanwhile", meanwhile)) : "";
+            if (atWork.Count == 1) return Lang.F("headline.one", "Queue {number}/{total}: {step}  -  {state}{meanwhile}",
+                ("number", Steps.IndexOf(atWork[0]) + 1), ("total", Steps.Count), ("step", Shown(atWork[0])), ("state", atWork[0].State), ("meanwhile", meanwhile));
+            return Lang.F("headline.many", "Queue: {steps}{meanwhile}",
+                ("steps", string.Join("   +   ", atWork.Select(s => $"{Shown(s)} - {(s.Detail != "" ? s.Detail : s.State)}"))), ("meanwhile", meanwhile));
         }
     }
 

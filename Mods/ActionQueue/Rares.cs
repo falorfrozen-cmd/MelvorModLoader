@@ -57,7 +57,7 @@ internal static class Rares
 
     /// <summary>"Rare Iron Helmet, item level 40" and the affix lines, for a tooltip ("" without One Style).</summary>
     public static string Tooltip(Item item) =>
-        Facts(item) is { } f ? $"{f[0]} {f[2]}, item level {f[1]}" + string.Concat(f.Skip(4).Select(l => "\n" + l)) : "";
+        Facts(item) is { } f ? Lang.F("rares.item_level", "{rarity} {item}, item level {level}", ("rarity", f[0]), ("item", f[2]), ("level", f[1])) + string.Concat(f.Skip(4).Select(l => "\n" + l)) : "";
 
     static BankEntity? Bank(Game game) => game.Entities.TryGetObjectById("MelvorBase:Bank", out GameEntity? e) ? e as BankEntity : null;
     static CombatEntity? Combat(Game game) => game.Entities.TryGetObjectById("MelvorBase:Combat", out GameEntity? e) ? e as CombatEntity : null;

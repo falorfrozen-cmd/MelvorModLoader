@@ -1,4 +1,4 @@
-Action Queue 0.13.1  -  a mod for Melvor Idle 2
+Action Queue 0.14.0  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:
@@ -353,6 +353,23 @@ Press "Saved queues" at the top of the window.
     skipped, and so are steps you have not unlocked yet.
 
 
+LANGUAGES
+---------
+The window and the queue's messages can be in another language. A language is a file in the
+mod's "lang" folder, for example mods\ActionQueue\lang\ru.json for Russian. When there is one,
+a list at the top right of the window picks it, and the choice is kept for next time. Names of
+items, skills and monsters, and the game's own requirement texts, stay as the game writes them
+(the game itself is in English for now).
+
+To translate it yourself, copy lang\en.json, name the copy after the language (de.json, ru.json)
+and change the texts; the first lines of en.json say how. Keep every {name} in curly brackets as
+it is, though you can move it in the sentence. A text that has "one" and "other" depends on a
+number: give the forms your language uses (Russian has one, few, many and other). A text you
+leave out, or get wrong, shows in English, so a new version of the mod never breaks an older
+translation. After you edit the file, pick English and then your language again in the list
+to see the change. If you send me the file, it can ship with the mod, with your name in the thanks.
+
+
 GOOD TO KNOW
 ------------
 - The queue also runs while the game is closed: when you come back, the game works out the
@@ -372,7 +389,9 @@ GOOD TO KNOW
       "every material" works round after round: see PLAN AN ITEM.)
 - It never bypasses the game's requirements. A step you are not allowed to do yet, or have
   no materials for, is marked "skipped" and the next one starts.
-- If you start something else by hand, the queue pauses instead of fighting you.
+- If you start something else by hand, the queue pauses instead of fighting you. With the
+  Multitask mod and a free slot it does not: a fight (or anything in another skill) you start by
+  hand runs beside the queue, also again after your character died, and the queue goes on.
   If you press the game's Stop on a step, the queue moves on without that step.
 - After a pause, "Start the queue" carries on: finished steps stay finished, wherever
   they have been moved.

@@ -29,6 +29,8 @@ public static class GameButtons
 {
     const string HookedMeta = "ActionQueueHooked";
     const string GameTextMeta = "ActionQueueGameText";
+    /// <summary>The text the queue last put on the game's Create button ("" once it gave the game's back).</summary>
+    const string WroteMeta = "ActionQueueWroteText";
     const string HandlerName = "CreateRecipeButtonPressedHandler";
     public const string QueueButtonName = "ActionQueueAddButton";
 
@@ -75,15 +77,34 @@ public static class GameButtons
         {
             if (!create.HasMeta(GameTextMeta)) continue;
             string gameText = create.GetMeta(GameTextMeta).AsString();
-            string want = Queue.GameCreate ? "Add to queue" : gameText;
+            string ours = Lang.T("buttons.add_queue", "Add to queue");
+            string want = Queue.GameCreate ? ours : gameText;
             if (create.Text != want)
             {
-                // The game may have put its own (translated) text back: that becomes the text to restore.
-                if (create.Text != "Add to queue") create.SetMeta(GameTextMeta, create.Text);
-                create.Text = Queue.GameCreate ? "Add to queue" : create.GetMeta(GameTextMeta).AsString();
+                // The game may have put its own (translated) text back: that becomes the text to restore. What the queue
+                // wrote itself is known by the meta, not by its words (they change with the queue's language).
+                string wrote = create.HasMeta(WroteMeta) ? create.GetMeta(WroteMeta).AsString() : "";
+                if (create.Text != wrote && create.Text != ours) create.SetMeta(GameTextMeta, create.Text);
+                create.Text = Queue.GameCreate ? ours : create.GetMeta(GameTextMeta).AsString();
+                create.SetMeta(WroteMeta, Queue.GameCreate ? ours : "");
             }
             add.Disabled = SelectedTarget(page) == null;
         }
+    }
+
+    static string AddText => Lang.T("buttons.queue", "+ Queue");
+    static string AddTip => Lang.T("buttons.action_queue_put_recipe_at", "Action Queue: put this recipe at the end of the queue, with the stop option chosen above.\nWorks even while you lack the materials: the queue waits for them or skips it when its turn comes.");
+
+    /// <summary>Another language was chosen: the buttons the queue put on the game's pages say so in its words.</summary>
+    public static void Retext()
+    {
+        foreach ((Control _, Button _, Button add) in s_hooked)
+        {
+            if (!GodotObject.IsInstanceValid(add)) continue;
+            add.Text = AddText;
+            add.TooltipText = AddTip;
+        }
+        Refresh();
     }
 
     static void Hook(Control page)
@@ -115,11 +136,10 @@ public static class GameButtons
         var add = new Button
         {
             Name = QueueButtonName,
-            Text = "+ Queue",
+            Text = AddText,
             ThemeTypeVariation = create.ThemeTypeVariation,
             SizeFlagsVertical = create.SizeFlagsVertical,
-            TooltipText = "Action Queue: put this recipe at the end of the queue, with the stop option chosen above.\n"
-                + "Works even while you lack the materials: the queue waits for them or skips it when its turn comes.",
+            TooltipText = AddTip,
             FocusMode = Control.FocusModeEnum.None,
         };
         add.Pressed += () => QueuePressed(page);
@@ -138,19 +158,19 @@ public static class GameButtons
         {
             // Not something the queue can hold. With work in the queue nothing is started (the button says "Add to
             // queue": starting it would push the queue's own step out). With an empty queue the game does its usual.
-            if (Queue.Running || Queue.Steps.Any(s => s.Run != RunState.Done)) { Tell($"Action Queue: not added: {why}"); return; }
+            if (Queue.Running || Queue.Steps.Any(s => s.Run != RunState.Done)) { Tell(Lang.F("buttons.not_added", "Action Queue: not added: {why}", ("why", why))); return; }
             game();
-            if (why != "") Tell($"Action Queue: {why} The game started it as usual.");
+            if (why != "") Tell(Lang.F("buttons.started_as_usual", "Action Queue: {why} The game started it as usual.", ("why", why)));
             return;
         }
-        Tell("Action Queue: " + Queue.AddFromGame(step!));
+        Tell(Lang.F("buttons.said", "Action Queue: {what}", ("what", Queue.AddFromGame(step!))));
     }
 
     static void QueuePressed(Control page)
     {
         if (GameAccess.CurrentGame is not { IsSaveLoaded: true } game) return;
         Queue.Bind(game);
-        Tell("Action Queue: " + (TryMakeStep(page, out Step? step, out string why) ? Queue.AddFromGame(step!) : why));
+        Tell(Lang.F("buttons.said", "Action Queue: {what}", ("what", TryMakeStep(page, out Step? step, out string why) ? Queue.AddFromGame(step!) : why)));
     }
 
     // ---------------------------------------------------------------- reading the page
@@ -182,7 +202,7 @@ public static class GameButtons
     {
         step = null;
         why = "";
-        if (SelectedTarget(page) is not var (action, target)) { why = "choose a recipe first."; return false; }
+        if (SelectedTarget(page) is not var (action, target)) { why = Lang.T("buttons.choose_recipe_first", "choose a recipe first."); return false; }
         string skill = action.Entity.DisplayName.Text;
         var made = new Step { Entity = action.Entity.Id, TargetId = target.Id, Extra = target.Extra, Name = $"{skill}: {target.Name}", Until = Until.Stops };
         IStopOption? option = Private<IStopOptionProvider>(page, "UntilX")?.SelectedStopOption;
@@ -202,7 +222,7 @@ public static class GameButtons
             case ItemCurrencyQuantityStopOption o:
                 if (!o.IsItemSelected || o.SelectedItemIndex >= o.AvailableItems.Count)
                 {
-                    why = "a stop option that counts money cannot be queued yet.";
+                    why = Lang.T("buttons.stop_option_counts_money_cannot", "a stop option that counts money cannot be queued yet.");
                     return false;
                 }
                 Item item = o.SelectedItem;
@@ -217,10 +237,10 @@ public static class GameButtons
                     SpendIngredientStopOption => Until.Spent,
                     _ => Until.Stops,
                 };
-                if (made.Until == Until.Stops) { why = $"the stop option '{option.DisplayName.Text}' is new to the queue."; return false; }
+                if (made.Until == Until.Stops) { why = Lang.F("buttons.stop_option_new_queue", "the stop option '{option}' is new to the queue.", ("option", option.DisplayName.Text)); return false; }
                 break;
             default:
-                why = $"the stop option '{option.DisplayName.Text}' is new to the queue.";
+                why = Lang.F("buttons.stop_option_new_queue", "the stop option '{option}' is new to the queue.", ("option", option.DisplayName.Text));
                 return false;
         }
         step = made;

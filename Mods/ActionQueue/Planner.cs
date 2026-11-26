@@ -368,7 +368,7 @@ public static class Planner
 
         result.StockBefore = everything ? Bank(game)?.Inventory.GetQuantity(item) ?? 0 : Stock(item);
         if (more) result.Own = own = Stock(item) + own;
-        if (MakerOf(item) == null) { result.Problem = "None of the skills the queue can drive makes this item."; return result; }
+        if (MakerOf(item) == null) { result.Problem = Lang.T("planner.none_skills_queue_can_drive", "None of the skills the queue can drive makes this item."); return result; }
 
         // Ingredients before what is made from them. Walking that list backwards visits an item only after
         // everything that needs it, so its total is complete before its own ingredients are worked out.
@@ -404,7 +404,7 @@ public static class Planner
             {
                 if (i == item)
                 {
-                    result.Problem = $"You cannot make {line.ItemName} yet: {locked}.";
+                    result.Problem = Lang.F("planner.you_cannot_make_yet", "You cannot make {itemName} yet: {locked}.", ("itemName", line.ItemName), ("locked", locked));
                     return result;
                 }
                 line.Problem = locked;
@@ -442,8 +442,8 @@ public static class Planner
 
         if (result.Steps.Count == 0)
             result.Problem = lines[item].Missing == 0
-                ? $"You already own {lines[item].Have:N0} {lines[item].ItemName} (counting what the queue will make). Choose \"Make\" on the left to make more."
-                : "Nothing in this plan can be made by a skill.";
+                ? Lang.F("planner.you_already_own_counting_what", "You already own {have:N0} {item} (counting what the queue will make). Choose \"Make\" on the left to make more.", ("have", lines[item].Have), ("item", lines[item].ItemName))
+                : Lang.T("planner.nothing_plan_can_made_by", "Nothing in this plan can be made by a skill.");
         return result;
     }
 
@@ -482,10 +482,10 @@ public static class Planner
 
     public static string Time(double seconds)
     {
-        if (seconds < 90) return $"{Math.Max(1, Math.Round(seconds)):0} s";
-        if (seconds < 5400) return $"{Math.Round(seconds / 60):0} min";
+        if (seconds < 90) return Lang.F("planner.s", "{seconds:0} s", ("seconds", Math.Max(1, Math.Round(seconds))));
+        if (seconds < 5400) return Lang.F("planner.min", "{minutes:0} min", ("minutes", Math.Round(seconds / 60)));
         double hours = Math.Floor(seconds / 3600), minutes = Math.Round((seconds - hours * 3600) / 60);
         if (minutes >= 60) { hours++; minutes = 0; }
-        return hours >= 48 ? $"{seconds / 86400:0.#} days" : minutes == 0 ? $"{hours:0} h" : $"{hours:0} h {minutes:0} min";
+        return hours >= 48 ? Lang.P("planner.days", Math.Round(seconds / 86400, 1), "{count:0.#} day", "{count:0.#} days") : minutes == 0 ? Lang.F("planner.h", "{hours:0} h", ("hours", hours)) : Lang.F("planner.h_min", "{hours:0} h {minutes:0} min", ("hours", hours), ("minutes", minutes));
     }
 }

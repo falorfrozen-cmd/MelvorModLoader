@@ -78,10 +78,10 @@ internal static class Catalog
         if (game.Entities.TryGetObjectById("MelvorBase:Slayer", out GameEntity? s) && s is SlayerEntity slayer)
             foreach (var master in slayer.Tasks.ActiveMasters.Keys)
                 list.Add(new Info(new Target(master.Id, $"Slayer tasks of {master.DisplayName.Text}  (follows the task)", Targets.Slayer),
-                    null, "Slayer tasks", null, "", master.Icon, master.UnlockRequirements, true));
+                    null, Lang.T("catalog.slayer_tasks", "Slayer tasks"), null, "", master.Icon, master.UnlockRequirements, true));
         foreach (BaseCombatArea area in combat.Areas.ActiveAreas.Keys)
         {
-            string group = area.Category?.DisplayName.Text ?? "Combat";
+            string group = area.Category?.DisplayName.Text ?? Lang.T("catalog.combat_group", "Combat");
             bool shown = area.DisplayRequirements?.AreMet ?? true;
             if (area is CombatArea normal)
                 foreach (Enemy e in normal.Enemies)
@@ -109,7 +109,7 @@ internal static class Catalog
         {
             if (level.IsMet) continue;
             GameEntity? of = level.Component?.Entity;
-            return of == null || ReferenceEquals(of, skill) ? $"Lv {level.Level}" : $"{of.DisplayName.Text} {level.Level}";
+            return of == null || ReferenceEquals(of, skill) ? Lang.F("catalog.lv", "Lv {level}", ("level", level.Level)) : $"{of.DisplayName.Text} {level.Level}";
         }
         return "";
     }
@@ -143,9 +143,9 @@ internal static class Catalog
             if (!i.Shown && key != keepKey) continue;
             bool can = Targets.CanStart(action, i.Target, out string problem);
             string hint = can ? "" : LevelHint(i.Requirements, skill);
-            if (!can && hint == "") hint = "locked";
+            if (!can && hint == "") hint = Lang.T("catalog.target.locked", "locked");
             string tip = can ? "" : char.ToUpper(problem[0]) + problem[1..] + ".";
-            if (!i.Shown) { hint = "hidden now"; tip = "The game shows this one only at certain times (a quest step)."; }
+            if (!i.Shown) { hint = Lang.T("catalog.hidden_now", "hidden now"); tip = Lang.T("catalog.game_shows_one_only_at", "The game shows this one only at certain times (a quest step)."); }
             list.Add(new PickEntry<Target>(key, i.Target.Name, i.Target, oneGroup ? "" : i.Group, oneGroup ? "" : i.Subgroup,
                 IconOf(i), groupIcons.GetValueOrDefault(i.Group), hint, tip, Enabled: true, Muted: !can || !i.Shown, Keywords: i.Group + " " + i.Subgroup));
         }
