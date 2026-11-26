@@ -30,9 +30,9 @@ DEGISIKLIK LISTESI (Changelogs sekmesi):
 - The window can be made bigger: drag its right edge or the grip in its bottom-right corner, and the step list gets the room. The Do and Until columns can be dragged wider or narrower in the list's title row. It is all kept for next time
 - A step that waits for its turn in the next round shows how it ended the last time ("last time: done: out of runes"). When the game itself ends a fight you can no longer attack in, the step says why
 - Share codes with these new things start with AQ4: (older versions refuse them). A code from a newer version than yours now says to update the mod
+- The new things above came from madmousepad (lmadrabbitl on GitHub), who built them for their own game and shared them on Discord. Thank you!
 - Fixed: a chain of saved queues stopped with "the saved queues go to each other without doing anything" after passing three queues that could not do anything yet, even when the next one would have worked. It now stops only when the chain comes back to a queue it already left without anything being done, so any number of locked queues can be passed (reported on Discord, thank you!). Queues that only swap gear, a loadout or food back and forth now stop too
 - Fixed: a "Go to a saved queue" step in the middle of a lane, with steps after it in that lane, waited for ever. It now waits for the other lanes only
-- All of this came from madmousepad (lmadrabbitl on GitHub), who built it for their own game and shared it on Discord. Thank you!
 
 0.12.1
 - The window can be moved: drag it by its title bar. It opens where you left it, and a double-click on the title bar puts it back in the middle (asked for on Nexus, thank you!)
