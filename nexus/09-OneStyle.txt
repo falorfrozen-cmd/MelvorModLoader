@@ -74,7 +74,7 @@ UZUN ACIKLAMA (Description) - asagidaki cizgiden sonrasini kopyala. {{IMG dosya}
 [center]{{IMG 01-unique-fight.png}}[/center]
 One Style also adds Champion and Unique monsters, Magic and Rare gear with random affixes, 58 Unique items, rare dungeon sets, Ember rerolls and six ring slots. All of that works without a class too: leave it on Off.[/center]
 
-[center][url=https://discord.gg/q6aexZZSAf]Discord (updates, support and feedback)[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/center]
+[center][url=https://discord.gg/q6aexZZSAf]Discord (updates, support and feedback)[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/center]
 
 [size=5][b]Start here[/b][/size]
 This is One Style 0.4.0. It was tested on game version 0.11.7 (25 November 2026) with Melvor Mod Loader 0.3.0. Open a character, press the [b]Mods[/b] button in the top bar and pick [b]One Style[/b]. Choose Melee, Ranged or Magic, or leave it on [b]Off[/b] to keep the game's normal combat rules and still get the elites, rare items and extra ring slots. The choice is kept per character, and you can change it at any time for free.
@@ -444,4 +444,4 @@ Delete the folder [b]mods\OneStyle[/b]. The next time you open each character, M
 [size=5][b]Help[/b][/size]
 If something does not work, look at [b]MelvorModLoader.log[/b] in the game folder (it is written again on every start) and bring it to [url=https://discord.gg/q6aexZZSAf]Discord[/url] or the Posts tab.
 
-[center][url=https://discord.gg/q6aexZZSAf]Discord (updates, support and feedback)[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/center]
+[center][url=https://discord.gg/q6aexZZSAf]Discord (updates, support and feedback)[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/center]

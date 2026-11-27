@@ -35,7 +35,7 @@ UZUN ACIKLAMA (Description) - asagidaki cizgiden sonrasini oldugu gibi kopyala
 Is it safe to leave running? How many kills, how much XP, how much food per hour?
 The answer is on every monster card, worked out from [b]your[/b] character.[/center]
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
 This is Combat Advisor [b]0.1.1[/b], tested on game version [b]0.11.6-alpha.1[/b] with Melvor Mod Loader 0.2.0 (works from 0.1.3). Open a character and open the game's combat area menu: every monster card gets a line at the bottom. Press [b]Advisor[/b] on a card for the full picture.
@@ -101,4 +101,4 @@ Delete the folder [b]mods\CombatAdvisor[/b]. Your save needs no clean-up.
 [size=5][b]Help[/b][/size]
 When something does not work, look at [b]MelvorModLoader.log[/b] in the game folder (it is rewritten on every start) and bring it to [url=https://discord.gg/q6aexZZSAf]Discord[/url]. Bug reports and ideas are welcome there and in the Posts tab.
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]

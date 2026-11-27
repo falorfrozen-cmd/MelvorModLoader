@@ -73,7 +73,7 @@ UZUN ACIKLAMA (Description) - asagidaki cizgiden sonrasini oldugu gibi kopyala
 Pick how many extra slots and play as usual.
 When you start a new action, the ones you were doing keep running next to it.[/center]
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
 This is Multitask [b]0.7.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character, press [b]F5[/b] (or use the [b]Mods[/b] button in the top bar) and set [b]Extra slots[/b] with + and -.
@@ -141,4 +141,4 @@ Press Off and delete the folder [b]mods\Multitask[/b]. Your save needs no clean-
 [size=5][b]Help[/b][/size]
 When something does not work, look at [b]MelvorModLoader.log[/b] in the game folder (it is rewritten on every start) and bring it to [url=https://discord.gg/q6aexZZSAf]Discord[/url]. Bug reports and ideas are welcome there and in the Posts tab.
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]

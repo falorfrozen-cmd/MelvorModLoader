@@ -69,7 +69,7 @@ UZUN ACIKLAMA (Description) - asagidaki cizgiden sonrasini oldugu gibi kopyala
 New buttons right in the bank: a bulk sell window, one-click junk selling, bury all bones, open all chests.
 Quality of life, not a cheat: everything goes through the game's own functions at the game's own prices.[/center]
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
 This is Bulk Sell [b]0.4.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open the bank: the new buttons sit next to the search box. [b]F7[/b] opens the bulk sell window from anywhere.
@@ -121,4 +121,4 @@ Delete the folder [b]mods\BulkSell[/b].
 [size=5][b]Help[/b][/size]
 When something does not work, look at [b]MelvorModLoader.log[/b] in the game folder (it is rewritten on every start) and bring it to [url=https://discord.gg/q6aexZZSAf]Discord[/url]. Bug reports and ideas are welcome there and in the Posts tab.
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]

@@ -51,7 +51,7 @@ UZUN ACIKLAMA (Description) - asagidaki cizgiden sonrasini oldugu gibi kopyala
 [size=4][i]Your character, in your pocket.[/i][/size]
 At work, at school, in a café: see what your character is doing and change it from your phone's browser.[/center]
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]
 
 This is Phone Screen [b]0.1.1[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. It is still young: your feedback is very welcome.
 
@@ -125,4 +125,4 @@ Delete the folder [b]mods\PhoneScreen[/b]. Your save needs no clean-up.
 [size=5][b]Help[/b][/size]
 Something wrong? Bring [b]MelvorModLoader.log[/b] from the game folder to [url=https://discord.gg/q6aexZZSAf]Discord[/url] or the Posts tab. Ideas are welcome too.
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]

@@ -56,7 +56,7 @@ UZUN ACIKLAMA (Description) - asagidaki cizgiden sonrasini oldugu gibi kopyala
 Extract it into the game folder and the game loads every mod you put in its [b]mods[/b] folder.
 For players it is a one-time install. For mod authors it is a small, typed C# API with full access to the game.[/center]
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
 This is Melvor Mod Loader [b]0.3.0[/b] for Windows / Steam, tested on game version [b]0.11.7[/b] (the update of 25 November 2026). Melvor Idle 2 is in alpha: a game update can break the loader or a mod until they are updated. If the game ever fails to start, delete [b]override.cfg[/b] and it runs without mods again.
@@ -131,4 +131,4 @@ Mods are C# class libraries. Your code runs inside the game with direct, type-ch
 [size=5][b]Help[/b][/size]
 When something does not work, look at [b]MelvorModLoader.log[/b] in the game folder (it is rewritten on every start) and bring it to [url=https://discord.gg/q6aexZZSAf]Discord[/url]. Bug reports and ideas are welcome there and in the Posts tab.
 
-[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
+[center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]
