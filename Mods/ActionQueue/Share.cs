@@ -29,9 +29,13 @@ public static class Share
     /// <summary>Codes with a step of more than two goals (0.15.0): an older version refuses them instead of running the
     /// step with only two of its goals.</summary>
     public const string Prefix5 = "AQ5:";
+    /// <summary>Codes with the toolbelt (0.17.0: an Equip step for a toolbelt item, the goal "no X is left in the toolbelt"):
+    /// an older version refuses them instead of skipping the potion as gear it cannot put on.</summary>
+    public const string Prefix6 = "AQ6:";
 
     static bool UsesNew(Step s) => s.Or != null || s.Until > Until.Spent || s.IsEquip || s.IsSwitch;
     static bool Uses015(Step s) => s.Or != null && s.More is { Count: > 0 };
+    static bool Uses017(Step s) => s.IsToolbelt || s.Until == Until.ToolRunsOut || s.Others.Any(g => g.Until == Until.ToolRunsOut);
     static bool Uses013(Step s) => s.Until == Until.FoodRunsOut || s.Others.Any(g => g.Until == Until.FoodRunsOut) || s.IsFood;
     public const int MaxCodeLength = 20_000;
     public const int MaxSteps = 200;
@@ -79,7 +83,7 @@ public static class Share
     }
 
     static bool Sensible(int until, double amount) =>
-        until >= 0 && until <= (int)Until.FoodRunsOut && !double.IsNaN(amount) && !double.IsInfinity(amount) && amount >= 0 && amount <= 1_000_000_000;
+        until >= 0 && until <= (int)Until.ToolRunsOut && !double.IsNaN(amount) && !double.IsInfinity(amount) && amount >= 0 && amount <= 1_000_000_000;
 
     public static string Export(string name, IEnumerable<Step> steps, bool repeat, Goal? stop = null, bool stopAtEnd = false)
     {
@@ -95,7 +99,7 @@ public static class Share
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(packed);
         using var buffer = new MemoryStream();
         using (var deflate = new DeflateStream(buffer, CompressionLevel.SmallestSize, leaveOpen: true)) deflate.Write(json, 0, json.Length);
-        string head = steps.Any(Uses015) ? Prefix5 : stopAtEnd || steps.Any(Uses013) ? Prefix4 : stop != null ? Prefix3 : steps.Any(UsesNew) ? Prefix2 : Prefix;
+        string head = steps.Any(Uses017) ? Prefix6 : steps.Any(Uses015) ? Prefix5 : stopAtEnd || steps.Any(Uses013) ? Prefix4 : stop != null ? Prefix3 : steps.Any(UsesNew) ? Prefix2 : Prefix;
         return head + Convert.ToBase64String(buffer.ToArray()).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
@@ -116,14 +120,14 @@ public static class Share
         code = new string((code ?? "").Where(c => !char.IsWhiteSpace(c)).ToArray());
         if (code.Length == 0) { problem = Lang.T("share.there_no_code_read_paste", "There is no code to read. Paste one into the box first."); return false; }
         if (code.Length > MaxCodeLength) { problem = Lang.T("share.text_too_long_share_code", "That text is too long to be a share code."); return false; }
-        string prefix = new[] { Prefix5, Prefix4, Prefix3, Prefix2 }.FirstOrDefault(p => code.StartsWith(p, StringComparison.Ordinal)) ?? Prefix;
+        string prefix = new[] { Prefix6, Prefix5, Prefix4, Prefix3, Prefix2 }.FirstOrDefault(p => code.StartsWith(p, StringComparison.Ordinal)) ?? Prefix;
         if (!code.StartsWith(prefix, StringComparison.Ordinal))
         {
-            // "AQ6:..." and later: made by a newer Action Queue than this one.
+            // "AQ7:..." and later: made by a newer Action Queue than this one.
             int colon = code.IndexOf(':');
             problem = colon > 2 && colon <= 6 && code.StartsWith("AQ", StringComparison.Ordinal) && code[2..colon].All(char.IsDigit)
                 ? Lang.T("share.code_was_made_by_newer", "That code was made by a newer version of Action Queue. Update the mod to read it.")
-                : Lang.T("share.not_a_share_code", "That is not an Action Queue share code (it must start with AQ1: to AQ5:).");
+                : Lang.T("share.not_a_share_code", "That is not an Action Queue share code (it must start with AQ1: to AQ6:).");
             return false;
         }
 

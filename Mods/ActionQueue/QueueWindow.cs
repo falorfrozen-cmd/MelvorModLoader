@@ -4,6 +4,7 @@ using System.Linq;
 using CheatMenu;
 using GamesByMalcs.Melvor2;
 using GamesByMalcs.Melvor2.Components.Actions;
+using GamesByMalcs.Melvor2.Components.Toolbelt;
 using GamesByMalcs.Melvor2.Data.Items;
 using GamesByMalcs.Melvor2.Entities;
 using Godot;
@@ -19,6 +20,7 @@ public sealed class QueueWindow
         Lang.T("window.only_many_item_left", "only this many of an item are left"), Lang.T("window.i_make_many_more_item", "I make this many more of an item"), Lang.T("window.has_been_done_many_times", "it has been done this many times"),
         Lang.T("window.has_used_up_many_item", "it has used up this many of an item"), Lang.T("window.node_unlocks_constellation_earned", "node unlocks of this constellation are earned"),
         Lang.T("window.astrology_event_has_been_seen", "an astrology event has been seen this many times"), Lang.T("window.mastery_task_complete", "a mastery task is complete"), Lang.T("window.food_runs_out", "the food runs out"),
+        Lang.T("window.tool_runs_out", "a toolbelt item runs out"),
     };
 
     /// <summary>One theme for the window and for the popups of its pick lists (a popup is a window of its own).</summary>
@@ -49,6 +51,7 @@ public sealed class QueueWindow
         public readonly OptionButton Node = new() { CustomMinimumSize = new Vector2(110, 0) };
         public readonly OptionButton Event = new() { CustomMinimumSize = new Vector2(250, 0), FitToLongestItem = false, ClipText = true };
         public readonly PickList<string> Task = new(Lang.T("window.choose_mastery_task", "Choose a mastery task"), s_theme);
+        public readonly PickList<Item> Tool = new(Lang.T("window.choose_toolbelt_item", "Choose a toolbelt item"), s_theme);
         /// <summary>"+ or" (another row) and "-" (this row away): shown on the last row in use.</summary>
         public readonly Button More = new() { Text = Lang.T("window.goal.add", "+ or") };
         public readonly Button Less = new() { Text = Lang.T("window.goal.remove", "-") };
@@ -80,6 +83,16 @@ public sealed class QueueWindow
     readonly OptionButton _foodSkill = new() { Visible = false, CustomMinimumSize = new Vector2(150, 0) };
     /// <summary>The list key of a food in the Equip list (food is no gear: its own keys).</summary>
     const string FoodKeyPrefix = "food:";
+    /// <summary>The list key of a toolbelt item in the Equip list (0.17.0; an item can be gear and a toolbelt item: its own keys).</summary>
+    public const string ToolKeyPrefix = "toolbelt:";
+    /// <summary>"Until no X is left in the toolbelt" (0.17.0): the chosen skill's toolbelt items that get used up.</summary>
+    readonly PickList<Item> _toolPick = new(Lang.T("window.choose_toolbelt_item", "Choose a toolbelt item"), s_theme);
+    /// <summary>Each skill's toolbelt items that get used up, by entity id (made when the window meets a character).</summary>
+    Dictionary<string, List<Item>> _usedUp = new();
+    /// <summary>The skill the toolbelt item lists were last made for ("" after the window opened again: made afresh).</summary>
+    string _toolsFor = "";
+    /// <summary>The skill they were made for, also across a reopened window (a step being edited keeps its item then).</summary>
+    string _toolsSkill = "";
     readonly Tree _table;
     Button _runFrom = null!;
     readonly Button _run = new() { CustomMinimumSize = new Vector2(150, 0) };
@@ -347,6 +360,13 @@ public sealed class QueueWindow
             tasks.Control.TooltipText = Lang.T("window.mastery_guild_tasks_skill_fight", "The Mastery Guild's tasks of this skill (a fight: of the combat skills). Click and type to search.\nThe ones for the chosen target come first. The step is over when the game marks the task complete.");
         }
         until.AddChild(_taskPick.Control);
+        foreach (PickList<Item> tools in _ors.Select(r => r.Tool).Prepend(_toolPick))
+        {
+            tools.Control.CustomMinimumSize = new Vector2(300, 0);
+            tools.HintWidth = 140;   // ("25 in the toolbelt" stays readable)
+            tools.Control.TooltipText = Lang.T("window.toolbelt_goal_tip", "A potion, oven mitts or another toolbelt item this skill uses up. The step is over once none of it is left in the toolbelt\n(the game takes the last one out of its slot). The ones in the toolbelt now come first.");
+        }
+        until.AddChild(_toolPick.Control);
         foreach (PickList<string> tasks in _ors.Select(r => r.Task).Prepend(_taskPick))
             tasks.Picked += e =>
             {
@@ -381,7 +401,7 @@ public sealed class QueueWindow
             orLabel.CustomMinimumSize = new Vector2(50, 0);
             row.Row.AddChild(orLabel);
             FillKinds(row.Pick, withStops: false);
-            row.Pick.ItemSelected += _ => { OrChanged(row); FillTasks(); };
+            row.Pick.ItemSelected += _ => { OrChanged(row); FillTasks(); FillTools(); };
             row.Row.AddChild(row.Pick);
             row.Row.AddChild(row.Amount);
             row.Item.Control.CustomMinimumSize = new Vector2(280, 0);
@@ -390,6 +410,7 @@ public sealed class QueueWindow
             row.Row.AddChild(row.Node);
             row.Row.AddChild(row.Event);
             row.Row.AddChild(row.Task.Control);
+            row.Row.AddChild(row.Tool.Control);
             row.Row.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
             row.More.TooltipText = Lang.F("window.goal.add_tip", "Another goal for this step: it is over when any one of its goals is reached (up to {most} goals).", ("most", Step.MostGoals));
             row.More.Pressed += () =>
@@ -1011,9 +1032,11 @@ public sealed class QueueWindow
     public void Show(Game game)
     {
         FillLanguages();   // (a language file may have been put next to the mod meanwhile)
+        _toolsFor = "";    // (the counts in the toolbelt item lists are made again)
         if (!ReferenceEquals(_game, game))
         {
             _game = game;
+            _usedUp = Queue.UsedUpToolbeltItems(game);
             _skills = Targets.Skills(game);
             _levelSkills = game.LeveledEntities.Select(s => s.DisplayName.Text).ToList();
             Fill(_skillPick, _skills.Select(s => s.Entity.DisplayName.Text).Append(SellChoice).Append(EquipChoice).Append(SwitchChoice));
@@ -1973,6 +1996,7 @@ public sealed class QueueWindow
         return name == "" || _target.Pick(name);
     }
     public List<string> TargetKeys => _target.VisibleKeys;
+    public string? TargetChosen => _target.SelectedKey;
     public string PseudoNoteShown => _pseudoNote.Visible ? _pseudoNote.Text : "";
     public bool KeepShown => _amount.Visible && _keepShown;
     public bool OrShown => _orBox.Visible;
@@ -2054,6 +2078,14 @@ public sealed class QueueWindow
     /// <summary>The skills that eat food (each has a food box), by entity id: their steps can wait for the food to run out.</summary>
     readonly HashSet<string> _foodSkills = new();
     bool HasFood => !Pseudo && _skillPick.Selected >= 0 && _skillPick.Selected < _skills.Count && _foodSkills.Contains(_skills[_skillPick.Selected].Entity.Id);
+    /// <summary>The chosen skill uses up toolbelt items (potions, oven mitts...): its steps can wait for one to run out.</summary>
+    bool HasTool => !Pseudo && _skillPick.Selected >= 0 && _skillPick.Selected < _skills.Count && _usedUp.TryGetValue(_skills[_skillPick.Selected].Entity.Id, out var used) && used.Count > 0;
+    /// <summary>Equip, and a toolbelt item is picked (0.17.0): the step puts it in its skill's toolbelt.</summary>
+    bool EquipIsToolbelt => Equipping && _target.Selected?.Key.StartsWith(ToolKeyPrefix, StringComparison.Ordinal) == true;
+    /// <summary>The toolbelt item picked goes in as a stack (a potion), not as one (a tool).</summary>
+    bool ChosenToolStacks => EquipIsToolbelt && _game != null && _target.Selected is { } chosen
+        && _game.Data.GetDataRegistryOutput<Item>().GetAllObjects().FirstOrDefault(i => i.Id == chosen.Value.Id) is { } it
+        && it.Capabilities.TryGet<ToolbeltCapability>(out var cap) && cap.CanEquipQuantity;
     bool _wasSelling;
 
     /// <summary>The goal kinds are list entries whose id is the <see cref="Until"/> number (Astrology has two more).</summary>
@@ -2062,7 +2094,7 @@ public sealed class QueueWindow
     /// <summary>The goals the chosen skill offers: the astrology ones for Astrology, "the food runs out" for a skill that eats.</summary>
     void FillKinds(OptionButton pick, bool withStops)
     {
-        bool astrology = Astrology, food = HasFood;
+        bool astrology = Astrology, food = HasFood, tool = HasTool;
         int keep = pick.Selected >= 0 ? pick.GetSelectedId() : -1;
         pick.Clear();
         for (int i = 0; i < UntilNames.Length; i++)
@@ -2071,6 +2103,7 @@ public sealed class QueueWindow
             if (kind == Until.Stops && !withStops) continue;
             if (kind is Until.Nodes or Until.Event && !astrology) continue;
             if (kind == Until.FoodRunsOut && !food) continue;
+            if (kind == Until.ToolRunsOut && !tool) continue;
             pick.AddItem(UntilNames[i], i);
         }
         int index = keep >= 0 ? pick.GetItemIndex(keep) : -1;
@@ -2085,12 +2118,14 @@ public sealed class QueueWindow
         ShowMode();
         _nodePick.Visible = _eventPick.Visible = false;
         _taskPick.Control.Visible = false;
+        _toolPick.Control.Visible = false;
         if (pseudo)
         {
             // Sell: which item, and how many to keep in the bank. Equip: what to put on (and for a stack, how many to
             // keep; for a food, which skill eats it). Go to a saved queue: which one.
             bool food = equipping && EquipIsFood;
-            bool keep = selling || equipping && !EquipIsLoadout && !food;
+            bool tool = equipping && EquipIsToolbelt;
+            bool keep = selling || equipping && !EquipIsLoadout && !food && (!tool || ChosenToolStacks);
             _untilLabel.Text = keep ? Lang.T("window.label.keep", "keep") : food ? Lang.T("window.label.food_for", "for") : "";
             _keepShown = keep;
             _foodSkill.Visible = food;
@@ -2107,9 +2142,11 @@ public sealed class QueueWindow
                 _amount.Value = 0;
             }
             _amount.TooltipText = selling ? Lang.T("window.how_many_keep_bank_sells", "How many to keep in the bank: 0 sells all of them.")
+                : tool ? Lang.T("window.toolbelt_keep_tip", "How many to keep in the bank: 0 puts all of them in the toolbelt.")
                 : Lang.T("window.arrows_bolts_javelins_other_stacks", "For arrows, bolts, javelins and other stacks: how many to keep in the bank (0 puts all of them on).\nOther gear is simply put on.");
             _pseudoNote.Text = switching ? Lang.T("window.queue_goes_with_saved_queue", "the queue goes on with this saved queue once every step before it is over (in every lane)")
                 : equipping && EquipIsLoadout ? Lang.T("window.switches_loadout_gear_food_prayers", "switches to this loadout (gear, food, prayers and spells) while the game is open")
+                : tool ? Lang.T("window.toolbelt_puts_from_bank", "puts it from the bank into its toolbelt slot, also while the game is closed")
                 : food ? (_foodSkill.ItemCount == 0 ? Lang.T("window.no_skill_game_eats_food", "no skill in this game eats food") : Lang.T("window.makes_food_skill_eats_as", "makes it the food this skill eats, as its own food box does, while the game is open"))
                 : equipping ? Lang.T("window.puts_from_bank_while_game", "puts it on from the bank while the game is open") : "";
             _pseudoNote.Visible = _pseudoNote.Text != "";
@@ -2128,8 +2165,9 @@ public sealed class QueueWindow
             _amount.Value = _lastKind == Until.ItemLeft ? _amountLeft : Math.Max(1, _amountOther);
         }
         var kind = Kind;
-        _amount.Visible = kind is not (Until.Stops or Until.Mastery or Until.FoodRunsOut);
+        _amount.Visible = kind is not (Until.Stops or Until.Mastery or Until.FoodRunsOut or Until.ToolRunsOut);
         _item.Control.Visible = kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent;
+        _toolPick.Control.Visible = kind == Until.ToolRunsOut;
         _amount.MinValue = kind == Until.ItemLeft ? 0 : 1;
         if (kind == Until.ItemLeft && _lastKind != Until.ItemLeft)
         {
@@ -2152,6 +2190,7 @@ public sealed class QueueWindow
         _eventPick.Visible = kind == Until.Event;
         _taskPick.Control.Visible = kind == Until.Mastery;
         FillTasks();
+        FillTools();
         _amount.Suffix = kind == Until.Minutes ? Lang.T("window.plan.min", " min") : "";
         _amount.MaxValue = kind == Until.Level ? 999 : 100_000_000;
         if (kind == Until.Level && _amount.Value > 999) _amount.Value = 99;
@@ -2175,6 +2214,7 @@ public sealed class QueueWindow
         }
         foreach (GoalRow r in _ors) OrChanged(r);
         FillTasks();
+        FillTools();
     }
 
     void FillOrKinds()
@@ -2182,12 +2222,13 @@ public sealed class QueueWindow
         foreach (GoalRow r in _ors) FillKinds(r.Pick, withStops: false);
     }
 
-    void OrChanged() { foreach (GoalRow r in _ors) OrChanged(r); FillTasks(); }
+    void OrChanged() { foreach (GoalRow r in _ors) OrChanged(r); FillTasks(); FillTools(); }
 
     void OrChanged(GoalRow r)
     {
         var kind = r.Kind;
-        r.Amount.Visible = kind is not (Until.Stops or Until.Mastery or Until.FoodRunsOut);
+        r.Amount.Visible = kind is not (Until.Stops or Until.Mastery or Until.FoodRunsOut or Until.ToolRunsOut);
+        r.Tool.Control.Visible = kind == Until.ToolRunsOut;
         r.Item.Control.Visible = kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent;
         r.Level.Visible = kind == Until.Level;
         r.Node.Visible = kind == Until.Nodes;
@@ -2273,6 +2314,55 @@ public sealed class QueueWindow
     public string? TaskChosen(bool or = false) => (or ? _orTask : _taskPick).SelectedKey;
     public bool ChooseTask(string id, bool or = false) => (or ? _orTask : _taskPick).Select(id);
 
+    /// <summary>
+    /// The toolbelt items the chosen skill uses up (potions, oven mitts, utilities), in every toolbelt item list: the ones
+    /// in its toolbelt now first (the first of them is picked), then the rest by slot. Made only while a goal is "a
+    /// toolbelt item runs out", and only again for another skill or once the window was opened again; a list made again
+    /// keeps the player's choice.
+    /// </summary>
+    void FillTools()
+    {
+        if (Pseudo || _game == null || !(Kind == Until.ToolRunsOut || OrRows.Any(r => r.Kind == Until.ToolRunsOut))) return;
+        string entity = _skillPick.Selected >= 0 && _skillPick.Selected < _skills.Count ? _skills[_skillPick.Selected].Entity.Id : "";
+        if (entity == _toolsFor) return;
+        _toolsFor = entity;
+        ToolbeltComponent? toolbelt = Queue.ToolbeltOfSkill(_game, entity);
+        GamesByMalcs.Melvor2.Entities.Bank.BankEntity? bank = _game.Entities.TryGetObjectById("MelvorBase:Bank", out GameEntity? b) ? b as GamesByMalcs.Melvor2.Entities.Bank.BankEntity : null;
+        string inNow = Lang.T("window.toolbelt_in_it_now", "In the toolbelt now");
+        var entries = new List<PickEntry<Item>>();
+        foreach (Item item in _usedUp.GetValueOrDefault(entity) ?? new List<Item>())
+        {
+            string slot = item.Capabilities.TryGet<ToolbeltCapability>(out var cap) ? cap.FitsInSlot.DisplayName.Text : "";
+            int on = Math.Max(0, toolbelt?.GetEquippedQuantity(item) ?? 0), have = bank?.Inventory.GetQuantity(item) ?? 0;
+            entries.Add(new PickEntry<Item>(item.Id, item.DisplayName.GetPluralText(1), item, on > 0 ? inNow : slot, "", item.Icon, null,
+                on > 0 ? Lang.F("window.toolbelt_on", "{on:N0} in the toolbelt", ("on", on)) : have > 0 ? Lang.F("window.bank", "{owned:N0} in bank", ("owned", have)) : "",
+                Muted: on <= 0 && have <= 0, Keywords: slot));
+        }
+        entries = entries.OrderBy(e => e.Group == inNow ? 0 : 1).ThenBy(e => e.Group, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Text, StringComparer.OrdinalIgnoreCase).ToList();
+        string? first = entries.FirstOrDefault(e => e.Group == inNow)?.Key ?? entries.FirstOrDefault()?.Key;
+        bool same = entity == _toolsSkill;
+        _toolsSkill = entity;
+        foreach (PickList<Item> list in _ors.Select(r => r.Tool).Prepend(_toolPick))
+        {
+            string? had = list.SelectedKey, hadText = list.ButtonText;
+            string? keep = same && had != null && entries.Any(e => e.Key == had) ? had : null;
+            list.SetEntries(entries, keep ?? first);
+            // A step being edited whose item this game does not have stays shown as missing (the window opened again
+            // meanwhile): saving then asks for a choice instead of quietly taking the list's first item.
+            if (same && _editing != null && had != null && keep == null) list.ShowMissing(had, hadText);
+        }
+    }
+
+    /// <summary>For tests: the toolbelt item lists' keys (the step's own row, or the first "or" row) and picking one.</summary>
+    public List<string> ToolGoalKeys(bool or = false) => (or ? _ors[0].Tool : _toolPick).VisibleKeys;
+    public string? ToolGoalChosen(bool or = false) => (or ? _ors[0].Tool : _toolPick).SelectedKey;
+    public bool ChooseToolGoal(string itemId, bool or = false) => (or ? _ors[0].Tool : _toolPick).Select(itemId);
+    public void OpenToolGoals() => _toolPick.Open();
+    public void CloseToolGoals() => _toolPick.Close();
+    /// <summary>For tests: the Do list opened with a search typed in, as a player looks for something.</summary>
+    public void OpenTargets(string search) { _target.Open(); _target.SetFilter(search); }
+    public void CloseTargets() => _target.Close();
+
     /// <summary>The events the chosen constellation can show, in both event lists (kept when still there).</summary>
     void FillEvents()
     {
@@ -2305,8 +2395,20 @@ public sealed class QueueWindow
         GamesByMalcs.Melvor2.Entities.Bank.BankEntity? bank = game.Entities.TryGetObjectById("MelvorBase:Bank", out GameEntity? b) ? b as GamesByMalcs.Melvor2.Entities.Bank.BankEntity : null;
         var gear = new List<PickEntry<Target>>();
         var food = new List<PickEntry<Target>>();
+        var tools = new List<PickEntry<Target>>();
+        var bySlot = Queue.ToolbeltsBySlot(game);
         foreach (Item item in game.Data.GetDataRegistryOutput<Item>().GetAllObjects())
         {
+            // Toolbelt items (0.17.0): potions, oven mitts, utilities and tools, under the skill whose toolbelt takes them.
+            if (item.Capabilities.TryGet<ToolbeltCapability>(out var tool) && bySlot.TryGetValue(tool.FitsInSlot, out var belt))
+            {
+                string toolName = item.DisplayName.GetPluralText(1), skill = belt.Entity.DisplayName.Text, slot = tool.FitsInSlot.DisplayName.Text;
+                int have = bank?.Inventory.GetQuantity(item) ?? 0, on = Math.Max(0, belt.Toolbelt.GetEquippedQuantity(item));
+                tools.Add(new PickEntry<Target>(ToolKeyPrefix + item.Id, toolName, new Target(item.Id, toolName, belt.Entity.Id),
+                    Lang.F("window.toolbelt_group", "{skill} toolbelt", ("skill", skill)), slot, item.Icon, tool.FitsInSlot.Icon,
+                    on > 0 ? Lang.F("window.toolbelt_on", "{on:N0} in the toolbelt", ("on", on)) : have > 0 ? Lang.F("window.bank", "{owned:N0} in bank", ("owned", have)) : "",
+                    Lang.F("window.toolbelt_entry_tip", "Goes in the {slot} slot of the {skill} toolbelt.", ("slot", slot), ("skill", skill)), Muted: have <= 0, Keywords: "toolbelt " + skill));
+            }
             // Food (0.13.0, by madmousepad): the step makes it the food of a skill picked next to the list.
             if (item.Capabilities.TryGet<GamesByMalcs.Melvor2.Components.CombatFood.FoodCapability>(out _))
             {
@@ -2330,6 +2432,7 @@ public sealed class QueueWindow
                 owned > 0 ? Lang.F("window.bank", "{owned:N0} in bank", ("owned", owned)) : "", Muted: owned <= 0));
         }
         entries.AddRange(gear.OrderBy(g => g.Group, StringComparer.OrdinalIgnoreCase).ThenBy(g => g.Text, StringComparer.OrdinalIgnoreCase));
+        entries.AddRange(tools.OrderBy(t => t.Group, StringComparer.OrdinalIgnoreCase).ThenBy(t => t.Subgroup, StringComparer.OrdinalIgnoreCase).ThenBy(t => t.Text, StringComparer.OrdinalIgnoreCase));
         entries.AddRange(food.OrderBy(f => f.Muted).ThenBy(f => f.Text, StringComparer.OrdinalIgnoreCase));
         return entries;
     }
@@ -2345,7 +2448,7 @@ public sealed class QueueWindow
     }
 
     /// <summary>Reads one goal from its controls (the step's own row, or the "or until" row).</summary>
-    bool ReadGoal(Until kind, double amount, PickList<Item> item, OptionButton level, OptionButton node, OptionButton ev, PickList<string> task, out Goal goal)
+    bool ReadGoal(Until kind, double amount, PickList<Item> item, OptionButton level, OptionButton node, OptionButton ev, PickList<string> task, PickList<Item> tool, out Goal goal)
     {
         goal = new Goal { Until = kind, Amount = amount };
         if (kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent)
@@ -2377,6 +2480,13 @@ public sealed class QueueWindow
         }
         else if (kind == Until.FoodRunsOut)
             goal.Amount = 0;   // (the step's skill and the food its box holds when the step runs: nothing to pick)
+        else if (kind == Until.ToolRunsOut)
+        {
+            if (tool.Selected is not { } used) { Say(Lang.T("window.pick_toolbelt_item_first", "Pick the toolbelt item first.")); return false; }
+            goal.Subject = used.Value.Id;
+            goal.SubjectName = used.Value.DisplayName.GetPluralText(1);
+            goal.Amount = 0;
+        }
         return true;
     }
 
@@ -2403,6 +2513,17 @@ public sealed class QueueWindow
                     Entity = Step.EquipEntity, TargetId = gear.Value.Id, Subject = Step.FoodSubject, Lane = NewLane,
                     Extra = _foodSkill.GetItemMetadata(_foodSkill.Selected).AsString(), SubjectName = _foodSkill.GetItemText(_foodSkill.Selected),
                     Name = $"Equip: {gear.Text}",
+                });
+                return;
+            }
+            if (EquipIsToolbelt)
+            {
+                bool stacks = ChosenToolStacks;
+                string owner = _game != null && _game.Entities.TryGetObjectById(gear.Value.Extra, out GameEntity? skill) && skill != null ? skill.DisplayName.Text : "";
+                Put(new Step
+                {
+                    Entity = Step.EquipEntity, TargetId = gear.Value.Id, Subject = stacks ? Step.ToolbeltStack : Step.ToolbeltOne, Lane = NewLane,
+                    Extra = gear.Value.Extra, SubjectName = owner, Amount = stacks ? _amount.Value : 0, Name = $"Equip: {gear.Text}",
                 });
                 return;
             }
@@ -2440,14 +2561,14 @@ public sealed class QueueWindow
             step.Mode = _mode.ButtonPressed ? _modeId : "";
             if (_mode.ButtonPressed) step.Name += $" ({_mode.Text})";
         }
-        if (!ReadGoal(step.Until, step.Amount, _item, _levelPick, _nodePick, _eventPick, _taskPick, out Goal main)) return;
+        if (!ReadGoal(step.Until, step.Amount, _item, _levelPick, _nodePick, _eventPick, _taskPick, _toolPick, out Goal main)) return;
         step.Subject = main.Subject;
         step.SubjectName = main.SubjectName;
         step.Amount = main.Amount;
         var others = new List<Goal>();
         foreach (GoalRow r in OrRows)
         {
-            if (!ReadGoal(r.Kind, r.Amount.Value, r.Item, r.Level, r.Node, r.Event, r.Task, out Goal or)) return;
+            if (!ReadGoal(r.Kind, r.Amount.Value, r.Item, r.Level, r.Node, r.Event, r.Task, r.Tool, out Goal or)) return;
             others.Add(or);
         }
         step.SetOthers(others);
@@ -2548,7 +2669,7 @@ public sealed class QueueWindow
         _skillPick.Select(skill);
         FillKinds(_untilPick, withStops: true);
         FillOrKinds();
-        string wantKey = s.IsFood ? FoodKeyPrefix + s.TargetId : Catalog.Key(s.TargetId, s.Extra);
+        string wantKey = s.IsFood ? FoodKeyPrefix + s.TargetId : s.IsToolbelt ? ToolKeyPrefix + s.TargetId : Catalog.Key(s.TargetId, s.Extra);
         FillTargets(wantKey, suggest: false);
         // Equip for an item (or loadout) this game does not have: shown as missing, not swapped for the list's first entry
         // (saving then asks for a choice instead of quietly turning the step into another one).
@@ -2574,7 +2695,7 @@ public sealed class QueueWindow
             if (kindAt >= 0) _untilPick.Select(kindAt);
         }
         UntilChanged();
-        if (!Pseudo) LoadGoal(s, _item, _levelPick, _nodePick, _eventPick, _taskPick);
+        if (!Pseudo) LoadGoal(s, _item, _levelPick, _nodePick, _eventPick, _taskPick, _toolPick);
         if (!Pseudo) CapNodes(_amount, _nodePick, Kind);   // a node goal's cap is the chosen kind's (minor or major)
         _amount.Value = s.Amount;
         List<Goal> theirs = Pseudo ? new List<Goal>() : s.Others.ToList();
@@ -2590,7 +2711,8 @@ public sealed class QueueWindow
             OrChanged(r);
             FillEvents();
             FillTasks();
-            LoadGoal(or, r.Item, r.Level, r.Node, r.Event, r.Task);
+            FillTools();
+            LoadGoal(or, r.Item, r.Level, r.Node, r.Event, r.Task, r.Tool);
             CapNodes(r.Amount, r.Node, r.Kind);
             r.Amount.Value = or.Amount;
         }
@@ -2603,7 +2725,7 @@ public sealed class QueueWindow
     }
 
     /// <summary>Puts a goal's item, skill, node kind or event back into its pickers.</summary>
-    void LoadGoal(IGoal g, PickList<Item> item, OptionButton level, OptionButton node, OptionButton ev, PickList<string> task)
+    void LoadGoal(IGoal g, PickList<Item> item, OptionButton level, OptionButton node, OptionButton ev, PickList<string> task, PickList<Item> tool)
     {
         switch (g.Until)
         {
@@ -2623,6 +2745,9 @@ public sealed class QueueWindow
                 break;
             case Until.Mastery:
                 if (!task.Select(g.Subject)) task.ShowMissing(g.Subject, g.SubjectName + Lang.T("window.not_list", " (not in this list)"));
+                break;
+            case Until.ToolRunsOut:
+                if (!tool.Select(g.Subject)) tool.ShowMissing(g.Subject, g.SubjectName + Lang.T("window.not_list", " (not in this list)"));
                 break;
         }
     }

@@ -15,12 +15,18 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.16.0.zip   (name: Action Queue, version 0.16.0)  -  0.15.0 dosyasini Archived yap
+MAIN FILE:  dist\ActionQueue-0.17.0.zip   (name: Action Queue, version 0.17.0)  -  0.16.0 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.17.0
+- New: the toolbelt. Equip lists potions, oven mitts, utilities and tools under the skill whose toolbelt takes them, and the step puts the item from the bank into its slot (a potion whole, but for the number you keep in the bank). Unlike gear, this also works while the game is closed (asked on Nexus, thank you!)
+- New goal: "a toolbelt item runs out". Pick the potion or the mitts, and the step ends when none of it is left in the toolbelt. Put the mitts in, cook until they run out, start over, and they are always in use
+- With a combat loadout, switch the loadout first and put the potion in after it: a loadout brings its own toolbelt
+- Share codes with these start with AQ6: (older versions refuse them)
+
 0.16.0
 - New: fights while the game is closed. A fight step now starts, counts its kills and ends at its goal during offline progress like any other step, and the next step takes over. Until now it waited for the game to be open, because the game's music broke when a fight started or ended in that time. The queue holds the fight's music while the game is closed and sets it once when you come back (asked on Nexus, thank you!)
 - Fixed along the way: a death in a fight while the game was closed could stop the game's "now playing" music notice from showing until a restart
@@ -164,7 +170,10 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.16.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+This is Action Queue [b]0.17.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+
+[size=5][b]New in 0.17: potions and oven mitts[/b][/size]
+Equip now lists the toolbelt (the "Equipment Loadout" panel on a skill's page): potions, oven mitts, utilities and tools, grouped by the skill whose toolbelt takes them. The step puts the item from the bank into its slot (a potion whole, but for the number you keep in the bank), and it does so while the game is closed too. A new goal, [b]a toolbelt item runs out[/b], ends a step when none of that potion or those mitts is left in the toolbelt. The game never refills a slot by itself, so a small loop keeps it in use: Equip: Rabbit Oven Mitts, then Cooking until no Rabbit Oven Mitts is left in the toolbelt, with "start over" on.
 
 [size=5][b]New in 0.16: fights while the game is closed[/b][/size]
 A fight step now starts, counts its kills and ends at its goal while the game works out the time you were away, like any other step. Until now it waited for the game to be open: the game's music broke when a fight started or ended in that time. The queue holds the fight's music while the game is closed and sets it once when you come back. Gear and food are still only changed while the game is open, so an equip step waits for that, and a fight paused for a boss stays paused until you are back.
@@ -277,7 +286,7 @@ Plans cover Woodcutting, Mining, Fishing, Hunting, Smithing, Cooking, Crafting, 
 [size=5][b]How it works[/b][/size]
 [list]
 [*][b]Pick what to do:[/b] choose a skill, then click the list and type to search (grouped like the skill page, with the game's pictures), or press "Use what I am doing now".
-[*][b]Pick when it ends:[/b] when it stops by itself, when you own a number of an item, when you have made a number more of an item (whatever the bank already holds), when it has been done a number of times (every catch, hit, finished bar, lap or kill counts, like mastery), when it has used up a number of an item, when a skill reaches a level, after a number of minutes, when only a number of an item are left (fight until only 5 of your food are left), or when the food runs out (a fight, Thieving, Agility). For the item goal the item is filled in with what the action makes (Smithing: Gold Bar counts Gold Bars); you can still pick another one.
+[*][b]Pick when it ends:[/b] when it stops by itself, when you own a number of an item, when you have made a number more of an item (whatever the bank already holds), when it has been done a number of times (every catch, hit, finished bar, lap or kill counts, like mastery), when it has used up a number of an item, when a skill reaches a level, after a number of minutes, when only a number of an item are left (fight until only 5 of your food are left), when the food runs out (a fight, Thieving, Agility), or when a toolbelt item runs out (a potion, oven mitts). For the item goal the item is filled in with what the action makes (Smithing: Gold Bar counts Gold Bars); you can still pick another one.
 [*][b]Sacrificial Anvil per step:[/b] when the recipe has the game's anvil switch, tick the box next to it and that step smiths with the anvil; leave it unticked and it smiths without.
 [*][b]Start the queue.[/b] One line at the top of the screen shows the current step and its progress.
 [*][b]Start over at the end[/b] turns the queue into a loop.

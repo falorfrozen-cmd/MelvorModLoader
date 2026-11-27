@@ -19,12 +19,14 @@ using GamesByMalcs.Melvor2.EventBus;
 using GamesByMalcs.Melvor2.Saves;
 using GamesByMalcs.Melvor2.Components.ItemSales;
 using GamesByMalcs.Melvor2.Components.CombatFood;
+using GamesByMalcs.Melvor2.Components.Toolbelt;
+using GamesByMalcs.Melvor2.Components.ToolbeltEquipping;
 using GamesByMalcs.Melvor2.Entities.Astrology;
 
 namespace ActionQueue;
 
 /// <summary>When a step is over.</summary>
-public enum Until { Stops, Item, Level, Minutes, ItemLeft, Made, Times, Spent, Nodes, Event, Mastery, FoodRunsOut }   // new kinds go at the end: saved queues store the number
+public enum Until { Stops, Item, Level, Minutes, ItemLeft, Made, Times, Spent, Nodes, Event, Mastery, FoodRunsOut, ToolRunsOut }   // new kinds go at the end: saved queues store the number
 
 /// <summary>
 /// One goal of a step and what it counts from. A step is a goal itself; <see cref="Step.Or"/> is its second one.
@@ -145,6 +147,13 @@ public sealed class Step : IGoal
     /// </summary>
     public const string FoodSubject = "food";
     [JsonIgnore] public bool IsFood => IsEquip && Subject == FoodSubject && !TargetId.StartsWith(LoadoutPrefix, StringComparison.Ordinal);
+    /// <summary>
+    /// An Equip step for the toolbelt (0.17.0): TargetId is a potion, oven mitts, a utility or a tool, Extra the skill whose
+    /// toolbelt has its slot, SubjectName that skill's name. <see cref="ToolbeltStack"/>: it goes in whole but for Amount
+    /// kept in the bank (a potion); <see cref="ToolbeltOne"/>: one of it goes in (a tool).
+    /// </summary>
+    public const string ToolbeltStack = "toolbelt", ToolbeltOne = "tool";
+    [JsonIgnore] public bool IsToolbelt => IsEquip && Subject is ToolbeltStack or ToolbeltOne && !TargetId.StartsWith(LoadoutPrefix, StringComparison.Ordinal);
     /// <summary>A step that is not an action: it takes no place, is over at once, and waits for the steps before it.</summary>
     [JsonIgnore] public bool IsInstant => IsSell || IsEquip || IsSwitch;
 
@@ -180,6 +189,9 @@ public sealed class Step : IGoal
     [JsonIgnore] public string Goal => IsSell ? (Amount <= 0 ? Lang.T("goal.sell_all", "sell all of them") : Lang.F("goal.sell_all_but", "sell all but {amount:N0}", ("amount", Amount)))
         : IsSwitch ? GoOnText()
         : IsFood ? Lang.F("goal.as_food_for", "as the food for {skill}", ("skill", SubjectName != "" ? SubjectName : Extra))
+        : IsToolbelt ? (Subject == ToolbeltOne ? Lang.F("goal.toolbelt_one", "put it in the {skill} toolbelt", ("skill", SubjectName != "" ? SubjectName : Extra))
+                     : Amount <= 0 ? Lang.F("goal.toolbelt_all", "put all of them in the {skill} toolbelt", ("skill", SubjectName != "" ? SubjectName : Extra))
+                     : Lang.F("goal.toolbelt_keep", "put them in the {skill} toolbelt, keep {amount:N0} in the bank", ("skill", SubjectName != "" ? SubjectName : Extra), ("amount", Amount)))
         : IsEquip ?(TargetId.StartsWith(LoadoutPrefix, StringComparison.Ordinal) ? Lang.T("goal.switch_loadout", "switch to this loadout") : Subject != "stack" ? Lang.T("goal.put_it_on", "put it on")
                      : Amount <= 0 ? Lang.T("goal.put_all_on", "put all of them on") : Lang.F("goal.put_on_keep", "put them on, keep {amount:N0} in the bank", ("amount", Amount)))
         : Others.Aggregate(GoalText(Until, Amount, SubjectName, Subject), (text, g) => Lang.F("goal.or", "{goal}, or {second}", ("goal", text), ("second", g.Text)));
@@ -209,6 +221,7 @@ public sealed class Step : IGoal
         Until.Event => Lang.P("goal.event", amount, "until {event} is seen", "until {event} is seen {count:N0} times", ("event", subjectName)),
         Until.Mastery => Lang.F("goal.mastery", "until the mastery task \"{task}\" is complete", ("task", Mastery.NameOf(subject, subjectName))),
         Until.FoodRunsOut => Lang.T("goal.food_runs_out", "until the food runs out"),
+        Until.ToolRunsOut => Lang.F("goal.tool_runs_out", "until no {item} is left in the toolbelt", ("item", subjectName)),
         _ => Lang.T("goal.stops_by_itself", "until it stops by itself"),
     };
 
@@ -1424,6 +1437,10 @@ public static class Queue
                     continue;
                 }
                 if (Goals(step).Any(g => g.Until == Until.FoodRunsOut) && FoodSlot(s_game, step.Entity) == null) continue;
+                // toolbelt (0.17.0): an item a toolbelt of this game has a slot for (for the Equip step and for the goal)
+                if (step.IsToolbelt) { if (ItemOf(s_game, step.TargetId) is { } tool && ToolbeltFor(s_game, tool, step.Extra) != null) known++; continue; }
+                // (only the step's own goal: an "or" goal for such an item is left out and the step runs to its other goals)
+                if (step.Until == Until.ToolRunsOut && ToolbeltOfItem(s_game, step, step) == null) continue;
                 if (step.IsEquip) { if (step.TargetId.StartsWith(Step.LoadoutPrefix, StringComparison.Ordinal) || ItemOf(s_game, step.TargetId) != null) known++; continue; }
                 ActionComponent? action = Targets.Find(s_game, step.Entity);
                 if (action != null && Targets.All(action).Any(t => t.Id == step.TargetId && t.Extra == step.Extra)) known++;
@@ -2136,6 +2153,15 @@ public static class Queue
             End(step, StepStatus.Skipped, Lang.F("queue.skipped_has_no_food_run", "skipped: {skill} has no food to run out of", ("skill", action.Entity.DisplayName.Text)));
             return;
         }
+        // "Until no X is left in the toolbelt" for an item no toolbelt of this game takes (a code from another version): never reached.
+        if (step.Until == Until.ToolRunsOut && ToolbeltOfItem(game, step, step) == null)
+        {
+            End(step, StepStatus.Skipped, Lang.F("queue.skipped_not_toolbelt_game", "skipped: {item} do not go in a toolbelt in this game", ("item", step.SubjectName)));
+            return;
+        }
+        if (!step.Ran && step.Run != RunState.Waiting)
+            foreach (Goal orTool in step.Others.Where(g => g.Until == Until.ToolRunsOut && ToolbeltOfItem(game, step, g) == null))
+                Trace($"{Number(step)}: a goal of it waits for a toolbelt item this game does not take ({orTool.SubjectName}): only its other goals can end it");
         if (!step.Ran && Goals(step).FirstOrDefault(g => ReadsTheGame(g) && Reached(game, step, g)) is { } already)
         {
             // Not needed: say what was found, so "it never mined" explains itself.
@@ -2148,6 +2174,7 @@ public static class Queue
                 Until.FoodRunsOut => FoodSlot(game, step.Entity)?.SelectedFood?.Item is { } food
                     ? Lang.F("queue.done_no_left_bank_food", "done: no {food} left in the bank (its food), nothing to do", ("food", food.DisplayName.GetPluralText(2)))
                     : Lang.T("queue.done_no_food_selected_nothing", "done: no food is selected for it, nothing to do"),
+                Until.ToolRunsOut => Lang.F("queue.done_none_toolbelt_nothing", "done: no {item} is in the toolbelt, nothing to do", ("item", already.SubjectName)),
                 _ => Lang.F("queue.done_already_level_nothing_do", "done: {subjectName} is already level {level}, nothing to do", ("subjectName", already.SubjectName), ("level", Level(game, already))),
             });
             return;
@@ -2255,11 +2282,15 @@ public static class Queue
     static void Equip(Game game, Step step)
     {
         if (EarlierAtWork(step)) { Wait(step, Lang.T("queue.waiting_steps_before_finish", "waiting: for the steps before it to finish")); return; }
+        // The toolbelt (0.17.0) is filled while the game is closed too (see ToolbeltOffline).
+        if (step.IsToolbelt && (Targets.OnMainThread || ToolbeltOffline)) { EquipToolbelt(game, step); return; }
         // Gear (and a loadout's food, prayers and spells) is only changed while the game is open (fights go on offline
         // since 0.16.0; gear changes were never tried there).
         if (!Targets.OnMainThread)
         {
-            string later = step.IsFood ? Lang.T("queue.waits_game_open_food", "waits for the game to be open (food)") : Lang.T("queue.waits_game_open_equipment", "waits for the game to be open (equipment)");
+            string later = step.IsFood ? Lang.T("queue.waits_game_open_food", "waits for the game to be open (food)")
+                : step.IsToolbelt ? Lang.T("queue.waits_game_open_toolbelt", "waits for the game to be open (toolbelt)")
+                : Lang.T("queue.waits_game_open_equipment", "waits for the game to be open (equipment)");
             if (step.State != later) { step.Run = RunState.Waiting; Say(step, StepStatus.Waiting, later); Trace($"{Number(step)}: {later}"); }
             return;
         }
@@ -2353,6 +2384,126 @@ public static class Queue
         if (selected) { step.Ran = true; s_ranThisRound = true; s_laneRan.Add(LaneOf(step)); }
         if (selected) End(step, StepStatus.Done, Lang.F("queue.done_now_eats_bank", "done: {skill} now eats {name} ({have:N0} in the bank)", ("skill", skill), ("name", name), ("have", have)));
         else End(step, StepStatus.Skipped, Lang.F("queue.skipped_game_did_not_give", "skipped: the game did not give {skill} the {name}", ("skill", skill), ("name", name)));
+    }
+
+    // ---------------------------------------------------------------- the toolbelt (0.17.0): potions, oven mitts, utilities, tools
+
+    /// <summary>
+    /// Toolbelt Equip steps also run while the game works out the time it was closed. The game itself takes a used-up
+    /// potion out of its slot there, through the same slot events; an Equip step was tried on the test save with real
+    /// offline progress (put in, topped up, swapped, a set piece) without an error in the game's log.
+    /// </summary>
+    static bool ToolbeltOffline => true;
+
+    /// <summary>Every skill's toolbelt, as the game's bank lists them (the toolbelt's own Equip goes through these).</summary>
+    static List<ToolbeltEquippingComponent> Toolbelts(Game game)
+    {
+        try { return Bank(game)?.ToolbeltComponents.RegisteredComponents.ToList() ?? new(); }
+        catch (Exception) { return new(); }
+    }
+
+    /// <summary>The toolbelt with a slot for this item: the given skill's first, then the first other one (null: none, or no toolbelt item).</summary>
+    internal static ToolbeltEquippingComponent? ToolbeltFor(Game game, Item item, string entityId)
+    {
+        if (!item.Capabilities.TryGet<ToolbeltCapability>(out _)) return null;
+        List<ToolbeltEquippingComponent> all = Toolbelts(game);
+        return all.FirstOrDefault(t => t.Entity.Id == entityId && t.Toolbelt.GetAvailableSlotsForItem(item).Count > 0)
+            ?? all.FirstOrDefault(t => t.Toolbelt.GetAvailableSlotsForItem(item).Count > 0);
+    }
+
+    /// <summary>A skill's own toolbelt (null: none).</summary>
+    internal static ToolbeltComponent? ToolbeltOfSkill(Game game, string entityId) =>
+        Toolbelts(game).FirstOrDefault(t => t.Entity.Id == entityId)?.Toolbelt;
+
+    /// <summary>For the window: the toolbelt each kind of slot belongs to (the first one that has it).</summary>
+    internal static Dictionary<ToolbeltSlotType, ToolbeltEquippingComponent> ToolbeltsBySlot(Game game)
+    {
+        var map = new Dictionary<ToolbeltSlotType, ToolbeltEquippingComponent>();
+        try
+        {
+            foreach (ToolbeltEquippingComponent belt in Toolbelts(game))
+                foreach (ToolbeltSlot slot in belt.Toolbelt.Config.ToolbeltSlots)
+                    map.TryAdd(slot.FitsType, belt);
+        }
+        catch (Exception) { }
+        return map;
+    }
+
+    /// <summary>For the window: each skill's toolbelt items that get used up (potions, oven mitts, some utilities), by the skill's entity id.</summary>
+    internal static Dictionary<string, List<Item>> UsedUpToolbeltItems(Game game)
+    {
+        var result = new Dictionary<string, List<Item>>();
+        try
+        {
+            Dictionary<ToolbeltSlotType, ToolbeltEquippingComponent> bySlot = ToolbeltsBySlot(game);
+            foreach (Item item in game.Data.GetDataRegistryOutput<Item>().GetAllObjects())
+            {
+                if (!item.Capabilities.TryGet<ToolbeltCapability>(out var cap) || cap.ConsumesOn is not { Count: > 0 }) continue;
+                if (!bySlot.TryGetValue(cap.FitsInSlot, out ToolbeltEquippingComponent? belt)) continue;
+                if (!result.TryGetValue(belt.Entity.Id, out List<Item>? list)) result[belt.Entity.Id] = list = new();
+                list.Add(item);
+            }
+        }
+        catch (Exception) { }
+        return result;
+    }
+
+    /// <summary>"Until no X is left in the toolbelt": the toolbelt that takes the goal's item (the step's skill's first).</summary>
+    static ToolbeltComponent? ToolbeltOfItem(Game game, Step step, IGoal g) =>
+        ItemOf(game, g.Subject) is { } item ? ToolbeltFor(game, item, step.Entity)?.Toolbelt : null;
+
+    /// <summary>How many of the goal's item its toolbelt holds (0: none; null: no toolbelt takes it).</summary>
+    static int? ToolLeft(Game game, Step step, IGoal g) =>
+        ToolbeltOfItem(game, step, g) is { } toolbelt && ItemOf(game, g.Subject) is { } item ? Math.Max(0, toolbelt.GetEquippedQuantity(item)) : null;
+
+    /// <summary>"40 in the toolbelt" / "none left in the toolbelt", for the State column.</summary>
+    static string ToolText(Game game, Step step, IGoal g)
+    {
+        if (ToolLeft(game, step, g) is not { } left) return Lang.F("queue.not_toolbelt_game", "{item} do not go in a toolbelt in this game", ("item", g.SubjectName));
+        if (left <= 0) return step.HasOthers ? Lang.F("queue.toolbelt_none_left_named", "no {item} left in the toolbelt", ("item", g.SubjectName)) : Lang.T("queue.toolbelt_none_left", "none left in the toolbelt");
+        return step.HasOthers ? Lang.F("queue.toolbelt_left_named", "{left:N0} {item} in the toolbelt", ("left", left), ("item", g.SubjectName))
+            : Lang.F("queue.toolbelt_left", "{left:N0} in the toolbelt", ("left", left));
+    }
+
+    /// <summary>
+    /// An Equip step for the toolbelt: once what comes before it is over, puts the item from the bank into its slot of a
+    /// skill's toolbelt, through the game's own toolbelt code (as the toolbelt's own Equip does). A potion goes in whole
+    /// but for the number to keep in the bank, on top of the same potion already in the slot; another item in that slot
+    /// goes back to the bank (the game does that). A tool goes in once.
+    /// </summary>
+    static void EquipToolbelt(Game game, Step step)
+    {
+        if (ItemOf(game, step.TargetId) is not { } item) { End(step, StepStatus.Skipped, NoItem(step.TargetId)); return; }
+        string name = item.DisplayName.GetPluralText(2);
+        if (!item.Capabilities.TryGet<ToolbeltCapability>(out var cap)) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_not_toolbelt", "skipped: {name} do not go in a toolbelt", ("name", name))); return; }
+        if (ToolbeltFor(game, item, step.Extra) is not { } belt) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_no_toolbelt_slot_for", "skipped: no toolbelt has a slot for {name}", ("name", name))); return; }
+        string skill = belt.Entity.DisplayName.Text;
+        ToolbeltComponent toolbelt = belt.Toolbelt;
+        bool stack = cap.CanEquipQuantity;
+        if (!stack && toolbelt.IsItemEquipped(item)) { End(step, StepStatus.Done, Lang.F("queue.done_already_toolbelt", "done: {item} is already in the {skill} toolbelt", ("item", item.DisplayName.GetPluralText(1)), ("skill", skill))); return; }
+        int have = Bank(game)?.Inventory.GetQuantity(item) ?? 0, before = Math.Max(0, toolbelt.GetEquippedQuantity(item));
+        long keep = stack ? (long)Math.Max(0, Math.Floor(step.Amount)) : 0;
+        int quantity = stack ? (int)Math.Min(int.MaxValue, Math.Max(0, have - keep)) : Math.Min(1, have);
+        if (quantity <= 0 && have <= 0)
+        {
+            if (before > 0) End(step, StepStatus.Done, Lang.F("queue.done_no_more_bank_toolbelt", "done: no more {name} in the bank ({on:N0} in the toolbelt)", ("name", name), ("on", before)));
+            else End(step, StepStatus.Skipped, Lang.F("queue.skipped_no_bank", "skipped: no {name} in the bank", ("name", name)));
+            return;
+        }
+        if (quantity <= 0) { End(step, StepStatus.Done, Lang.F("queue.done_nothing_toolbelt_bank_holds", "done: nothing to put in (the bank holds {have:N0}, {keep:N0} are kept)", ("have", have), ("keep", keep))); return; }
+        if (!cap.Requirements.AreMet) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_cannot_equipped_yet", "skipped: {name} cannot be equipped yet ({missing})", ("name", name), ("missing", Targets.Missing(cap.Requirements)))); return; }
+        // (the game's own Equip quietly does nothing for a locked slot: only unlocked ones are tried)
+        List<IActiveToolbeltSlot> slots = toolbelt.GetAvailableSlotsForItem(item).Where(a => a.Slot.UnlockRequirements.AreMet).ToList();
+        if (slots.Count == 0) { End(step, StepStatus.Skipped, Lang.F("queue.skipped_toolbelt_slot_locked", "skipped: the {skill} toolbelt slot for {name} is locked", ("skill", skill), ("name", name))); return; }
+        // The slot that holds this item already (topped up), else an empty one of its kind (a second utility), else the first.
+        IActiveToolbeltSlot slot = slots.FirstOrDefault(a => a.Equipped?.Item == item) ?? slots.FirstOrDefault(a => a.Equipped == null) ?? slots[0];
+        belt.EquipItem(item, quantity, slot.Slot);
+        int after = Math.Max(0, toolbelt.GetEquippedQuantity(item));
+        if (after > before) { step.Ran = true; s_ranThisRound = true; s_laneRan.Add(LaneOf(step)); }
+        if (after > before) End(step, StepStatus.Done, stack
+            ? Lang.F("queue.done_toolbelt_now", "done: put {added:N0} {name} in the {skill} toolbelt ({after:N0} in it now)", ("added", after - before), ("name", name), ("skill", skill), ("after", after))
+            : Lang.F("queue.done_toolbelt_one", "done: put {item} in the {skill} toolbelt", ("item", item.DisplayName.GetPluralText(1)), ("skill", skill)));
+        else End(step, StepStatus.Skipped, Lang.F("queue.skipped_game_did_not_toolbelt", "skipped: the game did not put {name} in the toolbelt", ("name", name)));
     }
 
     // ---------------------------------------------------------------- "run from here" (0.13.0, by madmousepad)
@@ -2874,15 +3025,17 @@ public static class Queue
         Until.Event => Seen(step, g) >= g.Amount,
         Until.Mastery => Mastery.Find(g.Subject) is { Done: true },
         Until.FoodRunsOut => FoodLeft(game, step) == 0,   // (a skill with no food slot never runs out)
+        Until.ToolRunsOut => ToolLeft(game, step, g) == 0,   // (nor does an item no toolbelt takes)
         _ => false,
     };
 
     /// <summary>Goals that read a number off the game (the bank, a level, a constellation): already reached before the step starts means nothing to do.</summary>
-    static bool ReadsTheGame(IGoal g) => g.Until is Until.Item or Until.Level or Until.ItemLeft or Until.Nodes or Until.Mastery or Until.FoodRunsOut;
+    static bool ReadsTheGame(IGoal g) => g.Until is Until.Item or Until.Level or Until.ItemLeft or Until.Nodes or Until.Mastery or Until.FoodRunsOut or Until.ToolRunsOut;
 
     /// <summary>"done" with the reason when the step's second goal ended it (the first one is the plain "done").</summary>
     static string DoneText(Game game, Step step) =>
         step.Until == Until.FoodRunsOut && Reached(game, step, step) ? Lang.T("queue.done_food_ran_out", "done: the food ran out")
+        : step.Until == Until.ToolRunsOut && Reached(game, step, step) ? Lang.F("queue.done_toolbelt_ran_out", "done: no {item} left in the toolbelt", ("item", step.SubjectName))
         : !Reached(game, step, step) && step.Others.FirstOrDefault(g => Reached(game, step, g)) is { } other
             ? Lang.F("queue.done_2", "done: {progress} ({second})", ("progress", Progress(game, step, other)), ("second", other.Text)) : Lang.T("state.done", "done");
 
@@ -2920,6 +3073,7 @@ public static class Queue
         Until.Event => $"{g.SubjectName} {Seen(step, g):N0} / {g.Amount:N0}",
         Until.Mastery => Mastery.Find(g.Subject) is { } task ? Lang.F("queue.mastery_task", "mastery task {progressText}", ("progressText", Mastery.ProgressText(task))) : Lang.T("queue.mastery_task_not_game", "mastery task not in this game"),
         Until.FoodRunsOut => FoodText(game, step),
+        Until.ToolRunsOut => ToolText(game, step, g),
         _ => Clock(step.Seconds),
     };
 

@@ -1,4 +1,4 @@
-Action Queue 0.16.0  -  a mod for Melvor Idle 2
+Action Queue 0.17.0  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:
@@ -56,7 +56,8 @@ columns' widths; a double-click on one puts the normal widths back. All of it is
      your preservation chance kept is not counted: only what really left the bank.
      Astrology has two more goals (see ASTROLOGY). Every skill also has "a mastery task
      is complete" (see MASTERY TASKS). A fight, Thieving and Agility also have "the food
-     runs out" (see FOOD).
+     runs out" (see FOOD). A skill that uses up potions or oven mitts also has "a toolbelt
+     item runs out" (see TOOLBELT).
   2b. Tick "or" to give the step a second goal: a row "or until ..." appears. "+ or" at
      the end of that row adds another one, up to four goals on a step, and "-" takes the
      last one away again. The step is over when any one of its goals is reached, and its
@@ -194,6 +195,9 @@ Choose "Equip" at the end of the skill list, then what to put on:
   - Like a sale, it waits for the steps before it, and nothing after it starts before it
     is done. Gear is only changed while the game is open: while the game works out the
     time you were away, the step waits ("waits for the game to be open").
+  - Below the gear come the toolbelt items (potions, oven mitts, utilities, tools), grouped
+    by the skill whose toolbelt takes them: the step puts the item in its toolbelt slot, also
+    while the game is closed (see TOOLBELT).
   - At the end of the list is the food. Pick one and, next to it, the skill that eats it
     (a fight, Thieving, Agility): the step makes it that skill's food, as the skill's own food
     box does (see FOOD).
@@ -217,6 +221,31 @@ A fight, Thieving and Agility each eat from their own food box. Two things work 
     fits. With no food chosen, or none left, the step ends at once and says so.
 Example (start over at the end ON): Cooking: Shrimp, make 200 more -> Equip: Shrimp for
 Thieving -> Thieving: Bandit Chief until the food runs out -> again.
+
+
+TOOLBELT
+--------
+Potions, oven mitts, utilities and tools go in a skill's toolbelt (the "Equipment Loadout"
+panel at the right of the skill's page; the game's quests call it the toolbelt). The game
+takes one out of its slot each time it is used (the oven mitts: each cooked recipe, unless
+your preservation chance keeps it) and leaves the slot empty when the last one is gone. It
+never puts more in from the bank by itself. What the queue does with it:
+  - Equip, then an item from the toolbelt groups ("Cooking toolbelt", "Combat toolbelt"...):
+    the step puts it from the bank into its slot through the game's own toolbelt. A potion
+    goes in whole but for "keep" (that many stay in the bank), on top of the same potion if
+    it is already there. Another item in that slot goes back to the bank, as in the game. A
+    tool simply goes in. Unlike gear, this also works while the game is closed.
+    None in the bank skips the step (or ends it, when some is still in the toolbelt); a slot
+    you have not unlocked yet skips it with the reason.
+  - "a toolbelt item runs out" as a goal (or as an "or" goal): pick the item; the ones in the
+    skill's toolbelt now come first. The step ends when none of it is left in the toolbelt.
+    With none in it when the step comes up, the step ends at once and says so.
+  - With a combat loadout, switch the loadout first and put the potion in after it. A loadout
+    brings its own toolbelt, so a potion put in before the switch stays with the old loadout.
+Example (start over at the end ON): Equip: Rabbit Oven Mitts -> Cooking: Shrimp until no
+Rabbit Oven Mitts is left in the toolbelt -> again. Each round puts in what the bank has, so
+the mitts are always in use. Once the bank has none left, a round has nothing to do and the
+queue ends. Tick "or" and add "a toolbelt item runs out" for a potion to watch both.
 
 
 GO TO A SAVED QUEUE
@@ -349,9 +378,10 @@ Press "Saved queues" at the top of the window.
   - "Copy share code" turns a queue into a short text (AQ1:... or, when it uses an "or"
     goal, an astrology goal, an Equip or a "Go to a saved queue" step, AQ2:...; with a
     "Stop the whole queue when", AQ3:...; with food for a skill, "the food runs out" or a stop
-    "when a round is over", AQ4:...; with a step of three or four goals, AQ5:...). Paste it in a
-    chat. A version older than 0.10 cannot read an AQ2 code, one older than 0.12 an AQ3 code,
-    one older than 0.13 an AQ4 code and one older than 0.15 an AQ5 code: it
+    "when a round is over", AQ4:...; with a step of three or four goals, AQ5:...; with a
+    toolbelt item or "a toolbelt item runs out", AQ6:...). Paste it in a chat. A version older
+    than 0.10 cannot read an AQ2 code, one older than 0.12 an AQ3 code, one older than 0.13 an
+    AQ4 code, one older than 0.15 an AQ5 code and one older than 0.17 an AQ6 code: it
     refuses it instead of running the queue without those parts. A code made by a newer version
     than yours says so: update the mod to read it.
   - To use somebody's code: paste it into the box and press Import, then Load it.
@@ -390,7 +420,8 @@ GOOD TO KNOW
   the game, fights wait for the game to be open again, as before.
   Good to know about that time:
     - Gear and food are still only changed while the game is open: an equip step waits for
-      that, and the steps after it wait with it.
+      that, and the steps after it wait with it. Toolbelt items are the exception (since
+      0.17.0): an Equip step puts a potion or oven mitts in while the game is closed too.
     - If your character dies in a fight while the game is closed, the queue pauses, as it does
       while the game is open.
     - A paused fight (a boss that waits for you, or the game's pause button) stays paused
