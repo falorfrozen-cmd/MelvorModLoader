@@ -98,6 +98,36 @@ public sealed class Step : IGoal
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Goal? Or { get; set; }
 
+    /// <summary>
+    /// The third and later goals (0.15.0), only next to <see cref="Or"/>: the step is over when any one goal is reached.
+    /// A version before 0.15.0 reads the step without them.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<Goal>? More { get; set; }
+
+    /// <summary>The most goals a step has (its own and three "or").</summary>
+    public const int MostGoals = 4;
+
+    /// <summary>The goals after the step's own, in order: <see cref="Or"/>, then <see cref="More"/>.</summary>
+    [JsonIgnore] public IEnumerable<Goal> Others => Or == null ? Enumerable.Empty<Goal>() : More == null ? new[] { Or } : More.Prepend(Or);
+
+    /// <summary>True when the step has more than its own goal.</summary>
+    [JsonIgnore] public bool HasOthers => Or != null;
+
+    /// <summary>
+    /// The goals after the step's own in their one shape: the first in Or, the rest in More (null when none), no empty
+    /// or "stops by itself" goal, no more than fit.
+    /// </summary>
+    public void Normalize() => SetOthers((More == null ? new[] { Or } : More.Prepend(Or))!);
+
+    /// <summary>Puts the goals after the step's own in place (the first in Or, the rest in More), no more than fit.</summary>
+    public void SetOthers(IEnumerable<Goal> goals)
+    {
+        var list = goals.Where(g => g != null && g.Until != Until.Stops).Take(MostGoals - 1).ToList();
+        Or = list.Count > 0 ? list[0] : null;
+        More = list.Count > 1 ? list.Skip(1).ToList() : null;
+    }
+
     /// <summary>A "sell" step is not an action: TargetId is the item, Amount how many to keep in the bank (0: sell all).</summary>
     public const string SellEntity = "ActionQueue:Sell";
     [JsonIgnore] public bool IsSell => Entity == SellEntity;
@@ -148,12 +178,22 @@ public sealed class Step : IGoal
     int IGoal.OwnedAtStart { get => OwnedAtStart; set => OwnedAtStart = value; }
 
     [JsonIgnore] public string Goal => IsSell ? (Amount <= 0 ? Lang.T("goal.sell_all", "sell all of them") : Lang.F("goal.sell_all_but", "sell all but {amount:N0}", ("amount", Amount)))
-        : IsSwitch ? Lang.T("goal.go_on_with_it", "and go on with it")
+        : IsSwitch ? GoOnText()
         : IsFood ? Lang.F("goal.as_food_for", "as the food for {skill}", ("skill", SubjectName != "" ? SubjectName : Extra))
         : IsEquip ?(TargetId.StartsWith(LoadoutPrefix, StringComparison.Ordinal) ? Lang.T("goal.switch_loadout", "switch to this loadout") : Subject != "stack" ? Lang.T("goal.put_it_on", "put it on")
                      : Amount <= 0 ? Lang.T("goal.put_all_on", "put all of them on") : Lang.F("goal.put_on_keep", "put them on, keep {amount:N0} in the bank", ("amount", Amount)))
-        : Or == null ? GoalText(Until, Amount, SubjectName, Subject)
-        : Lang.F("goal.or", "{goal}, or {second}", ("goal", GoalText(Until, Amount, SubjectName, Subject)), ("second", Or.Text));
+        : Others.Aggregate(GoalText(Until, Amount, SubjectName, Subject), (text, g) => Lang.F("goal.or", "{goal}, or {second}", ("goal", text), ("second", g.Text)));
+
+    /// <summary>A "go to a saved queue" step: and when that queue stops (its own stop, saved with it).</summary>
+    string GoOnText()
+    {
+        Preset? preset;
+        try { preset = Queue.GetPreset(TargetId); }
+        catch (Exception) { preset = null; }   // (the saved queues changed on another thread meanwhile: say it plainly)
+        if (preset?.StopWhen is not { } stop) return Lang.T("goal.go_on_with_it", "and go on with it");
+        return preset.StopAtEnd ? Lang.F("goal.go_on_stops_round", "and go on with it (it stops at the end of a round once {stop})", ("stop", Queue.StopText(stop)))
+            : Lang.F("goal.go_on_stops", "and go on with it (it stops when {stop})", ("stop", Queue.StopText(stop)));
+    }
 
     public static string GoalText(Until until, double amount, string subjectName, string subject = "") => until switch
     {
@@ -275,6 +315,11 @@ public static class Queue
         /// <summary>The same two numbers for the step's second goal ("or until ...").</summary>
         public long OrCount { get; set; }
         public long OrOwnedBase { get; set; }
+        /// <summary>The same for the third and later goals, in their order (0.15.0; null without them).</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<long>? MoreCounts { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<long>? MoreOwnedBase { get; set; }
     }
 
     /// <summary>Where the queue that was on screen goes when another one is loaded over unsaved changes.</summary>
@@ -703,7 +748,17 @@ public static class Queue
 
     static Dictionary<string, Saved> Read()
     {
-        try { return JsonSerializer.Deserialize<Dictionary<string, Saved>>(File.ReadAllText(FilePath)) ?? new(); }
+        try
+        {
+            var all = JsonSerializer.Deserialize<Dictionary<string, Saved>>(File.ReadAllText(FilePath)) ?? new();
+            foreach (Saved? saved in all.Values)
+            {
+                if (saved == null) continue;   // (a broken entry of one character must not cost the others theirs)
+                foreach (Step s in saved.Steps ?? new()) s?.Normalize();
+                foreach (Preset preset in (saved.Presets ?? new()).Values) foreach (Step s in preset?.Steps ?? new()) s?.Normalize();
+            }
+            return all;
+        }
         catch { return new(); }
     }
 
@@ -780,7 +835,8 @@ public static class Queue
     }
 
     static string Signature(bool lanes = true) => string.Join("\n", Steps.Select(s => $"{s.Entity}|{s.TargetId}|{s.Extra}|{s.Until}|{s.Amount}|{s.Subject}"
-        + (s.Or == null ? "" : $"|or {s.Or.Until}|{s.Or.Amount}|{s.Or.Subject}") + (lanes ? $"|{LaneOf(s)}" : "")));
+        + (s.Or == null ? "" : $"|or {s.Or.Until}|{s.Or.Amount}|{s.Or.Subject}")
+        + (s.More == null ? "" : string.Concat(s.More.Select(g => $"|or {g.Until}|{g.Amount}|{g.Subject}"))) + (lanes ? $"|{LaneOf(s)}" : "")));
 
     static Snapshot TakeSnapshot() => new()
     {
@@ -801,6 +857,8 @@ public static class Queue
             CountGains = s.CountGains, Following = s.Following,
             OrCount = s.Or is IGoal o ? (Running && s.Ran && s.Run is RunState.Running or RunState.Waiting ? Counter(s, o) : o.CountBefore) : 0,
             OrOwnedBase = s.Or is IGoal og ? og.OwnedAtStart + (s.CountGains && s.Ran ? Gained(og) - og.GainedAtStart : 0) : 0,
+            MoreCounts = s.More?.Select(m => (IGoal)m).Select(m => Running && s.Ran && s.Run is RunState.Running or RunState.Waiting ? Counter(s, m) : m.CountBefore).ToList(),
+            MoreOwnedBase = s.More?.Select(m => (IGoal)m).Select(m => (long)m.OwnedAtStart + (s.CountGains && s.Ran ? Gained(m) - m.GainedAtStart : 0)).ToList(),
         }).ToList(),
     };
 
@@ -841,6 +899,13 @@ public static class Queue
             {
                 or.CountBefore = p.OrCount;
                 or.OwnedAtStart = (int)Math.Min(int.MaxValue, p.OrOwnedBase);
+            }
+            // (the signature matched, so the goals are the same ones in the same order)
+            for (int m = 0; m < (s.More?.Count ?? 0); m++)
+            {
+                IGoal more = s.More![m];
+                more.CountBefore = p.MoreCounts != null && m < p.MoreCounts.Count ? p.MoreCounts[m] : 0;
+                more.OwnedAtStart = (int)Math.Min(int.MaxValue, p.MoreOwnedBase != null && m < p.MoreOwnedBase.Count ? p.MoreOwnedBase[m] : 0);
             }
             s.CountGains = p.CountGains;
             s.Following = p.Following;
@@ -1224,17 +1289,19 @@ public static class Queue
 
     public static List<string> PresetNames => s_presets.Keys.OrderBy(n => n == AutoName ? 1 : 0).ThenBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
 
-    public static Preset? GetPreset(string name) => s_presets.TryGetValue(name, out Preset? preset) ? preset : null;
+    public static Preset? GetPreset(string? name) => name != null && s_presets.TryGetValue(name, out Preset? preset) ? preset : null;
 
     static Step Copy(Step s) => new()
     {
         Entity = s.Entity, TargetId = s.TargetId, Extra = s.Extra, Name = s.Name,
         Until = s.Until, Amount = s.Amount, Subject = s.Subject, SubjectName = s.SubjectName, Lane = s.Lane, Mode = s.Mode, Or = s.Or?.Copy(),
+        More = s.More is { Count: > 0 } ? s.More.Select(g => g.Copy()).ToList() : null,
     };
 
     static bool Same(Step a, Step b) => a.Entity == b.Entity && a.TargetId == b.TargetId && a.Extra == b.Extra
         && a.Until == b.Until && a.Amount == b.Amount && a.Subject == b.Subject && LaneOf(a) == LaneOf(b) && a.Mode == b.Mode
-        && (a.Or == null ? b.Or == null : a.Or.SameAs(b.Or));
+        && (a.Or == null ? b.Or == null : a.Or.SameAs(b.Or))
+        && (a.More?.Count ?? 0) == (b.More?.Count ?? 0) && Enumerable.Range(0, a.More?.Count ?? 0).All(i => a.More![i].SameAs(b.More![i]));
 
     /// <summary>True when the steps on screen differ from the saved queue they came from.</summary>
     public static bool Modified =>
@@ -2052,8 +2119,9 @@ public static class Queue
             End(step, StepStatus.Skipped, Lang.F("queue.skipped_mastery_task_not_game", "skipped: the mastery task \"{subjectName}\" is not in this game", ("subjectName", step.SubjectName)));
             return;
         }
-        if (step.Or is { Until: Until.Mastery } orTask && Mastery.Find(orTask.Subject) == null && !step.Ran)
-            Trace($"{Number(step)}: its second goal waits for a mastery task this game does not have ({orTask.SubjectName}): only the first goal can end it");
+        if (!step.Ran && step.Run != RunState.Waiting)
+            foreach (Goal orTask in step.Others.Where(g => g.Until == Until.Mastery && Mastery.Find(g.Subject) == null))
+                Trace($"{Number(step)}: a goal of it waits for a mastery task this game does not have ({orTask.SubjectName}): only its other goals can end it");
         // "Until the food runs out" for a skill that eats nothing (no food slot): never reached.
         if (step.Until == Until.FoodRunsOut && FoodSlot(game, step.Entity) == null)
         {
@@ -2578,7 +2646,7 @@ public static class Queue
     // gives the skill, the constellation and whether it has run. The one-argument forms are the step's own goal.
 
     /// <summary>The step's goals: its own, and the second one when it has one.</summary>
-    static IEnumerable<IGoal> Goals(Step step) => step.Or == null ? new IGoal[] { step } : new IGoal[] { step, step.Or };
+    static IEnumerable<IGoal> Goals(Step step) => step.Others.Cast<IGoal>().Prepend(step);
 
     static int Owned(Game game, Step step) => Owned(game, (IGoal)step);
     static int Owned(Game game, IGoal g) =>
@@ -2798,7 +2866,8 @@ public static class Queue
     /// <summary>"done" with the reason when the step's second goal ended it (the first one is the plain "done").</summary>
     static string DoneText(Game game, Step step) =>
         step.Until == Until.FoodRunsOut && Reached(game, step, step) ? Lang.T("queue.done_food_ran_out", "done: the food ran out")
-        : step.Or != null && !Reached(game, step, step) && Reached(game, step, step.Or) ? Lang.F("queue.done_2", "done: {progress} ({second})", ("progress", Progress(game, step, step.Or)), ("second", step.Or.Text)) : Lang.T("state.done", "done");
+        : !Reached(game, step, step) && step.Others.FirstOrDefault(g => Reached(game, step, g)) is { } other
+            ? Lang.F("queue.done_2", "done: {progress} ({second})", ("progress", Progress(game, step, other)), ("second", other.Text)) : Lang.T("state.done", "done");
 
     static string Clock(double seconds) => Duration(seconds);
 
@@ -2810,23 +2879,23 @@ public static class Queue
     }
 
     static string Progress(Game game, Step step) =>
-        step.Or == null ? Progress(game, step, step) : Lang.F("queue.or", "{progress}  |  or  {progress2}", ("progress", Progress(game, step, step)), ("progress2", Progress(game, step, step.Or)));
+        step.Others.Aggregate(Progress(game, step, step), (text, g) => Lang.F("queue.or", "{progress}  |  or  {progress2}", ("progress", text), ("progress2", Progress(game, step, g))));
 
     static string Progress(Game game, Step step, IGoal g) => g.Until switch
     {
-        Until.Item => $"{Counted(game, step, g):N0} / {g.Amount:N0}" + (step.Or != null ? $" {g.SubjectName}" : ""),
-        Until.ItemLeft => step.Or != null
+        Until.Item => $"{Counted(game, step, g):N0} / {g.Amount:N0}" + (step.HasOthers ? $" {g.SubjectName}" : ""),
+        Until.ItemLeft => step.HasOthers
             ? Lang.F("progress.item_left_named", "{owned:N0} {item} left, stops at {amount:N0}", ("owned", Owned(game, g)), ("item", g.SubjectName), ("amount", g.Amount))
             : Lang.F("progress.item_left", "{owned:N0} left, stops at {amount:N0}", ("owned", Owned(game, g)), ("amount", g.Amount)),
-        Until.Level => step.Or != null
+        Until.Level => step.HasOthers
             ? Lang.F("progress.level_named", "{skill} level {level} / {amount:0}", ("skill", g.SubjectName), ("level", Level(game, g)), ("amount", g.Amount))
             : Lang.F("progress.level", "level {level} / {amount:0}", ("level", Level(game, g)), ("amount", g.Amount)),
         Until.Minutes => $"{Clock(step.Seconds)} / {Clock(g.Amount * 60)}",
-        Until.Made => step.Or != null
+        Until.Made => step.HasOthers
             ? Lang.F("progress.made_named", "{made:N0} / {amount:N0} {item} made", ("made", Made(step, g)), ("amount", g.Amount), ("item", g.SubjectName))
             : Lang.F("progress.made", "{made:N0} / {amount:N0} made", ("made", Made(step, g)), ("amount", g.Amount)),
         Until.Times => Lang.P("progress.times", g.Amount, "{times:N0} / {count:N0} time", "{times:N0} / {count:N0} times", ("times", Times(step, g))),
-        Until.Spent => step.Or != null
+        Until.Spent => step.HasOthers
             ? Lang.F("progress.spent_named", "{spent:N0} / {amount:N0} {item} used up", ("spent", Spent(step, g)), ("amount", g.Amount), ("item", g.SubjectName))
             : Lang.F("progress.spent", "{spent:N0} / {amount:N0} used up", ("spent", Spent(step, g)), ("amount", g.Amount)),
         Until.Nodes => Lang.P("progress.nodes", g.Amount, "{nodes:N0} / {count:N0} {kind} node", "{nodes:N0} / {count:N0} {kind} nodes",

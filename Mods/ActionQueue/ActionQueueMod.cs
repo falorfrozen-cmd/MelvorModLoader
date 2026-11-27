@@ -151,7 +151,10 @@ public class ActionQueueMod : IMod
             layer.AddChild(_chip);
             _ctx.Tree.Root.AddChild(layer);
         }
-        _chip.Text = flash ? _flash : Queue.Headline + (Key.Label == "" ? "" : $"   ({Key.Label})");
+        // (a step with four goals, or lanes, can make a long line: it is cut, the key stays at its end)
+        string line = flash ? _flash : Queue.Headline;
+        if (line.Length > 180) line = line[..177] + "...";
+        _chip.Text = flash || Key.Label == "" ? line : $"{line}   ({Key.Label})";
         _chip.Visible = true;
     }
 }

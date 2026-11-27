@@ -15,12 +15,17 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.14.0.zip   (name: Action Queue, version 0.14.0)  -  0.13.1 dosyasini Archived yap
+MAIN FILE:  dist\ActionQueue-0.15.0.zip   (name: Action Queue, version 0.15.0)  -  0.14.0 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.15.0
+- New: up to four goals on a step. Tick "or" and press "+ or" at the end of the row for another one; the step is over when any one of them is reached, and it says which (asked for on Nexus, thank you!)
+- A "Go to a saved queue" step now says when that saved queue stops (its own "Stop the whole queue when"), and the list of saved queues shows it too. To train Magic to 30 in a loop and then go on, give the loop its own stop and save it
+- Share codes with a step of three or four goals start with AQ5: (older versions refuse them)
+
 0.14.0
 - New: the queue can speak other languages. A language is a file in the mod's lang folder (ru.json for Russian); when one is there, a list at the top right of the window picks it. The English of every text is in lang/en.json with notes, for anyone who wants to translate the mod: copy it, translate it, and send it if you like. Names of items, skills and monsters stay as the game writes them (asked for by a player who offered a Russian translation, thank you!)
 - Fixed: with Multitask, starting a fight by hand while the queue ran a step in another skill (for example again after your character died) stopped that step and paused the whole queue, although there was room for both. The step now goes on beside your fight (reported by a player, thank you!)
@@ -153,7 +158,10 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.14.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+This is Action Queue [b]0.15.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+
+[size=5][b]New in 0.15: more goals on a step[/b][/size]
+Tick [b]or[/b] and press [b]+ or[/b] at the end of the row: a step can now have up to four goals, and it is over when any one of them is reached. A [b]Go to a saved queue[/b] step also says when that saved queue stops. To train Magic to 30 in a loop and then go on, load the loop, give it its own stop and save it again.
 
 [size=5][b]New in 0.14: other languages[/b][/size]
 The window and the queue's messages can now be translated. A language is a file in the mod's [b]lang[/b] folder, and when one is there a list at the top right of the window picks it. [b]lang/en.json[/b] holds every text in English with notes: copy it, name it after your language (ru.json, de.json), translate it and send it to me if you like, and it ships with the mod with your name in the thanks. Names of items, skills and monsters stay as the game writes them.

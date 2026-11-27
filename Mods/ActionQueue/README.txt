@@ -1,4 +1,4 @@
-Action Queue 0.14.0  -  a mod for Melvor Idle 2
+Action Queue 0.15.0  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:
@@ -57,11 +57,12 @@ columns' widths; a double-click on one puts the normal widths back. All of it is
      Astrology has two more goals (see ASTROLOGY). Every skill also has "a mastery task
      is complete" (see MASTERY TASKS). A fight, Thieving and Agility also have "the food
      runs out" (see FOOD).
-  2b. Tick "or" to give the step a second goal: a second row "or until ..." appears. The
-     step is over when either goal is reached, and its state says which one ended it.
-     For example: thieve the Bandit Chief until a Gold Topaz Ring is in the bank, or until
-     780 Salmon are used up. Both goals keep counting through pauses, "start over" and
-     closing the game.
+  2b. Tick "or" to give the step a second goal: a row "or until ..." appears. "+ or" at
+     the end of that row adds another one, up to four goals on a step, and "-" takes the
+     last one away again. The step is over when any one of its goals is reached, and its
+     state says which one ended it. For example: thieve the Bandit Chief until a Gold Topaz
+     Ring is in the bank, or until 780 Salmon are used up, or for 2 hours. Every goal keeps
+     counting through pauses, "start over" and closing the game.
   3. "Add step". Repeat for the next steps, then "Start the queue".
   A step can also sell, equip, or go on with a saved queue: choose "Sell from the bank",
   "Equip" or "Go to a saved queue" at the end of the skill list (see SELLING, EQUIP and
@@ -228,6 +229,10 @@ queues: "Smithing day" -> "Fishing evening" -> back to "Smithing day".
     queue as "Unsaved queue (auto)"). In lanes it waits until every other lane is through;
     steps after it in its own lane are not done (the queue goes on with the saved queue).
   - A name that no longer exists skips the step.
+  - To make it stop at a point (train Magic until level 30, then something else), give the
+    saved queue its own stop: load it, choose "Stop the whole queue when", and save it again
+    under the same name. The go-to step then says when that queue stops. What comes after it
+    is the character's "When the queue ends, go on with" (it is not saved with a queue).
   - Saved queues that only send each other round stop: when the chain comes back to a
     queue it already left without anything being done since, the queue ends and says so.
     Any number of queues that do nothing for now (things you have not unlocked yet) can be
@@ -344,8 +349,9 @@ Press "Saved queues" at the top of the window.
   - "Copy share code" turns a queue into a short text (AQ1:... or, when it uses an "or"
     goal, an astrology goal, an Equip or a "Go to a saved queue" step, AQ2:...; with a
     "Stop the whole queue when", AQ3:...; with food for a skill, "the food runs out" or a stop
-    "when a round is over", AQ4:...). Paste it in a chat. A version older than 0.10 cannot read
-    an AQ2 code, one older than 0.12 an AQ3 code and one older than 0.13 an AQ4 code: it
+    "when a round is over", AQ4:...; with a step of three or four goals, AQ5:...). Paste it in a
+    chat. A version older than 0.10 cannot read an AQ2 code, one older than 0.12 an AQ3 code,
+    one older than 0.13 an AQ4 code and one older than 0.15 an AQ5 code: it
     refuses it instead of running the queue without those parts. A code made by a newer version
     than yours says so: update the mod to read it.
   - To use somebody's code: paste it into the box and press Import, then Load it.

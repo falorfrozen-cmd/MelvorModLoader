@@ -26,9 +26,13 @@ public static class Share
     /// <summary>Codes with what 0.13.0 added (the "food runs out" goal, food for a skill, a stop looked at when a round is
     /// over): an older version refuses them instead of reading the food step as gear or stopping too early.</summary>
     public const string Prefix4 = "AQ4:";
+    /// <summary>Codes with a step of more than two goals (0.15.0): an older version refuses them instead of running the
+    /// step with only two of its goals.</summary>
+    public const string Prefix5 = "AQ5:";
 
     static bool UsesNew(Step s) => s.Or != null || s.Until > Until.Spent || s.IsEquip || s.IsSwitch;
-    static bool Uses013(Step s) => s.Until == Until.FoodRunsOut || s.Or?.Until == Until.FoodRunsOut || s.IsFood;
+    static bool Uses015(Step s) => s.Or != null && s.More is { Count: > 0 };
+    static bool Uses013(Step s) => s.Until == Until.FoodRunsOut || s.Others.Any(g => g.Until == Until.FoodRunsOut) || s.IsFood;
     public const int MaxCodeLength = 20_000;
     public const int MaxSteps = 200;
     const int MaxText = 120;
@@ -62,6 +66,8 @@ public static class Share
         public string? M { get; set; }        // the recipe's way of making (Sacrificial Anvil id, "" normal; missing: leave the game's switch)
         [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
         public PackedGoal? O { get; set; }    // the second goal, "or until ..." (missing: none; older versions ignore it)
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public List<PackedGoal>? P { get; set; }   // the third and later goals (0.15.0, only next to O; missing: none)
     }
 
     sealed class PackedGoal
@@ -83,12 +89,13 @@ public static class Share
             N = name, R = repeat, Z = stopAtEnd,
             W = stop == null ? null : new PackedGoal { U = (int)stop.Until, A = stop.Amount, J = stop.Subject, K = stop.SubjectName },
             S = steps.Select(s => new PackedStep { E = s.Entity, T = s.TargetId, X = s.Extra, N = s.Name, U = (int)s.Until, A = s.Amount, J = s.Subject, K = s.SubjectName, L = s.Lane > 1 ? Math.Min(s.Lane, Queue.MaxLanes) : 0, M = s.Mode,
-                O = s.Or == null ? null : new PackedGoal { U = (int)s.Or.Until, A = s.Or.Amount, J = s.Or.Subject, K = s.Or.SubjectName } }).ToList(),
+                O = s.Or == null ? null : new PackedGoal { U = (int)s.Or.Until, A = s.Or.Amount, J = s.Or.Subject, K = s.Or.SubjectName },
+                P = s.Or == null || s.More is not { Count: > 0 } ? null : s.More.Select(g => new PackedGoal { U = (int)g.Until, A = g.Amount, J = g.Subject, K = g.SubjectName }).ToList() }).ToList(),
         };
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(packed);
         using var buffer = new MemoryStream();
         using (var deflate = new DeflateStream(buffer, CompressionLevel.SmallestSize, leaveOpen: true)) deflate.Write(json, 0, json.Length);
-        string head = stopAtEnd || steps.Any(Uses013) ? Prefix4 : stop != null ? Prefix3 : steps.Any(UsesNew) ? Prefix2 : Prefix;
+        string head = steps.Any(Uses015) ? Prefix5 : stopAtEnd || steps.Any(Uses013) ? Prefix4 : stop != null ? Prefix3 : steps.Any(UsesNew) ? Prefix2 : Prefix;
         return head + Convert.ToBase64String(buffer.ToArray()).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
@@ -109,14 +116,14 @@ public static class Share
         code = new string((code ?? "").Where(c => !char.IsWhiteSpace(c)).ToArray());
         if (code.Length == 0) { problem = Lang.T("share.there_no_code_read_paste", "There is no code to read. Paste one into the box first."); return false; }
         if (code.Length > MaxCodeLength) { problem = Lang.T("share.text_too_long_share_code", "That text is too long to be a share code."); return false; }
-        string prefix = new[] { Prefix4, Prefix3, Prefix2 }.FirstOrDefault(p => code.StartsWith(p, StringComparison.Ordinal)) ?? Prefix;
+        string prefix = new[] { Prefix5, Prefix4, Prefix3, Prefix2 }.FirstOrDefault(p => code.StartsWith(p, StringComparison.Ordinal)) ?? Prefix;
         if (!code.StartsWith(prefix, StringComparison.Ordinal))
         {
-            // "AQ5:..." and later: made by a newer Action Queue than this one.
+            // "AQ6:..." and later: made by a newer Action Queue than this one.
             int colon = code.IndexOf(':');
             problem = colon > 2 && colon <= 6 && code.StartsWith("AQ", StringComparison.Ordinal) && code[2..colon].All(char.IsDigit)
                 ? Lang.T("share.code_was_made_by_newer", "That code was made by a newer version of Action Queue. Update the mod to read it.")
-                : Lang.F("share.not_action_queue_share_code", "That is not an Action Queue share code (it must start with {prefix}, {prefix2}, {prefix3} or {prefix4}).", ("prefix", Prefix), ("prefix2", Prefix2), ("prefix3", Prefix3), ("prefix4", Prefix4));
+                : Lang.T("share.not_a_share_code", "That is not an Action Queue share code (it must start with AQ1: to AQ5:).");
             return false;
         }
 
@@ -148,7 +155,9 @@ public static class Share
         foreach (PackedStep s in packed.S)
         {
             if (s == null || string.IsNullOrWhiteSpace(s.E) || string.IsNullOrWhiteSpace(s.T) || !Sensible(s.U, s.A)
-                || s.L < 0 || s.L > Queue.MaxLanes || s.O != null && (!Sensible(s.O.U, s.O.A) || s.O.U == (int)Until.Stops))
+                || s.L < 0 || s.L > Queue.MaxLanes || s.O != null && (!Sensible(s.O.U, s.O.A) || s.O.U == (int)Until.Stops)
+                || s.P != null && (s.O == null || s.P.Count > Step.MostGoals - 2 || s.P.Any(g => g == null || !Sensible(g.U, g.A) || g.U == (int)Until.Stops))
+                || (s.O != null || s.P != null) && s.E is Step.SellEntity or Step.EquipEntity or Step.SwitchEntity)
             {
                 problem = Lang.T("share.code_holds_step_makes_no", "That code holds a step that makes no sense, so none of it was taken.");
                 steps.Clear();
@@ -159,6 +168,7 @@ public static class Share
                 Entity = Clip(s.E), TargetId = Clip(s.T), Extra = Clip(s.X), Name = Clip(s.N),
                 Until = (Until)s.U, Amount = s.A, Subject = Clip(s.J), SubjectName = Clip(s.K), Lane = Math.Max(1, s.L), Mode = s.M == null ? null : Clip(s.M),
                 Or = s.O == null ? null : new Goal { Until = (Until)s.O.U, Amount = s.O.A, Subject = Clip(s.O.J), SubjectName = Clip(s.O.K) },
+                More = s.P is { Count: > 0 } ? s.P.Select(g => new Goal { Until = (Until)g.U, Amount = g.A, Subject = Clip(g.J), SubjectName = Clip(g.K) }).ToList() : null,
             });
         }
         if (packed.W is { } w)

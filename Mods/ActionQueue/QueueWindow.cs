@@ -35,18 +35,41 @@ public sealed class QueueWindow
     // Astrology goals: minor or major node unlocks, and the event to wait for.
     readonly OptionButton _nodePick = new() { CustomMinimumSize = new Vector2(110, 0) };
     readonly OptionButton _eventPick = new() { CustomMinimumSize = new Vector2(250, 0), FitToLongestItem = false, ClipText = true };
-    // The second goal: "... or until ...". The step is over when either one is reached.
+    // The other goals: "... or until ...". The step is over when any one is reached (0.15.0: up to three "or" rows).
     readonly CheckBox _orBox = new() { Text = Lang.T("window.label.or", "or") };
-    readonly HBoxContainer _orRow = new() { Visible = false };
-    readonly OptionButton _orPick = new() { CustomMinimumSize = new Vector2(250, 0) };
-    readonly SpinBox _orAmount = new() { MinValue = 1, MaxValue = 100_000_000, Step = 1, Value = 100, CustomMinimumSize = new Vector2(120, 0), SelectAllOnFocus = true };
-    readonly PickList<Item> _orItem = new(Lang.T("window.choose_item", "Choose an item"), s_theme);
-    readonly OptionButton _orLevel = new() { CustomMinimumSize = new Vector2(170, 0) };
-    readonly OptionButton _orNode = new() { CustomMinimumSize = new Vector2(110, 0) };
-    readonly OptionButton _orEvent = new() { CustomMinimumSize = new Vector2(250, 0), FitToLongestItem = false, ClipText = true };
+
+    /// <summary>One "or until" row: the controls of a goal of its own, like the until row's.</summary>
+    sealed class GoalRow
+    {
+        public readonly HBoxContainer Row = new() { Visible = false };
+        public readonly OptionButton Pick = new() { CustomMinimumSize = new Vector2(250, 0) };
+        public readonly SpinBox Amount = new() { MinValue = 1, MaxValue = 100_000_000, Step = 1, Value = 100, CustomMinimumSize = new Vector2(120, 0), SelectAllOnFocus = true };
+        public readonly PickList<Item> Item = new(Lang.T("window.choose_item", "Choose an item"), s_theme);
+        public readonly OptionButton Level = new() { CustomMinimumSize = new Vector2(170, 0) };
+        public readonly OptionButton Node = new() { CustomMinimumSize = new Vector2(110, 0) };
+        public readonly OptionButton Event = new() { CustomMinimumSize = new Vector2(250, 0), FitToLongestItem = false, ClipText = true };
+        public readonly PickList<string> Task = new(Lang.T("window.choose_mastery_task", "Choose a mastery task"), s_theme);
+        /// <summary>"+ or" (another row) and "-" (this row away): shown on the last row in use.</summary>
+        public readonly Button More = new() { Text = Lang.T("window.goal.add", "+ or") };
+        public readonly Button Less = new() { Text = Lang.T("window.goal.remove", "-") };
+        public Until Kind => Pick.Selected < 0 ? Until.Item : (Until)Pick.GetSelectedId();
+    }
+
+    readonly GoalRow[] _ors = Enumerable.Range(0, Step.MostGoals - 1).Select(_ => new GoalRow()).ToArray();
+    /// <summary>How many "or until" rows are in use while "or" is ticked (1 up to three).</summary>
+    int _orCount = 1;
+    /// <summary>The "or until" rows in use (none while "or" is not ticked or not offered).</summary>
+    IEnumerable<GoalRow> OrRows => _orBox.Visible && _orBox.ButtonPressed ? _ors.Take(_orCount) : Enumerable.Empty<GoalRow>();
+    HBoxContainer _orRow => _ors[0].Row;
+    OptionButton _orPick => _ors[0].Pick;
+    SpinBox _orAmount => _ors[0].Amount;
+    PickList<Item> _orItem => _ors[0].Item;
+    OptionButton _orLevel => _ors[0].Level;
+    OptionButton _orNode => _ors[0].Node;
+    OptionButton _orEvent => _ors[0].Event;
     /// <summary>"Until this mastery task is complete" (0.12.0): the chosen skill's Mastery Guild tasks, a fight's: the combat skills'.</summary>
     readonly PickList<string> _taskPick = new(Lang.T("window.choose_mastery_task", "Choose a mastery task"), s_theme);
-    readonly PickList<string> _orTask = new(Lang.T("window.choose_mastery_task", "Choose a mastery task"), s_theme);
+    PickList<string> _orTask => _ors[0].Task;
     /// <summary>The skill and target the task lists were last made for: a new one picks its own first task.</summary>
     string _tasksFor = "";
     /// <summary>The window was opened again: the progress next to each task is made again (once).</summary>
@@ -272,7 +295,7 @@ public sealed class QueueWindow
         var what = new HBoxContainer();
         what.AddThemeConstantOverride("separation", 10);
         what.AddChild(Fixed(Lang.T("window.label.do", "Do"), 50));
-        _skillPick.ItemSelected += _ => { FillKinds(_untilPick, withStops: true); FillKinds(_orPick, withStops: false); FillTargets(null); UntilChanged(); };
+        _skillPick.ItemSelected += _ => { FillKinds(_untilPick, withStops: true); FillOrKinds(); FillTargets(null); UntilChanged(); };
         _target.Picked += _ =>
         {
             if (Pseudo) { UntilChanged(); return; }
@@ -281,7 +304,7 @@ public sealed class QueueWindow
             FillEvents();
             FillTasks();
             CapNodes(_amount, _nodePick, Kind);
-            CapNodes(_orAmount, _orNode, OrKind);
+            foreach (GoalRow r in _ors) CapNodes(r.Amount, r.Node, r.Kind);
         };
         _target.Control.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         _target.Control.CustomMinimumSize = new Vector2(300, 0);
@@ -306,24 +329,25 @@ public sealed class QueueWindow
         _item.Control.CustomMinimumSize = new Vector2(280, 0);
         until.AddChild(_item.Control);
         until.AddChild(_levelPick);
-        foreach (OptionButton nodes in new[] { _nodePick, _orNode })
+        foreach (OptionButton nodes in _ors.Select(r => r.Node).Prepend(_nodePick))
         {
             nodes.AddItem(Step.NodeKind("minor", "minor"));
             nodes.AddItem(Step.NodeKind("major", "major"));
-            nodes.ItemSelected += _ => { CapNodes(_amount, _nodePick, Kind); CapNodes(_orAmount, _orNode, OrKind); };
+            nodes.ItemSelected += _ => { CapNodes(_amount, _nodePick, Kind); foreach (GoalRow r in _ors) CapNodes(r.Amount, r.Node, r.Kind); };
             nodes.TooltipText = Lang.T("window.minor_node_unlocks_constellation_knowledge", "Minor: the node unlocks the constellation's Knowledge has earned (the ones you already clicked count too).\nMajor: one for every few minor ones, as the game gives them; you do not have to click the minor nodes for it.");
         }
         until.AddChild(_nodePick);
-        _eventPick.TooltipText = _orEvent.TooltipText = Lang.T("window.events_constellation_can_show_while", "The events this constellation can show while it is studied. The step counts the ones seen after it starts.");
+        _eventPick.TooltipText = Lang.T("window.events_constellation_can_show_while", "The events this constellation can show while it is studied. The step counts the ones seen after it starts.");
         until.AddChild(_eventPick);
-        foreach (PickList<string> tasks in new[] { _taskPick, _orTask })
+        foreach (GoalRow r in _ors) r.Event.TooltipText = _eventPick.TooltipText;
+        foreach (PickList<string> tasks in _ors.Select(r => r.Task).Prepend(_taskPick))
         {
             tasks.Control.CustomMinimumSize = new Vector2(400, 0);
             tasks.HintWidth = 150;   // the count ("Easy: 201 / 2,000") stays readable when a long task's words are cut
             tasks.Control.TooltipText = Lang.T("window.mastery_guild_tasks_skill_fight", "The Mastery Guild's tasks of this skill (a fight: of the combat skills). Click and type to search.\nThe ones for the chosen target come first. The step is over when the game marks the task complete.");
         }
         until.AddChild(_taskPick.Control);
-        foreach (PickList<string> tasks in new[] { _taskPick, _orTask })
+        foreach (PickList<string> tasks in _ors.Select(r => r.Task).Prepend(_taskPick))
             tasks.Picked += e =>
             {
                 if (Mastery.Find(e.Key) is { Done: true })
@@ -332,8 +356,8 @@ public sealed class QueueWindow
         _foodSkill.TooltipText = Lang.T("window.skill_eats_food_step_puts", "The skill that eats this food: the step puts it in that skill's own food box (the fight's, Thieving's, Agility's...).");
         until.AddChild(_foodSkill);
         until.AddChild(_pseudoNote);
-        _orBox.TooltipText = Lang.T("window.give_step_second_goal_over", "Give the step a second goal: it is over when either one is reached\n(e.g. until a Gold Topaz Ring is in the bank, or until 780 Salmon are used up).");
-        _orBox.Toggled += _ => UntilChanged();
+        _orBox.TooltipText = Lang.F("window.goal.or_tip", "Give the step more goals (up to {most}, \"+ or\" adds one): it is over when any one is reached\n(e.g. until a Gold Topaz Ring is in the bank, or until 780 Salmon are used up).", ("most", Step.MostGoals));
+        _orBox.Toggled += on => { if (!on) _orCount = 1; UntilChanged(); };
         until.AddChild(_orBox);
         until.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
         OfferLanes(LanesOffered());
@@ -348,22 +372,43 @@ public sealed class QueueWindow
         _cancelEdit.Pressed += () => { EndEdit(); Say(Lang.T("window.nothing_was_changed", "Nothing was changed.")); };
         until.AddChild(_cancelEdit);
         _stepForm.AddChild(until);
-        // -- the second goal, under the first
-        _orRow.AddThemeConstantOverride("separation", 10);
-        Label orLabel = Style.Label(Lang.T("window.label.or_until", "or until"), Style.Text);
-        orLabel.CustomMinimumSize = new Vector2(50, 0);
-        _orRow.AddChild(orLabel);
-        FillKinds(_orPick, withStops: false);
-        _orPick.ItemSelected += _ => OrChanged();
-        _orRow.AddChild(_orPick);
-        _orRow.AddChild(_orAmount);
-        _orItem.Control.CustomMinimumSize = new Vector2(280, 0);
-        _orRow.AddChild(_orItem.Control);
-        _orRow.AddChild(_orLevel);
-        _orRow.AddChild(_orNode);
-        _orRow.AddChild(_orEvent);
-        _orRow.AddChild(_orTask.Control);
-        _stepForm.AddChild(_orRow);
+        // -- the other goals, under the first (0.15.0: up to three rows, "+ or" adds one)
+        foreach (GoalRow r in _ors)
+        {
+            GoalRow row = r;
+            row.Row.AddThemeConstantOverride("separation", 10);
+            Label orLabel = Style.Label(Lang.T("window.label.or_until", "or until"), Style.Text);
+            orLabel.CustomMinimumSize = new Vector2(50, 0);
+            row.Row.AddChild(orLabel);
+            FillKinds(row.Pick, withStops: false);
+            row.Pick.ItemSelected += _ => { OrChanged(row); FillTasks(); };
+            row.Row.AddChild(row.Pick);
+            row.Row.AddChild(row.Amount);
+            row.Item.Control.CustomMinimumSize = new Vector2(280, 0);
+            row.Row.AddChild(row.Item.Control);
+            row.Row.AddChild(row.Level);
+            row.Row.AddChild(row.Node);
+            row.Row.AddChild(row.Event);
+            row.Row.AddChild(row.Task.Control);
+            row.Row.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+            row.More.TooltipText = Lang.F("window.goal.add_tip", "Another goal for this step: it is over when any one of its goals is reached (up to {most} goals).", ("most", Step.MostGoals));
+            row.More.Pressed += () =>
+            {
+                _orCount = Math.Min(_ors.Length, _orCount + 1);
+                GoalRow added = _ors[_orCount - 1];
+                if (added.Pick.ItemCount > 0) added.Pick.Select(0);
+                added.Amount.Value = 100;
+                if (_levelPick.Selected >= 0 && _levelPick.Selected < added.Level.ItemCount) added.Level.Select(_levelPick.Selected);
+                ShowOrRows();
+                FillEvents();
+                FillTasks();
+            };
+            row.Row.AddChild(row.More);
+            row.Less.TooltipText = Lang.T("window.goal.remove_tip", "Takes this goal away.");
+            row.Less.Pressed += () => { _orCount = Math.Max(1, _orCount - 1); ShowOrRows(); };
+            row.Row.AddChild(row.Less);
+            _stepForm.AddChild(row.Row);
+        }
         _stepForm.AddChild(_now);
         form.AddChild(_stepForm);
         BuildPlanForm(form);
@@ -986,9 +1031,9 @@ public sealed class QueueWindow
             // the goal lists for the first skill of this character (another character's skill could have left
             // "the food runs out" or the astrology goals in them)
             FillKinds(_untilPick, withStops: true);
-            FillKinds(_orPick, withStops: false);
+            FillOrKinds();
             Fill(_levelPick, _levelSkills);
-            Fill(_orLevel, _levelSkills);
+            foreach (GoalRow r in _ors) Fill(r.Level, _levelSkills);
             Fill(_stopLevel, _levelSkills);
             _tasksFor = "";   // another character: its own first task
             _makeable = Planner.Makeable(game);
@@ -1001,10 +1046,10 @@ public sealed class QueueWindow
         _items = Rares.ItemList(game);
         List<PickEntry<Item>> itemEntries = Rares.Describe(Catalog.Items(game, _items));
         _item.SetEntries(itemEntries);
-        _orItem.SetEntries(itemEntries, _orItem.SelectedKey);
+        foreach (GoalRow r in _ors) r.Item.SetEntries(itemEntries, r.Item.SelectedKey);
         _stopItem.SetEntries(itemEntries, _stopItem.SelectedKey);
         Rares.Paint(_item, game, itemEntries);
-        Rares.Paint(_orItem, game, itemEntries);
+        foreach (GoalRow r in _ors) Rares.Paint(r.Item, game, itemEntries);
         Rares.Paint(_stopItem, game, itemEntries);
         _stopShown = "?";   // the lists are made again: show the queue's stop in them
         _thenShown = "?";
@@ -1076,7 +1121,8 @@ public sealed class QueueWindow
 
     public void Hide()
     {
-        foreach (var pick in new Action[] { _target.Close, _item.Close, _orItem.Close, _idleTarget.Close, _planPick.Close, _stopItem.Close, _taskPick.Close, _orTask.Close, _stopTask.Close }) pick();
+        foreach (var pick in new Action[] { _target.Close, _item.Close, _idleTarget.Close, _planPick.Close, _stopItem.Close, _taskPick.Close, _stopTask.Close }) pick();
+        foreach (GoalRow r in _ors) { r.Item.Close(); r.Task.Close(); }
         // closed with the mouse button still down on the title bar, a grip or a column handle: that drag is over
         _dragging = false;
         _resizing = null;
@@ -1704,7 +1750,11 @@ public sealed class QueueWindow
         if (!suggest) return;
         // A level goal is usually about the skill being trained.
         int level = _levelSkills.IndexOf(entity.DisplayName.Text);
-        if (level >= 0) _levelPick.Select(level);
+        if (level >= 0)
+        {
+            _levelPick.Select(level);
+            foreach (GoalRow r in _ors) if (level < r.Level.ItemCount) r.Level.Select(level);
+        }
         if (Kind == Until.ItemLeft) SuggestFood(); else SuggestItem();
     }
 
@@ -1777,7 +1827,7 @@ public sealed class QueueWindow
         if (skill < 0) return false;
         _skillPick.Select(skill);
         FillKinds(_untilPick, withStops: true);
-        FillKinds(_orPick, withStops: false);
+        FillOrKinds();
         FillTargets(targetId);
         UntilChanged();
         return _target.Selected is { } chosen && (chosen.Value.Id == targetId || chosen.Key == targetId);
@@ -1806,7 +1856,7 @@ public sealed class QueueWindow
         if (target == null || skill < 0) { Say(Lang.T("window.start_action_game_first_then", "Start an action in the game first, then press this.")); return; }
         _skillPick.Select(skill);
         FillKinds(_untilPick, withStops: true);
-        FillKinds(_orPick, withStops: false);
+        FillOrKinds();
         FillTargets(Catalog.Key(target));
         UntilChanged();
         Say(Lang.F("window.filled", "Filled in: {skill}: {name}", ("skill", _skills[skill].Entity.DisplayName.Text), ("name", target.Name)));
@@ -1931,6 +1981,21 @@ public sealed class QueueWindow
     public void ChooseOrUntil(Until kind) { _orPick.Select(_orPick.GetItemIndex((int)kind)); OrChanged(); }
     public void SetOrAmount(double value) => _orAmount.Value = value;
     public bool ChooseOrItem(string itemId) => _orItem.Select(itemId);
+    /// <summary>For tests: the "or until" rows shown, "+ or" and "-" as clicks do, and a row's goal (0 is the first "or" row).</summary>
+    public int OrRowsShown => _ors.Count(r => r.Row.Visible);
+    public bool AddOrShown => _ors.Any(r => r.Row.Visible && r.More.Visible);
+    public void PressAddOr() { foreach (GoalRow r in _ors) if (r.Row.Visible && r.More.Visible) { r.More.EmitSignal(BaseButton.SignalName.Pressed); return; } }
+    public void PressRemoveOr() { foreach (GoalRow r in _ors) if (r.Row.Visible && r.Less.Visible) { r.Less.EmitSignal(BaseButton.SignalName.Pressed); return; } }
+    public void ChooseOrUntil(int row, Until kind) { GoalRow r = _ors[row]; r.Pick.Select(r.Pick.GetItemIndex((int)kind)); OrChanged(r); FillTasks(); }
+    public void SetOrAmount(int row, double value) => _ors[row].Amount.Value = value;
+    public bool ChooseOrItem(int row, string itemId) => _ors[row].Item.Select(itemId);
+    public bool ChooseOrLevel(int row, string skillName)
+    {
+        OptionButton level = _ors[row].Level;
+        for (int i = 0; i < level.ItemCount; i++) if (level.GetItemText(i) == skillName) { level.Select(i); return true; }
+        return false;
+    }
+    public string OrRowKind(int row) => _ors[row].Row.Visible ? $"{_ors[row].Kind}:{_ors[row].Amount.Value}" : "";
     public List<string> UntilKinds => Enumerable.Range(0, _untilPick.ItemCount).Select(i => ((Until)_untilPick.GetItemId(i)).ToString()).ToList();
     public void ChooseNodes(bool major) => _nodePick.Select(major ? 1 : 0);
     public List<string> EventsShown => Enumerable.Range(0, _eventPick.ItemCount).Select(i => _eventPick.GetItemText(i)).ToList();
@@ -1993,7 +2058,6 @@ public sealed class QueueWindow
 
     /// <summary>The goal kinds are list entries whose id is the <see cref="Until"/> number (Astrology has two more).</summary>
     Until Kind => _untilPick.Selected < 0 ? Until.Stops : (Until)_untilPick.GetSelectedId();
-    Until OrKind => _orPick.Selected < 0 ? Until.Item : (Until)_orPick.GetSelectedId();
 
     /// <summary>The goals the chosen skill offers: the astrology ones for Astrology, "the food runs out" for a skill that eats.</summary>
     void FillKinds(OptionButton pick, bool withStops)
@@ -2032,7 +2096,8 @@ public sealed class QueueWindow
             _foodSkill.Visible = food;
             _item.Control.Visible = selling;
             _amount.Visible = keep;
-            _levelPick.Visible = _orBox.Visible = _orRow.Visible = false;
+            _levelPick.Visible = _orBox.Visible = false;
+            foreach (GoalRow r in _ors) r.Row.Visible = false;
             _amount.MinValue = 0;
             _amount.MaxValue = 100_000_000;
             _amount.Suffix = "";
@@ -2093,26 +2158,47 @@ public sealed class QueueWindow
         if (kind != Until.Nodes) _amount.TooltipText = "";
         CapNodes(_amount, _nodePick, kind);
         _orBox.Visible = true;
-        _orRow.Visible = _orBox.ButtonPressed;
-        OrChanged();
+        ShowOrRows();
     }
 
-    void OrChanged()
+    /// <summary>The "or until" rows in use show (while "or" is ticked); "+ or" and "-" sit on the last one.</summary>
+    void ShowOrRows()
     {
-        var kind = OrKind;
-        _orAmount.Visible = kind is not (Until.Stops or Until.Mastery or Until.FoodRunsOut);
-        _orItem.Control.Visible = kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent;
-        _orLevel.Visible = kind == Until.Level;
-        _orNode.Visible = kind == Until.Nodes;
-        _orEvent.Visible = kind == Until.Event;
-        _orTask.Control.Visible = kind == Until.Mastery;
+        bool on = _orBox.Visible && _orBox.ButtonPressed;
+        for (int i = 0; i < _ors.Length; i++)
+        {
+            GoalRow r = _ors[i];
+            r.Row.Visible = on && i < _orCount;
+            bool last = i == _orCount - 1;
+            r.More.Visible = last && _orCount < _ors.Length;
+            r.Less.Visible = last && _orCount > 1;
+        }
+        foreach (GoalRow r in _ors) OrChanged(r);
         FillTasks();
-        _orAmount.MinValue = kind == Until.ItemLeft ? 0 : 1;
-        _orAmount.Suffix = kind == Until.Minutes ? Lang.T("window.plan.min", " min") : "";
-        _orAmount.MaxValue = kind == Until.Level ? 999 : 100_000_000;
-        if (kind == Until.Level && _orAmount.Value > 999) _orAmount.Value = 99;
-        _orAmount.TooltipText = "";
-        CapNodes(_orAmount, _orNode, kind);
+    }
+
+    void FillOrKinds()
+    {
+        foreach (GoalRow r in _ors) FillKinds(r.Pick, withStops: false);
+    }
+
+    void OrChanged() { foreach (GoalRow r in _ors) OrChanged(r); FillTasks(); }
+
+    void OrChanged(GoalRow r)
+    {
+        var kind = r.Kind;
+        r.Amount.Visible = kind is not (Until.Stops or Until.Mastery or Until.FoodRunsOut);
+        r.Item.Control.Visible = kind is Until.Item or Until.ItemLeft or Until.Made or Until.Spent;
+        r.Level.Visible = kind == Until.Level;
+        r.Node.Visible = kind == Until.Nodes;
+        r.Event.Visible = kind == Until.Event;
+        r.Task.Control.Visible = kind == Until.Mastery;
+        r.Amount.MinValue = kind == Until.ItemLeft ? 0 : 1;
+        r.Amount.Suffix = kind == Until.Minutes ? Lang.T("window.plan.min", " min") : "";
+        r.Amount.MaxValue = kind == Until.Level ? 999 : 100_000_000;
+        if (kind == Until.Level && r.Amount.Value > 999) r.Amount.Value = 99;
+        r.Amount.TooltipText = "";
+        CapNodes(r.Amount, r.Node, kind);
     }
 
     /// <summary>A node goal: the number goes no higher than the chosen constellation's minor (or major) unlocks.</summary>
@@ -2136,7 +2222,7 @@ public sealed class QueueWindow
     /// </summary>
     void FillTasks()
     {
-        if (Pseudo || !(Kind == Until.Mastery || _orBox.ButtonPressed && OrKind == Until.Mastery)) return;
+        if (Pseudo || !(Kind == Until.Mastery || OrRows.Any(r => r.Kind == Until.Mastery))) return;
         var entries = new List<PickEntry<string>>();
         string entity = "", targetId = "", targetName = "", first = "";
         if (_game != null && _skillPick.Selected >= 0 && _skillPick.Selected < _skills.Count)
@@ -2172,7 +2258,7 @@ public sealed class QueueWindow
         bool same = built == _tasksFor;
         _tasksFor = built;
         _tasksStale = false;
-        foreach (PickList<string> list in new[] { _taskPick, _orTask })
+        foreach (PickList<string> list in _ors.Select(r => r.Task).Prepend(_taskPick))
         {
             string? keep = same && list.SelectedKey is { } key && entries.Any(e => e.Key == key) ? key : null;
             list.SetEntries(entries, keep ?? first);   // "" (no task for this target): nothing chosen
@@ -2192,7 +2278,7 @@ public sealed class QueueWindow
     {
         List<(string Id, string Name)> events = _game != null && Astrology && _target.Selected is { } chosen
             ? Queue.AstrologyEvents(_game, chosen.Value.Id) : new();
-        foreach (OptionButton pick in new[] { _eventPick, _orEvent })
+        foreach (OptionButton pick in _ors.Select(r => r.Event).Prepend(_eventPick))
         {
             string keep = pick.Selected >= 0 ? pick.GetItemMetadata(pick.Selected).AsString() : "";
             pick.Clear();
@@ -2252,7 +2338,7 @@ public sealed class QueueWindow
     static List<PickEntry<Target>> SavedQueueEntries()
     {
         var entries = Queue.PresetNames.Where(n => !string.Equals(n, Queue.AutoName, StringComparison.OrdinalIgnoreCase))
-            .Select(n => new PickEntry<Target>(n, n, new Target(n, n, ""), Lang.T("window.saved_queues", "Saved queues"), Hint: Lang.P("window.step_count", Queue.GetPreset(n)!.Steps.Count, "{count} step", "{count} steps"))).ToList();
+            .Select(n => new PickEntry<Target>(n, n, new Target(n, n, ""), Lang.T("window.saved_queues", "Saved queues"), Hint: SavedHint(n))).ToList();
         if (entries.Count == 0)
             entries.Add(new PickEntry<Target>("", Lang.T("window.no_saved_queues_yet_save", "No saved queues yet: save one under \"Saved queues\" first"), new Target("", "", ""), Enabled: false, Muted: true));
         return entries;
@@ -2358,11 +2444,13 @@ public sealed class QueueWindow
         step.Subject = main.Subject;
         step.SubjectName = main.SubjectName;
         step.Amount = main.Amount;
-        if (_orBox.Visible && _orBox.ButtonPressed)
+        var others = new List<Goal>();
+        foreach (GoalRow r in OrRows)
         {
-            if (!ReadGoal(OrKind, _orAmount.Value, _orItem, _orLevel, _orNode, _orEvent, _orTask, out Goal or)) return;
-            step.Or = or;
+            if (!ReadGoal(r.Kind, r.Amount.Value, r.Item, r.Level, r.Node, r.Event, r.Task, out Goal or)) return;
+            others.Add(or);
         }
+        step.SetOthers(others);
         Put(step);
     }
 
@@ -2402,6 +2490,16 @@ public sealed class QueueWindow
         foreach (CheckBox b in _laneRepeats.GetChildren().OfType<CheckBox>()) if (b.GetMeta("lane").AsInt32() == lane) b.ButtonPressed = !b.ButtonPressed;
     }
 
+    /// <summary>A saved queue in the go-to list: its steps, and its own stop when it has one (that is where it ends).</summary>
+    static string SavedHint(string name)
+    {
+        Preset preset = Queue.GetPreset(name)!;
+        string steps = Lang.P("window.step_count", preset.Steps.Count, "{count} step", "{count} steps");
+        if (preset.StopWhen is not { } stop) return steps;
+        return preset.StopAtEnd ? Lang.F("window.saved.hint_stop_round", "{steps}, stops at the end of a round once {stop}", ("steps", steps), ("stop", Queue.StopText(stop)))
+            : Lang.F("window.saved.hint_stop", "{steps}, stops when {stop}", ("steps", steps), ("stop", Queue.StopText(stop)));
+    }
+
     /// <summary>A new step goes at the end; a step being edited goes back in its place.</summary>
     void Put(Step step)
     {
@@ -2420,11 +2518,16 @@ public sealed class QueueWindow
 
     void EndEdit()
     {
+        bool wasEditing = _editing != null;
         _editing = null;
         // a food step edited for a skill this game does not have left the skill list empty: the next food gets the first skill
         if (_foodSkill.Selected < 0 && _foodSkill.ItemCount > 0) _foodSkill.Select(0);
         _addButton.Text = Lang.T("window.add_step", "Add step");
         _cancelEdit.Visible = false;
+        if (!wasEditing) return;   // (a step simply added keeps the form as it was, "or" rows too)
+        _orCount = 1;
+        _orBox.SetPressedNoSignal(false);
+        ShowOrRows();
     }
 
     /// <summary>The list's Edit: the selected step in the form, ready to be changed and saved back in its place.</summary>
@@ -2444,7 +2547,7 @@ public sealed class QueueWindow
         ShowStepForm();
         _skillPick.Select(skill);
         FillKinds(_untilPick, withStops: true);
-        FillKinds(_orPick, withStops: false);
+        FillOrKinds();
         string wantKey = s.IsFood ? FoodKeyPrefix + s.TargetId : Catalog.Key(s.TargetId, s.Extra);
         FillTargets(wantKey, suggest: false);
         // Equip for an item (or loadout) this game does not have: shown as missing, not swapped for the list's first entry
@@ -2474,15 +2577,22 @@ public sealed class QueueWindow
         if (!Pseudo) LoadGoal(s, _item, _levelPick, _nodePick, _eventPick, _taskPick);
         if (!Pseudo) CapNodes(_amount, _nodePick, Kind);   // a node goal's cap is the chosen kind's (minor or major)
         _amount.Value = s.Amount;
-        _orBox.ButtonPressed = !Pseudo && s.Or != null;
-        if (!Pseudo && s.Or is { } or)
+        List<Goal> theirs = Pseudo ? new List<Goal>() : s.Others.ToList();
+        _orCount = Math.Max(1, theirs.Count);
+        _orBox.SetPressedNoSignal(theirs.Count > 0);
+        ShowOrRows();
+        for (int i = 0; i < theirs.Count && i < _ors.Length; i++)
         {
-            int orAt = _orPick.GetItemIndex((int)or.Until);
-            if (orAt >= 0) _orPick.Select(orAt);
-            OrChanged();
-            LoadGoal(or, _orItem, _orLevel, _orNode, _orEvent, _orTask);
-            CapNodes(_orAmount, _orNode, OrKind);
-            _orAmount.Value = or.Amount;
+            GoalRow r = _ors[i];
+            Goal or = theirs[i];
+            int orAt = r.Pick.GetItemIndex((int)or.Until);
+            if (orAt >= 0) r.Pick.Select(orAt);
+            OrChanged(r);
+            FillEvents();
+            FillTasks();
+            LoadGoal(or, r.Item, r.Level, r.Node, r.Event, r.Task);
+            CapNodes(r.Amount, r.Node, r.Kind);
+            r.Amount.Value = or.Amount;
         }
         if (_lanePick.Visible) _lanePick.Select(Math.Clamp(s.Lane, 1, _lanePick.ItemCount) - 1);
         if (_mode.Visible) _mode.ButtonPressed = !string.IsNullOrEmpty(s.Mode);

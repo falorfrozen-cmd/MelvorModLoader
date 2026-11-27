@@ -263,7 +263,7 @@ public static class Planner
                 continue;
             }
             // (A step with a second goal may end before it has made all of it: the plan does not count on it.)
-            if (step.Or != null || step.Until is not (Until.Item or Until.Made) || !byId.TryGetValue(step.Subject, out Item? item)) continue;
+            if (step.HasOthers || step.Until is not (Until.Item or Until.Made) || !byId.TryGetValue(step.Subject, out Item? item)) continue;
             Maker? maker = makers.TryGetValue(item, out List<Maker>? list) ? list.FirstOrDefault(m => m.Entity.Id == step.Entity && m.Target.Id == step.TargetId) : null;
             if (maker == null) continue;
             long before = Now(item), goal = (long)Math.Ceiling(step.Amount) + (step.Until == Until.Made ? before : 0);
