@@ -15,12 +15,18 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.15.0.zip   (name: Action Queue, version 0.15.0)  -  0.14.0 dosyasini Archived yap
+MAIN FILE:  dist\ActionQueue-0.16.0.zip   (name: Action Queue, version 0.16.0)  -  0.15.0 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.16.0
+- New: fights while the game is closed. A fight step now starts, counts its kills and ends at its goal during offline progress like any other step, and the next step takes over. Until now it waited for the game to be open, because the game's music broke when a fight started or ended in that time. The queue holds the fight's music while the game is closed and sets it once when you come back (asked on Nexus, thank you!)
+- Fixed along the way: a death in a fight while the game was closed could stop the game's "now playing" music notice from showing until a restart
+- Gear and food are still only changed while the game is open, so an equip step still waits for that
+- A paused fight (a boss that waits for you, or the pause button) now says so in its step: "running ... (the fight is paused)"
+
 0.15.0
 - New: up to four goals on a step. Tick "or" and press "+ or" at the end of the row for another one; the step is over when any one of them is reached, and it says which (asked for on Nexus, thank you!)
 - A "Go to a saved queue" step now says when that saved queue stops (its own "Stop the whole queue when"), and the list of saved queues shows it too. To train Magic to 30 in a loop and then go on, give the loop its own stop and save it
@@ -158,7 +164,10 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.15.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+This is Action Queue [b]0.16.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+
+[size=5][b]New in 0.16: fights while the game is closed[/b][/size]
+A fight step now starts, counts its kills and ends at its goal while the game works out the time you were away, like any other step. Until now it waited for the game to be open: the game's music broke when a fight started or ended in that time. The queue holds the fight's music while the game is closed and sets it once when you come back. Gear and food are still only changed while the game is open, so an equip step waits for that, and a fight paused for a boss stays paused until you are back.
 
 [size=5][b]New in 0.15: more goals on a step[/b][/size]
 Tick [b]or[/b] and press [b]+ or[/b] at the end of the row: a step can now have up to four goals, and it is over when any one of them is reached. A [b]Go to a saved queue[/b] step also says when that saved queue stops. To train Magic to 30 in a loop and then go on, load the loop, give it its own stop and save it again.
@@ -296,7 +305,7 @@ On its own the queue does one step after another. Add the [url=https://www.nexus
 [*][b]You stay in charge.[/b] Start something else by hand and the queue pauses instead of fighting you. Press the game's Stop on a step and the queue moves on without it. "Remove all" also stops what the running step had started.
 [*][b]Out of ammo ends the fight.[/b] When your bow has no arrows left (or your spell no runes), the fight step ends and the queue moves on, instead of standing in the fight while the monster hits you.
 [*][b]Death pauses it.[/b] If your character dies the queue stops and does not walk back into the fight, even with "start over" switched on.
-[*][b]Runs while the game is closed too.[/b] During offline progress the queue moves on to its next steps; a fight waits until the game is open again. After a restart it carries on where it was.
+[*][b]Runs while the game is closed too.[/b] During offline progress the queue moves on to its next steps, fights included. After a restart it carries on where it was.
 [*]Hunting uses the trap chosen on the Hunting page, or a trap from your bank when none is chosen. Agility needs a path chosen on the skill's own page first.
 [/list]
 

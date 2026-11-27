@@ -482,8 +482,9 @@ public static class Queue
             ? new Goal { Until = goal.Until, Amount = goal.Amount, Subject = goal.Subject, SubjectName = goal.SubjectName ?? "" } : null;
 
     /// <summary>
-    /// Offline the stop was reached while a fight step was at it: a fight is never ended offline, so the other steps
-    /// stopped, nothing new starts, and the queue ends (fight and all) as soon as the game is open.
+    /// Offline the stop was reached while a fight step was at it, and fights wait for the game (the fight's music could
+    /// not be held, see Offline): the other steps stopped, nothing new starts, and the queue ends (fight and all) as
+    /// soon as the game is open.
     /// </summary>
     static bool s_stopPending;
 
@@ -559,8 +560,8 @@ public static class Queue
 
     /// <summary>
     /// The queue's own stop was reached: every step's action stops, the queue ends, and the idle action takes over.
-    /// Offline a fight is never ended (see OfflineTick): then the other steps stop, nothing new starts, and the queue
-    /// ends with the first look once the game is open.
+    /// Offline with fights waiting (see OfflineTick) a fight is not ended: then the other steps stop, nothing new
+    /// starts, and the queue ends with the first look once the game is open.
     /// </summary>
     static void StopForGood(Game game)
     {
@@ -687,21 +688,28 @@ public static class Queue
     /// <summary>Multitask's room as it was when the game last saved (see <see cref="Snapshot.Capacity"/>).</summary>
     static int s_savedCapacity;
 
-    /// <summary>True for a fight while the game computes offline progress: the queue must neither start nor end it then.</summary>
-    static bool HandsOff(ActionComponent action) => action.Entity.Id == CombatId && !Targets.OnMainThread;
+    /// <summary>
+    /// True for a fight while the game computes offline progress and the fight's music could not be held there (see
+    /// <see cref="Offline.FightsAllowed"/>): the queue must neither start nor end it then. Since 0.16.0 the music is
+    /// held offline, so this is only the fallback after a game update.
+    /// </summary>
+    static bool HandsOff(ActionComponent action) => action.Entity.Id == CombatId && FightsWait;
 
-    /// <summary>Offline, with a fight running: a step may only start next to it (with a free Multitask slot), never in its place.</summary>
-    static bool FightKeptOffline(Game game) => !Targets.OnMainThread && game.ActionManager.ActiveActions.Any(a => a.Entity.Id == CombatId);
+    /// <summary>Offline without the music held: fights wait for the game to be open.</summary>
+    static bool FightsWait => !Targets.OnMainThread && !Offline.FightsAllowed;
+
+    /// <summary>Offline, with a fight running and fights waiting: a step may only start next to it (with a free Multitask slot), never in its place.</summary>
+    static bool FightKeptOffline(Game game) => FightsWait && game.ActionManager.ActiveActions.Any(a => a.Entity.Id == CombatId);
 
     public static void OfflineTick(Game game, double seconds)
     {
         if (!ReferenceEquals(game, s_game)) return;
         OfflineSeconds += seconds;
         if (!Running) return;
-        // A fight going on (a fight step, or the player's own fight Multitask keeps beside the queue): the queue does
-        // not touch the fight offline - starting or ending one would wake the game's music player on this thread -
-        // but its other steps go on (until 0.9.0 the whole queue stood still while any fight ran).
-        if (game.ActionManager.ActiveActions.Any(a => a.Entity.Id == CombatId))
+        // Since 0.16.0 fights are started and ended offline too (the fight's music is held, see Offline). Without that
+        // hold (a game update), a fight going on is not touched offline - starting or ending one would have the game
+        // switch its music on this thread - but the other steps go on (until 0.9.0 the whole queue stood still).
+        if (FightsWait && game.ActionManager.ActiveActions.Any(a => a.Entity.Id == CombatId))
         {
             if (!s_toldFightOffline) Trace("offline: a fight is running; it is left alone, the other steps go on beside it");
             s_toldFightOffline = true;
@@ -974,7 +982,7 @@ public static class Queue
     {
         if (s_game == null || !Running || step.Run != RunState.Running) return;
         ActionComponent? action = Targets.Find(s_game, step.Entity);
-        // (a fight is never ended while the game works out the time it was closed: see OfflineTick)
+        // (with fights waiting, a fight is not ended while the game works out the time it was closed: see OfflineTick)
         if (action != null && StepDoing(action, step) && !HandsOff(action)) action.TryStop(force: true);
     }
 
@@ -1810,7 +1818,7 @@ public static class Queue
 
     static void StopAction(ActionComponent action)
     {
-        if (HandsOff(action)) return;   // a fight is never ended offline (see OfflineTick)
+        if (HandsOff(action)) return;   // fights waiting offline: not ended (see OfflineTick)
         if (!action.TryStop()) action.TryStop(force: true);
     }
 
@@ -2051,7 +2059,7 @@ public static class Queue
         if (!s_idleOwned || Idle == null) return;
         if (beside && Idle.Entity != step.Entity && FreeSlots(game) > 0) return;   // there is room for both
         ActionComponent? action = Targets.Find(game, Idle.Entity);
-        if (action != null && HandsOff(action)) return;   // an idle fight is not ended offline
+        if (action != null && HandsOff(action)) return;   // fights waiting offline: an idle fight is not ended
         s_idleOwned = false;
         if (action != null && Targets.IsDoing(action, IdleTarget(Idle))) StopAction(action);
         IdleSays(Lang.T("queue.made_room_step", "made room for a step"));
@@ -2096,9 +2104,9 @@ public static class Queue
         if (step.IsSell) { Sell(game, step); return; }
         if (step.IsEquip) { Equip(game, step); return; }
         if (step.IsSwitch) { SwitchTo(game, step); return; }
-        // Off the main thread (offline progress) a fight is neither started nor ended by the queue: the game's music
-        // player and its notice would react to it right there. Such a step waits until the game is back.
-        if (!Targets.OnMainThread && step.Entity == CombatId)
+        // Offline progress without the fight's music held (see Offline.FightsAllowed): a fight is neither started nor
+        // ended by the queue, the game's music player and its notice would react to it right there. The step waits.
+        if (FightsWait && step.Entity == CombatId)
         {
             if (step.Run != RunState.Waiting) { step.Run = RunState.Waiting; Say(step, StepStatus.Waiting, Lang.T("queue.waits_game_open_fight", "waits for the game to be open (a fight)")); }
             return;
@@ -2163,8 +2171,8 @@ public static class Queue
         }
 
         bool othersAtWork = Steps.Any(s => s != step && s.Run == RunState.Running);
-        // Offline next to a fight: starting in its place would end the fight on the game's thread. Without a free
-        // Multitask slot the step waits until the game is back.
+        // Offline next to a fight, with fights waiting: starting in its place would end the fight on the game's thread.
+        // Without a free Multitask slot the step waits until the game is back.
         if (FightKeptOffline(game) && !(Capacity() > 1 && FreeSlots(game) > 0))
         {
             Wait(step, Lang.T("queue.waits_game_open_fight_running", "waits for the game to be open (a fight is running)"));
@@ -2247,7 +2255,8 @@ public static class Queue
     static void Equip(Game game, Step step)
     {
         if (EarlierAtWork(step)) { Wait(step, Lang.T("queue.waiting_steps_before_finish", "waiting: for the steps before it to finish")); return; }
-        // Gear (and a loadout's food, prayers and spells) is only changed while the game is open, like a fight.
+        // Gear (and a loadout's food, prayers and spells) is only changed while the game is open (fights go on offline
+        // since 0.16.0; gear changes were never tried there).
         if (!Targets.OnMainThread)
         {
             string later = step.IsFood ? Lang.T("queue.waits_game_open_food", "waits for the game to be open (food)") : Lang.T("queue.waits_game_open_equipment", "waits for the game to be open (equipment)");
@@ -2498,7 +2507,7 @@ public static class Queue
     {
         ActionComponent? action = Targets.Find(game, step.Entity);
         if (action == null) { End(step, StepStatus.Skipped, Lang.T("queue.skipped_skill_not_game", "skipped: this skill is not in the game")); return; }
-        // A fight step is looked at again when the game is back; the time it fights meanwhile still counts (Time column, "for N minutes").
+        // Fights waiting offline: a fight step is looked at again when the game is back; the time it fights meanwhile still counts (Time column, "for N minutes").
         if (HandsOff(action)) { if (StepDoing(action, step)) step.Seconds += seconds; return; }
         var wanted = new Target(step.TargetId, step.Name, step.Extra);
         Target? now = Targets.Current(action);
@@ -2555,7 +2564,11 @@ public static class Queue
             // A slayer step follows its master: the task was completed, so walk to the new task monster.
             if (step.Extra == Targets.Slayer && now.Id == step.Following)
             {
-                bool others = Steps.Any(s => s != step && s.Run == RunState.Running);
+                // Next to the queue's other steps, or next to what the player keeps running with Multitask's room: the
+                // new task's monster is taken beside them (a plain start stops everything, and offline Multitask cannot
+                // start the player's action again).
+                bool others = Steps.Any(s => s != step && s.Run == RunState.Running)
+                    || Capacity() > 1 && game.ActionManager.ActiveActions.Any(a => a.Entity.Id != step.Entity);
                 if (others ? Targets.StartBeside(game, action, wanted, out string problem) : Targets.Start(game, action, wanted, out problem))
                     step.Following = Targets.Current(action)?.Id ?? "";
                 else End(step, StepStatus.Done, Lang.F("state.done_because", "done: {why}", ("why", problem)));
@@ -2593,7 +2606,11 @@ public static class Queue
         }
         else s_cannotAttack.Remove(step);
         string progress = Progress(game, step);
-        Say(step, StepStatus.Running, Lang.F("state.running_progress", "running  {progress}", ("progress", progress)), progress);
+        // A paused fight (the game's pause button, or a boss that waits for the player): it says so. While the game is
+        // closed nobody unpauses it, so a kill goal waits for the player; time still counts, as with the game open.
+        if (action is CombatActionComponent { IsPaused: true })
+            Say(step, StepStatus.Running, Lang.F("state.running_fight_paused", "running  {progress} (the fight is paused)", ("progress", progress)), progress);
+        else Say(step, StepStatus.Running, Lang.F("state.running_progress", "running  {progress}", ("progress", progress)), progress);
     }
 
     static readonly Dictionary<Step, double> s_cannotAttack = new(ReferenceEqualityComparer.Instance);

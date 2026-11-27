@@ -1,4 +1,4 @@
-Action Queue 0.15.0  -  a mod for Melvor Idle 2
+Action Queue 0.16.0  -  a mod for Melvor Idle 2
 ==============================================
 
 Chains actions: do one thing until a goal is reached, then start the next. For example:
@@ -7,7 +7,7 @@ Works with 16 skills including combat, dungeons and slayer tasks. Not a cheat.
 It also plans for you ("I want 100 Steel Platebodies" -> the steps), keeps several queues
 under a name, and turns a queue into a short code you can share.
 
-Tested with game version 0.11.6-alpha.1 and Melvor Mod Loader 0.1.3.
+Tested with game version 0.11.7 (the update of 25 November 2026) and Melvor Mod Loader 0.1.3.
 
 
 REQUIRES
@@ -329,8 +329,8 @@ then takes over (or the saved queue under "When the queue ends, go on with").
     or does not start ("at once"), or does this one round ("when a round is over").
   - A sale or an equip step that brings you there ends the queue at once: the next step does
     not start.
-  - While the game is closed the queue never ends a fight. The other steps stop, nothing
-    new starts, and the fight ends as soon as you open the game.
+  - It also works while the game is closed, and since 0.16.0 it ends a running fight then
+    too.
   - It looks twice a second, so a very fast action can make one or two more.
   - It is kept with the queue, in saved queues and in share codes. "Remove all" takes it
     away too.
@@ -381,10 +381,21 @@ GOOD TO KNOW
 - The queue also runs while the game is closed: when you come back, the game works out the
   time you were away and the queue moves on through its steps in that time, as if you had
   watched. After the game is closed and opened again, a running queue carries on where it
-  was at the game's last save. Fights are neither started nor ended in that time: such a
-  step waits until the game is open. The other steps go on, also while a fight runs beside
-  them with the Multitask mod (until 0.9.0 the whole queue stood still while any fight ran).
+  was at the game's last save. Since 0.16.0 that includes fights: a fight step starts, counts
+  its kills and ends at its goal while the game is closed, like any other step, and the next
+  step takes over. Until then fights waited for the game to be open, because the game's
+  music broke when a fight started or ended in that time (its "now playing" notice stopped
+  showing until the game was restarted). The queue now holds the fight's music while the
+  game is closed and sets it once when you come back. If a game update changes that part of
+  the game, fights wait for the game to be open again, as before.
   Good to know about that time:
+    - Gear and food are still only changed while the game is open: an equip step waits for
+      that, and the steps after it wait with it.
+    - If your character dies in a fight while the game is closed, the queue pauses, as it does
+      while the game is open.
+    - A paused fight (a boss that waits for you, or the game's pause button) stays paused
+      while the game is closed. The step says "the fight is paused"; a kill goal waits for
+      you, a minutes goal keeps counting, as with the game open.
     - The game itself works out at most 24 hours (more with bonuses that raise the limit),
       and only after a normal close (the game saves then).
     - If the steps were changed after the game last saved, the queue does not carry on
