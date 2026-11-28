@@ -10,6 +10,8 @@ nav_order: 1
 Five minutes, once. After that, adding a mod is one unzip.
 {: .fs-5 .fw-300 }
 
+For the native Linux Steam build, see [Installing on Linux](install-linux).
+
 1. TOC
 {:toc}
 

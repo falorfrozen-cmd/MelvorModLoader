@@ -63,6 +63,16 @@ Then run `dotnet build -c Release` in `Loader` or in any mod folder. Mods need t
 
 No game files are included here, and none may be added.
 
+### Packaging the Linux ZIP
+
+On Linux, install the .NET 10 SDK and Python 3. From the repo root, run:
+
+```bash
+bash Dev/package-linux.sh "/absolute/path/to/Melvor Idle 2" "/absolute/output/dir/MelvorModLoader-linux-x86_64.zip"
+```
+
+Use the native Linux x86_64 Steam install as the first argument and an existing output directory outside that install on a filesystem that supports hard links. The script builds against the local game assemblies and leaves the game directory untouched. The ZIP contains the loader and bundled .NET runtime, plus `override.cfg`. It does not contain any game files or mods. See the [Linux install guide](docs/players/install-linux.md) for the ZIP layout and install steps.
+
 ## How it works
 
 `override.cfg` next to `Melvor2.exe` is a standard Godot feature. It tells the engine to load `MelvorModLoader.dll` first. The loader loads the game's own DLL untouched, starts the game normally, and then loads every DLL in `mods`.
