@@ -438,15 +438,16 @@ public sealed class QueueWindow
         // -- the queue
         _table = new Tree
         {
-            Columns = 5, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true, AllowRmbSelect = true,
+            Columns = 6, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, ColumnTitlesVisible = true, AllowRmbSelect = true,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 150)
         };
         // Time (0.13.1, asked for on Nexus): how long the step has been running, or took.
-        string[] titles = { "#", Lang.T("window.label.do", "Do"), Lang.T("window.column.until", "Until"), Lang.T("window.column.state", "State"), Lang.T("window.column.time", "Time") };
+        // Est. left: the estimated time a step still needs, from the planner's per-action times.
+        string[] titles = { "#", Lang.T("window.label.do", "Do"), Lang.T("window.column.until", "Until"), Lang.T("window.column.state", "State"), Lang.T("window.column.time", "Time"), Lang.T("window.column.left", "Est. left") };
         for (int c = 0; c < titles.Length; c++)
         {
             _table.SetColumnTitle(c, titles[c]);
-            _table.SetColumnTitleAlignment(c, c == 4 ? HorizontalAlignment.Right : HorizontalAlignment.Left);
+            _table.SetColumnTitleAlignment(c, c >= 4 ? HorizontalAlignment.Right : HorizontalAlignment.Left);
             // a long name or goal is cut short (its tooltip has it whole) instead of widening its column past what the player set
             _table.SetColumnClipContent(c, c != 0);
         }
@@ -887,7 +888,7 @@ public sealed class QueueWindow
 
     /// <summary>Widths the player dragged the Do and Until columns to (0: the normal layout, Do and State share the room).</summary>
     int _doWidth, _untilWidth;
-    const int UntilNormal = 290, DoLeast = 120, UntilLeast = 140, StateLeast = 140, TimeWidth = 84;
+    const int UntilNormal = 290, DoLeast = 120, UntilLeast = 140, StateLeast = 140, TimeWidth = 84, LeftWidth = 128;
     readonly ColorRect?[] _dividers = new ColorRect?[3];
     /// <summary>The divider being dragged (1: after Do, 2: after Until), how far the mouse moved since the press, and the column's width then.</summary>
     int _dividerDragged;
@@ -907,11 +908,13 @@ public sealed class QueueWindow
         _table.SetColumnExpand(3, true);
         _table.SetColumnExpand(4, false);
         _table.SetColumnCustomMinimumWidth(4, TimeWidth);
+        _table.SetColumnExpand(5, false);
+        _table.SetColumnCustomMinimumWidth(5, LeftWidth);
         int doW = custom ? Math.Max(DoLeast, _doWidth > 0 ? _doWidth : 300) : 0;
         int untilW = Math.Max(UntilLeast, _untilWidth > 0 ? _untilWidth : UntilNormal);
         // A window narrower than when the widths were set (made smaller, another screen): they give way so State and both
         // handles stay in view. The widths the player chose are kept and come back when there is room again.
-        float room = TableInside() - Math.Max(44, _table.GetColumnWidth(0)) - Math.Max(TimeWidth, _table.GetColumnWidth(4)) - StateLeast;
+        float room = TableInside() - Math.Max(44, _table.GetColumnWidth(0)) - Math.Max(TimeWidth, _table.GetColumnWidth(4)) - Math.Max(LeftWidth, _table.GetColumnWidth(5)) - StateLeast;
         if (custom && room > 0 && doW + untilW > room)
         {
             untilW = (int)Math.Max(UntilLeast, Math.Min(untilW, room - DoLeast));
@@ -2803,6 +2806,39 @@ public sealed class QueueWindow
         return ("", "");
     }
 
+    /// <summary>The Est. left column of a step: its estimate and a tooltip saying how it was worked out ("" when none).</summary>
+    static (string Text, string Tip) LeftOf(Planner.Estimate estimate)
+    {
+        if (!estimate.Known) return ("", "");
+        string tip = EstimateTip(estimate);
+        if (estimate.Observed) tip += Lang.T("window.estimate_tip_observed", "\nUses the XP rate measured while this step runs.");
+        if (estimate.Luck) tip += Lang.T("window.estimate_tip_luck", "\nAverage for a chance drop: luck can change it a lot.");
+        return (EstimateText(estimate), tip);
+    }
+
+    /// <summary>An estimate as the Time column shows it: "~12 min", or "up to 12 min" when another goal may end the step sooner.</summary>
+    static string EstimateText(Planner.Estimate estimate) => estimate.Partial
+        ? Lang.F("window.estimate_up_to", "up to {time}", ("time", Planner.Time(estimate.Seconds)))
+        : Lang.F("window.estimate_about", "~{time}", ("time", Planner.Time(estimate.Seconds)));
+
+    static string EstimateTip(Planner.Estimate estimate) => (estimate.Partial
+        ? Lang.F("window.estimate_tip_up_to", "About {time} left at most (another goal may end it sooner).", ("time", Planner.Time(estimate.Seconds)))
+        : Lang.F("window.estimate_tip", "About {time} left.", ("time", Planner.Time(estimate.Seconds))))
+        + Lang.T("window.estimate_tip_how", "\nNormal game speed, your current bonuses, the planner's per-action times.");
+
+    /// <summary>The estimated seconds a lane (or the whole queue, for null) still needs: the sum of its steps' known estimates.</summary>
+    static double LaneEstimate(int? lane, Func<int, Planner.Estimate> estimateAt)
+    {
+        double sum = 0;
+        for (int i = 0; i < Queue.Steps.Count; i++)
+            if (lane == null || Math.Clamp(Queue.Steps[i].Lane, 1, Queue.MaxLanes) == lane)
+                if (estimateAt(i) is { Known: true } e) sum += e.Seconds;
+        return sum;
+    }
+
+    /// <summary>For tests: the estimate behind a step's Est. left column.</summary>
+    public Planner.Estimate EstimateOf(int index) => _estimates.Count > index && index >= 0 ? _estimates[index] : default;
+
     /// <summary>For tests: what the Time column shows for a step, and its tooltip.</summary>
     public string TimeText(int index) => StepRows().FirstOrDefault(r => (int)r.GetMetadata(0) == index)?.GetText(4) ?? "";
     public string TimeTip(int index) => StepRows().FirstOrDefault(r => (int)r.GetMetadata(0) == index)?.GetTooltipText(4) ?? "";
@@ -2858,9 +2894,18 @@ public sealed class QueueWindow
 
     void Say(string text) => _status.Text = text;
 
+    List<Planner.Estimate> _estimates = new();
+
     void Repaint()
     {
         int selected = SelectedIndex();
+        _estimates = new List<Planner.Estimate>();
+        if (_game != null)
+        {
+            try { _estimates = Planner.Estimates(_game, Queue.Steps); }
+            catch (Exception e) { Queue.Log($"Time estimates could not be worked out: {e.Message}"); }
+        }
+        Planner.Estimate EstimateAt(int i) => i < _estimates.Count ? _estimates[i] : default;
         _table.Clear();
         TreeItem root = _table.CreateItem();
         // With lanes: one heading per lane, its steps under it.
@@ -2875,6 +2920,13 @@ public sealed class QueueWindow
                 Step? at = mine.FirstOrDefault(st => st.Run != RunState.Done);
                 heading.SetText(1, Lang.F("window.lane", "Lane {lane}", ("lane", lane)));
                 heading.SetText(3, !Queue.Running ? Lang.P("window.step_count", mine.Count, "{count} step", "{count} steps") : at == null ? Lang.T("window.finished", "finished") : Lang.F("window.at_step", "at step {number}", ("number", Queue.Steps.IndexOf(at) + 1)));
+                double laneSeconds = LaneEstimate(lane, EstimateAt);
+                if (laneSeconds > 0)
+                {
+                    heading.SetText(5, Lang.F("window.estimate_about", "~{time}", ("time", Planner.Time(laneSeconds))));
+                    heading.SetTooltipText(5, Lang.T("window.estimate_lane_tip", "Estimated time this lane still needs, at normal game speed. Steps whose time cannot be told in advance are not counted."));
+                    heading.SetTextAlignment(5, HorizontalAlignment.Right);
+                }
                 for (int c = 0; c < _table.Columns; c++) { heading.SetCustomColor(c, Style.Accent); heading.SetSelectable(c, false); }
                 headings[lane] = heading;
             }
@@ -2902,11 +2954,23 @@ public sealed class QueueWindow
             row.SetTooltipText(4, timeTip);
             row.SetTextAlignment(4, HorizontalAlignment.Right);
             row.SetCustomColor(4, current ? Style.Good : Style.Muted);
+            (string left, string leftTip) = LeftOf(EstimateAt(i));
+            row.SetText(5, left);
+            row.SetTooltipText(5, leftTip);
+            row.SetTextAlignment(5, HorizontalAlignment.Right);
+            row.SetCustomColor(5, current ? Style.Good : Style.Muted);
             row.SetCustomColor(0, Style.Muted);
             row.SetCustomColor(3, step.Status == StepStatus.Skipped ? Style.Bad : current ? Style.Good : waiting ? Style.Accent : Style.Muted);
             if (current)
                 for (int c = 0; c < _table.Columns; c++) row.SetCustomBgColor(c, new Color(Style.GoodDim, 0.55f));
         }
+        // The Est. left column's title: what the whole queue still needs (lanes run side by side, so the longest lane).
+        double total = laneMode
+            ? Queue.Steps.Select(st => Math.Clamp(st.Lane, 1, Queue.MaxLanes)).Distinct().Select(l => LaneEstimate(l, EstimateAt)).DefaultIfEmpty(0).Max()
+            : LaneEstimate(null, EstimateAt);
+        _table.SetColumnTitle(5, total > 0
+            ? Lang.F("window.column.left_total", "Left ~{time}", ("time", Planner.Time(total)))
+            : Lang.T("window.column.left", "Est. left"));
         if (selected >= 0 && selected < Queue.Steps.Count) SelectRow(selected);
         else PaintLaneButton();
         Callable.From(PlaceDividers).CallDeferred();   // (a scroll bar that came or went moves the column borders)
