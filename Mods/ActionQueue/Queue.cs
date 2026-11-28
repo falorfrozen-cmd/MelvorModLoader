@@ -2674,7 +2674,8 @@ public static class Queue
             // skill (it stops everything when an action starts; Multitask leaves the queue's steps to the queue). When
             // there is room for both, the step goes on beside it instead of the whole queue pausing: a fight started by
             // hand again after a death, next to the queue's runecrafting.
-            if (Targets.OnMainThread && TakeBumped(step.Entity) && Capacity() > 1)
+            bool bumped = Targets.OnMainThread && TakeBumped(step.Entity);
+            if (bumped && Capacity() > 1)
             {
                 ActionComponent? theirs = game.ActionManager.ActiveActions.LastOrDefault(a => a.Entity.Id != step.Entity
                     && !Steps.Any(s => s.Run == RunState.Running && s.Entity == a.Entity.Id) && !(s_idleOwned && Idle?.Entity == a.Entity.Id));
@@ -2690,7 +2691,11 @@ public static class Queue
             bool idleOfOurs = main != null && s_idleOwned && Idle != null && main.Entity.Id == Idle.Entity && Targets.IsDoing(main, IdleTarget(Idle));
             // (Only while the game is open: while it computes the time it was closed nobody starts anything by hand,
             // and right after a restart Multitask has not said yet which of the running actions are its own.)
-            if (Targets.OnMainThread && main != null && !idleOfOurs && !Steps.Any(s => s.Run == RunState.Running && s.Entity == main.Entity.Id))
+            // With Multitask's room only when the game stopped the step to start that action (0.17.1, reported on
+            // Discord): a step that ran out of materials stops by itself, and Multitask then puts the player's own action
+            // kept beside it (their Crafting) in front, which looked like something the player had just started.
+            if (Targets.OnMainThread && main != null && !idleOfOurs && !Steps.Any(s => s.Run == RunState.Running && s.Entity == main.Entity.Id)
+                && (bumped || Capacity() <= 1))
             {
                 Pause(Lang.T("queue.you_started_something_else_so", "You started something else, so the queue is paused."));
                 return;

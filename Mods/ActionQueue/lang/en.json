@@ -2,7 +2,7 @@
   "_meta": {
     "name": "English",
     "culture": "en-GB",
-    "version": "0.17.0",
+    "version": "0.17.1",
     "translator": ""
   },
   "_how": "To translate Action Queue: copy this file in the same lang folder, name it after the language (ru.json, de.json...), put the language's own name in _meta.name (\"Русский\") and its culture in _meta.culture (\"ru-RU\"), then translate the texts. Keep every {place} as it is (you may move it or leave it out). A text with \"one\" and \"other\" depends on a number: give the forms your language has (Russian: one, few, many, other). Remove what you have not translated yet, or leave it in English: either way it shows in English. Names of items, skills and monsters come from the game. Choose the language in the Action Queue window (top right).",

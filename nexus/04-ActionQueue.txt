@@ -15,12 +15,15 @@ GEREKSINIM (Requirements):
 Melvor Mod Loader (link the loader's mod page)
 
 YUKLENECEK DOSYALAR (MelvorModLoader_src klasorunden):
-MAIN FILE:  dist\ActionQueue-0.17.0.zip   (name: Action Queue, version 0.17.0)  -  0.16.0 dosyasini Archived yap
+MAIN FILE:  dist\ActionQueue-0.17.1.zip   (name: Action Queue, version 0.17.1)  -  0.17.0 dosyasini Archived yap
 
 YUKLENECEK GORUNTULER (MelvorModLoader_src klasorunden):
 Dev\shots\sira-2-pencere.png (main image), sira-5-yan-yana.png, sira-3-plan.png, sira-4-kayitli.png, sira-1-ekran-seridi.png
 
 DEGISIKLIK LISTESI (Changelogs sekmesi):
+0.17.1
+- Fixed: with Multitask, a step that ran out of materials and stopped by itself ("make daggers until it stops by itself") could pause the whole queue with "You started something else" when you had your own action running beside it, so a queue with "start over" on never went round again. It now ends the step and goes on (reported on Discord, thank you!)
+
 0.17.0
 - New: the toolbelt. Equip lists potions, oven mitts, utilities and tools under the skill whose toolbelt takes them, and the step puts the item from the bank into its slot (a potion whole, but for the number you keep in the bank). Unlike gear, this also works while the game is closed (asked on Nexus, thank you!)
 - New goal: "a toolbelt item runs out". Pick the potion or the mitts, and the step ends when none of it is left in the toolbelt. Put the mitts in, cook until they run out, start over, and they are always in use
@@ -170,7 +173,7 @@ Not a cheat: it only presses the buttons you would press, at the moment you woul
 [center][b][url=https://discord.gg/q6aexZZSAf]Join Discord for updates, support and feedback[/url]  |  [url=https://falorfrozen-cmd.github.io/MelvorModLoader/]Wiki and guides[/url]  |  [url=https://github.com/falorfrozen-cmd/MelvorModLoader]Source on GitHub[/url]  |  [url=https://www.patreon.com/cw/ModPact]Support on Patreon[/url][/b][/center]
 
 [size=5][b]Start here[/b][/size]
-This is Action Queue [b]0.17.0[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
+This is Action Queue [b]0.17.1[/b], tested on game version [b]0.11.7[/b] (the update of 25 November 2026) with Melvor Mod Loader 0.3.0. Open a character and press [b]F6[/b] (or use the [b]Mods[/b] button in the top bar, where the key can be changed). Drag the window by its title bar to put it where you like; a double-click there centres it again. Its right edge and bottom-right corner make it bigger.
 
 [size=5][b]New in 0.17: potions and oven mitts[/b][/size]
 Equip now lists the toolbelt (the "Equipment Loadout" panel on a skill's page): potions, oven mitts, utilities and tools, grouped by the skill whose toolbelt takes them. The step puts the item from the bank into its slot (a potion whole, but for the number you keep in the bank), and it does so while the game is closed too. A new goal, [b]a toolbelt item runs out[/b], ends a step when none of that potion or those mitts is left in the toolbelt. The game never refills a slot by itself, so a small loop keeps it in use: Equip: Rabbit Oven Mitts, then Cooking until no Rabbit Oven Mitts is left in the toolbelt, with "start over" on.
