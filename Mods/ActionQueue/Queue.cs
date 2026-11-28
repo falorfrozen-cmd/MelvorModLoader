@@ -1825,7 +1825,7 @@ public static class Queue
             if (!ReferenceEquals(other, action) && Targets.Current(other) is Target doing) beside[other.Entity.Id] = doing.Id;
         if (beside.Count == 0) return false;
         foreach ((Item item, List<Maker> makers) in Planner.Makers(game))
-            if (needs.Contains(item.Id) && makers.Any(m => beside.TryGetValue(m.Entity.Id, out string? on) && on == m.Target.Id)) return true;
+            if (needs.Contains(item.Id) && makers.Any(m => !m.Rare && beside.TryGetValue(m.Entity.Id, out string? on) && on == m.Target.Id)) return true;
         return false;
     }
 
@@ -2819,7 +2819,7 @@ public static class Queue
     // gives the skill, the constellation and whether it has run. The one-argument forms are the step's own goal.
 
     /// <summary>The step's goals: its own, and the second one when it has one.</summary>
-    static IEnumerable<IGoal> Goals(Step step) => step.Others.Cast<IGoal>().Prepend(step);
+    internal static IEnumerable<IGoal> Goals(Step step) => step.Others.Cast<IGoal>().Prepend(step);
 
     static int Owned(Game game, Step step) => Owned(game, (IGoal)step);
     static int Owned(Game game, IGoal g) =>
@@ -2853,6 +2853,9 @@ public static class Queue
     static long SeenOf(Step step, IGoal g) { lock (s_seen) return s_seen.GetValueOrDefault($"{step.TargetId}|{g.Subject}"); }
 
     /// <summary>What a counting goal has counted so far (0 for the goals that read a number off the game).</summary>
+    /// <summary>What a goal has counted so far: the bank for "until I own N", the counter for the counting goals.</summary>
+    internal static long SoFar(Game game, Step step, IGoal g) => g.Until == Until.Item ? Counted(game, step, g) : Counter(step, g);
+
     static long Counter(Step step) => Counter(step, step);
     static long Counter(Step step, IGoal g) => g.Until switch
     {

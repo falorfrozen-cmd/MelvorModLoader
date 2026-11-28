@@ -32,6 +32,8 @@ public sealed class Maker
     public List<(string Currency, long Quantity)> Money = new();
     /// <summary>Seconds one action takes at normal game speed; 0 when it cannot be told in advance.</summary>
     public double Seconds;
+    /// <summary>Seconds one counted action takes for a "done N times" goal (one hit on a tree or rock, one catch, one recipe); 0 when unknown.</summary>
+    public double TimeSeconds;
     /// <summary>False when the yield is a matter of chance (fishing, cooking that can fail...).</summary>
     public bool Certain = true;
     /// <summary>
@@ -46,6 +48,8 @@ public sealed class Maker
     /// A plan never uses it; it is still known, so a step already in the queue can be followed.
     /// </summary>
     public bool Hidden;
+    /// <summary>True for a chance drop on the side (a fishing special, a geode, a bird nest): never chosen by a plan, only used for estimates.</summary>
+    public bool Rare;
 
     public string Name => $"{Entity.DisplayName.Text}: {Target.Name}";
 }
@@ -124,23 +128,32 @@ public static class Planner
     static void Collect(GameEntity entity, ActionComponent action, List<Maker> list)
     {
         Maker New(string id, string name, Item product, double perAction, double seconds, bool certain = true, bool main = true) =>
-            new() { Entity = entity, Action = action, Target = new Target(id, name), Product = product, PerAction = perAction, Seconds = seconds, Certain = certain, Main = main };
+            new() { Entity = entity, Action = action, Target = new Target(id, name), Product = product, PerAction = perAction, Seconds = seconds, TimeSeconds = seconds, Certain = certain, Main = main };
 
         switch (action)
         {
             case WoodcuttingActionComponent c:
                 // A tree takes one hit per point of health (bonus damage only makes it faster), then gives its logs.
                 foreach ((WoodcuttingRecipe recipe, WoodcuttingTree tree) in c.Trees)
-                    list.Add(New(recipe.Id, recipe.DisplayName.Text, recipe.Product.Item, tree.Stats.ProductQuantity.Value,
-                        tree.Stats.MaxHealth.Value * tree.Stats.Interval.Value / 1000.0));
+                {
+                    Maker maker = New(recipe.Id, recipe.DisplayName.Text, recipe.Product.Item, tree.Stats.ProductQuantity.Value,
+                        tree.Stats.MaxHealth.Value * tree.Stats.Interval.Value / 1000.0);
+                    maker.TimeSeconds = tree.Stats.Interval.Value / 1000.0;   // "done N times" counts every hit
+                    list.Add(maker);
+                    AddRares(list, maker, recipe.RandomProductsPerHit, maker.TimeSeconds);
+                    AddRares(list, maker, recipe.RandomProductsPerCut, maker.Seconds);
+                }
                 break;
 
             case MiningActionComponent c:
                 foreach ((MiningRecipe recipe, MiningRock rock) in c.Rocks)
                 {
                     double hits = MiningHits(rock.Stats.RockBreakChance.Value, rock.Stats.MinimumProspecting.Value);
-                    list.Add(New(recipe.Id, recipe.DisplayName.Text, recipe.Product.Item, rock.Stats.ProductQuantity.Value,
-                        hits <= 0 ? 0 : hits * rock.Stats.Interval.Value / 1000.0));
+                    Maker maker = New(recipe.Id, recipe.DisplayName.Text, recipe.Product.Item, rock.Stats.ProductQuantity.Value,
+                        hits <= 0 ? 0 : hits * rock.Stats.Interval.Value / 1000.0);
+                    maker.TimeSeconds = rock.Stats.Interval.Value / 1000.0;   // "done N times" counts every hit
+                    list.Add(maker);
+                    AddRares(list, maker, recipe.RandomProductsPerHit, maker.TimeSeconds);
                 }
                 break;
 
@@ -152,10 +165,16 @@ public static class Planner
                     if (weights <= 0) continue;
                     (double min, double max) = recipe.Stats.Interval.Value;
                     double top = products.Max(p => (double)p.Weight);
+                    Maker? first = null;
                     foreach (FishingProduct p in products)
-                        list.Add(New(recipe.Recipe.Id, recipe.Recipe.DisplayName.Text, p.Item,
+                    {
+                        Maker fish = New(recipe.Recipe.Id, recipe.Recipe.DisplayName.Text, p.Item,
                             recipe.Stats.FishChance.Value * p.Weight / weights * (p.MinQuantity + p.MaxQuantity) / 2.0,
-                            (min + max) / 2000.0, certain: false, main: p.Weight >= top));
+                            (min + max) / 2000.0, certain: false, main: p.Weight >= top);
+                        list.Add(fish);
+                        first ??= fish;
+                    }
+                    if (first != null) AddRares(list, first, recipe.Recipe.SpecialProducts, first.Seconds, exclusive: true);
                 }
                 break;
 
@@ -187,6 +206,48 @@ public static class Planner
         }
     }
 
+    /// <summary>
+    /// Adds the chance drops of an action (fishing specials, geodes, bird nests) as rare makers. Each product is read
+    /// by name (Item, Chance, Quantity), so a product type without them is simply left out. With
+    /// <paramref name="exclusive"/> only one can drop per action, rarest first (fishing specials).
+    /// </summary>
+    static void AddRares<T>(List<Maker> list, Maker from, IEnumerable<T>? products, double seconds, bool exclusive = false)
+    {
+        if (products == null || seconds <= 0) return;
+        try
+        {
+            var drops = new List<(Item Item, double Chance, double Quantity)>();
+            foreach (T p in products)
+            {
+                if (p is null || Member(p, "Item") is not Item item) continue;
+                double chance = Math.Clamp(Number(Member(p, "Chance")) ?? 0, 0, 1);
+                double quantity = Number(Member(p, "Quantity")) ?? 1;
+                if (chance > 0 && quantity > 0) drops.Add((item, chance, quantity));
+            }
+            double miss = 1;
+            foreach ((Item item, double chance, double quantity) in exclusive ? drops.OrderBy(d => d.Chance).ToList() : drops)
+            {
+                double hit = chance * miss;
+                if (exclusive) miss *= 1 - chance;
+                list.Add(new Maker
+                {
+                    Entity = from.Entity, Action = from.Action, Target = from.Target, Product = item, PerAction = hit * quantity,
+                    Seconds = seconds, TimeSeconds = from.TimeSeconds, Certain = false, Main = false, Rare = true, Chance = Math.Max(hit, 1e-9),
+                });
+            }
+        }
+        catch (Exception e) { Queue.Log($"Planner: chance drops of {from.Name} could not be read: {e.Message}"); }
+    }
+
+    static object? Member(object o, string name)
+    {
+        Type type = o.GetType();
+        if (type.GetProperty(name) is { } property && property.GetIndexParameters().Length == 0) return property.GetValue(o);
+        return type.GetField(name)?.GetValue(o);
+    }
+
+    static double? Number(object? value) => value is IConvertible c ? c.ToDouble(System.Globalization.CultureInfo.InvariantCulture) : null;
+
     static void Crafting<TRecipe, TActive>(GameEntity entity, CraftingActionComponent<TRecipe, TActive> c, List<Maker> list,
         Func<TActive, double> steps, Func<TActive, double> success, bool timeKnown = true)
         where TRecipe : class, ICraftingRecipe, INamespacedDataClass<TRecipe> where TActive : class, IActiveCraftingRecipe
@@ -209,7 +270,7 @@ public static class Planner
                 list.Add(new Maker
                 {
                     Entity = entity, Action = c, Target = new Target(recipe.Id, recipe.DisplayName.Text), Product = item,
-                    PerAction = quantity * chance * works, Costs = costs, Money = money, Seconds = seconds,
+                    PerAction = quantity * chance * works, Costs = costs, Money = money, Seconds = seconds, TimeSeconds = seconds,
                     Certain = chance >= 1 && works >= 1, Main = chance >= best,
                 });
         }
@@ -312,7 +373,7 @@ public static class Planner
     /// </summary>
     static Maker? Choose(List<Maker>? candidates, Dictionary<Maker, string> problems, Func<Maker, bool> chainOpen)
     {
-        candidates = candidates?.Where(m => !m.Hidden).ToList();
+        candidates = candidates?.Where(m => !m.Hidden && !m.Rare).ToList();
         if (candidates == null || candidates.Count == 0) return null;
         return candidates
             .OrderBy(m => Problem(m, problems) != "" ? 2 : chainOpen(m) ? 0 : 1)
@@ -479,6 +540,170 @@ public static class Planner
         Entity = Step.SellEntity, TargetId = item.Id, Extra = "", Name = "Sell: " + item.DisplayName.GetPluralText(2),
         Until = Until.Stops, Amount = keep, Subject = item.Id, SubjectName = item.DisplayName.GetPluralText(2), Lane = lane,
     };
+
+    // ---------------------------------------------------------------- time estimates for the queue
+
+    /// <summary>
+    /// A step's estimated time left at normal game speed. <see cref="Known"/> is false when none of its goals can be
+    /// told in advance; <see cref="Partial"/> when only some can (the step may end sooner, never later than this).
+    /// <see cref="Observed"/>: it rests on an XP rate measured while the step ran. <see cref="Luck"/>: it waits for a chance drop.
+    /// </summary>
+    public readonly record struct Estimate(double Seconds, bool Known, bool Partial, bool Observed = false, bool Luck = false);
+
+    /// <summary>A running step's XP and run time when it was first seen running, to measure its XP rate.</summary>
+    static readonly Dictionary<Step, (double Xp, double Seconds)> s_xpSeen = new(ReferenceEqualityComparer.Instance);
+    /// <summary>XP per second measured per action and skill ("entity|target|skill"), kept for the next time that action is queued.</summary>
+    static readonly Dictionary<string, double> s_xpRate = new();
+    /// <summary>Least run time before a measured XP rate is trusted.</summary>
+    const double XpRateAfter = 15;
+
+    static Game? s_estimateGame;
+    static Dictionary<(string Entity, string Target), List<Maker>>? s_estimateMakers;
+    static Dictionary<string, Item>? s_estimateItems;
+    static long s_estimateAt;
+    const long EstimateRefreshMs = 10_000;
+
+    /// <summary>
+    /// How long each step still needs, worked out with the same per-action times the planner uses. Steps are taken in
+    /// order and the bank is carried forward between them, so a step that burns the logs an earlier step cuts is
+    /// estimated from what that step will leave behind. Done and instant steps get an unknown estimate.
+    /// </summary>
+    public static List<Estimate> Estimates(Game game, IReadOnlyList<Step> steps)
+    {
+        long now = System.Environment.TickCount64;
+        if (s_estimateMakers == null || !ReferenceEquals(s_estimateGame, game) || now - s_estimateAt > EstimateRefreshMs)
+        {
+            Dictionary<Item, List<Maker>> makers = Makers(game);
+            s_estimateMakers = makers.Values.SelectMany(l => l).Distinct()
+                .GroupBy(m => (m.Entity.Id, m.Target.Id)).ToDictionary(g => g.Key, g => g.ToList());
+            s_estimateItems = new Dictionary<string, Item>();
+            foreach (Item item in makers.Keys.Concat(makers.Values.SelectMany(l => l).SelectMany(m => m.Costs).Select(c => c.Item)))
+                s_estimateItems.TryAdd(item.Id, item);
+            s_estimateGame = game;
+            s_estimateAt = now;
+        }
+        BankEntity? bank = Bank(game);
+        var stock = new Dictionary<Item, long>();
+        long Now(Item item) => stock.TryGetValue(item, out long n) ? n : bank?.Inventory.GetQuantity(item) ?? 0;
+
+        var result = new List<Estimate>(steps.Count);
+        foreach (Step step in steps)
+        {
+            if (step.IsSell)
+            {
+                if (step.Run != RunState.Done && s_estimateItems!.TryGetValue(step.TargetId, out Item? sold)) stock[sold] = Math.Min(Now(sold), (long)Math.Max(0, step.Amount));
+                result.Add(default);
+                continue;
+            }
+            if (step.IsInstant || step.Run == RunState.Done) { result.Add(default); continue; }
+
+            List<Maker>? mine = s_estimateMakers!.GetValueOrDefault((step.Entity, step.TargetId));
+            double best = double.MaxValue;
+            bool unknown = false, observed = false, luck = false;
+            foreach (IGoal g in Queue.Goals(step))
+            {
+                double? seconds = GoalSeconds(game, step, g, mine, Now, out _, out _, out bool fromRate, out bool fromLuck);
+                if (seconds == null) unknown = true;
+                else if (seconds.Value < best) { best = seconds.Value; observed = fromRate; luck = fromLuck; }
+            }
+            result.Add(best == double.MaxValue ? default : new Estimate(best, true, unknown, observed, luck));
+
+            // What the step leaves in the bank for the steps after it (only a step with one goal can be foreseen).
+            if (step.HasOthers) continue;
+            if (GoalSeconds(game, step, step, mine, Now, out Maker? maker, out long actions, out _, out _) == null || maker == null || actions <= 0) continue;
+            if (step.Until is not (Until.Item or Until.Made or Until.Stops or Until.Spent)) continue;
+            long made = step.Until == Until.Item ? Math.Max(0, (long)Math.Ceiling(step.Amount) - Now(maker.Product)) : (long)Math.Floor(actions * maker.PerAction);
+            foreach ((Item cost, int quantity) in maker.Costs) stock[cost] = Math.Max(0, Now(cost) - actions * quantity);
+            stock[maker.Product] = Now(maker.Product) + made;
+        }
+        return result;
+    }
+
+    /// <summary>Seconds one goal of a step still needs, or null when it cannot be told; also the maker and the actions it counts on.</summary>
+    static double? GoalSeconds(Game game, Step step, IGoal g, List<Maker>? mine, Func<Item, long> now, out Maker? maker, out long actions,
+        out bool observed, out bool luck)
+    {
+        maker = null;
+        actions = 0;
+        observed = false;
+        luck = false;
+        long goal = (long)Math.Ceiling(g.Amount);
+        switch (g.Until)
+        {
+            case Until.Minutes:
+                return Math.Max(0, g.Amount * 60 - step.Seconds);
+
+            case Until.Item or Until.Made:
+            {
+                string subject = g.Subject;
+                maker = mine?.Where(m => m.Product.Id == subject).OrderBy(m => m.Rare ? 1 : 0).FirstOrDefault();
+                if (maker == null || maker.Seconds <= 0) return null;
+                // A step that has not started yet counts from what the bank will hold when its turn comes.
+                long have = g.Until == Until.Item && step.Run != RunState.Running ? now(maker.Product) : Queue.SoFar(game, step, g);
+                long missing = Math.Max(0, goal - have);
+                // A chance drop: the average number of actions (the planner's safety margin would read as days for a 1 in 1,000 drop).
+                luck = maker.Rare && missing > 0;
+                actions = missing == 0 ? 0 : maker.Rare ? (long)Math.Ceiling(missing / Math.Max(maker.PerAction, 1e-9)) : Actions(missing, maker);
+                return actions * maker.Seconds;
+            }
+
+            case Until.Times:
+            {
+                maker = mine?.FirstOrDefault(m => !m.Rare && m.TimeSeconds > 0);
+                if (maker == null) return null;
+                long left = Math.Max(0, goal - Queue.SoFar(game, step, g));
+                return left * maker.TimeSeconds;
+            }
+
+            case Until.Spent:
+            {
+                string spentId = g.Subject;
+                maker = mine?.FirstOrDefault(m => m.Seconds > 0 && m.Costs.Any(c => c.Item.Id == spentId));
+                if (maker == null) return null;
+                int per = maker.Costs.Where(c => c.Item.Id == spentId).Sum(c => c.Quantity);
+                long left = Math.Max(0, goal - Queue.SoFar(game, step, g));
+                actions = per <= 0 ? 0 : (long)Math.Ceiling(left / (double)per);
+                return actions * maker.Seconds;
+            }
+
+            case Until.Level:
+            {
+                // XP per action is not read from the game: the rate is measured while the step runs, and kept for the action.
+                string skillName = g.Subject;
+                var skill = game.LeveledEntities.FirstOrDefault(s => s.DisplayName.Text == skillName);
+                if (skill == null) return null;
+                var experience = skill.Experience;
+                double xpNow = experience.Xp;
+                double needed = experience.Table.GetXpForLevel(Math.Clamp((int)Math.Ceiling(g.Amount), 1, experience.LevelCap)) - xpNow;
+                if (needed <= 0) return 0;
+                string key = $"{step.Entity}|{step.TargetId}|{skillName}";
+                if (Queue.Running && step.Run == RunState.Running)
+                {
+                    if (!s_xpSeen.TryGetValue(step, out var seen) || step.Seconds < seen.Seconds || xpNow < seen.Xp)
+                        s_xpSeen[step] = seen = (xpNow, step.Seconds);
+                    double ran = step.Seconds - seen.Seconds;
+                    if (ran >= XpRateAfter && xpNow > seen.Xp) s_xpRate[key] = (xpNow - seen.Xp) / ran;
+                }
+                else s_xpSeen.Remove(step);   // XP gained while the step is not running would spoil the rate
+                if (!s_xpRate.TryGetValue(key, out double rate) || rate <= 0) return null;
+                observed = true;
+                return needed / rate;
+            }
+
+            case Until.Stops:
+            {
+                // A recipe stops when a material runs out; gathering has nothing to run out of.
+                maker = mine?.FirstOrDefault(m => m.Main && !m.Rare && m.Seconds > 0 && m.Costs.Count > 0);
+                if (maker == null) return null;
+                Maker recipe = maker;
+                actions = recipe.Costs.Min(c => c.Quantity <= 0 ? long.MaxValue : now(c.Item) / c.Quantity);
+                return actions * recipe.Seconds;
+            }
+
+            default:
+                return null;
+        }
+    }
 
     public static string Time(double seconds)
     {

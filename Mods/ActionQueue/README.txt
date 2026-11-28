@@ -73,6 +73,14 @@ The list's Time column shows how long a running step has been at it, and how lon
 one took. Only the time a step really runs counts, not the time it waits for materials or a
 free slot; after a pause it carries on from where it was. With "start over at the end" on, a
 step that waits for its turn in the next round shows last round's time in brackets.
+The "Est. left" column shows how long each step still needs ("~12 min"), at normal game speed. It uses
+the planner's per-action times and your current bonuses, and counts what the bank will hold when the
+step's turn comes (the logs an earlier step cuts count for the step that burns them). It works for "own
+N" and "make N more" (also chance drops such as fishing specials, as an average), "done N times", "used
+up N", "for N minutes", "until it stops" for a recipe (the materials run out) and "a skill reaches a
+level" (from the XP rate measured once the step has run for 15 seconds). Fights, mastery tasks and the
+like show nothing; a step with such an "or" goal shows "up to ...". Each lane's heading shows what the
+lane still needs, and the column's title what the whole queue still needs.
 Steps can be moved up and down at any time, also while the queue runs: a running step
 is not interrupted, and the new order decides what comes next.
 To change a step, select it and press "Edit": the step is shown in the form above. Change
